@@ -1,0 +1,163 @@
+// Prisma schema for the Hotel Reservation application.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum RoomType {
+  TWIN // 2 twin beds, max 2 guests
+  QUEEN // 2 queen beds, max 4 guests
+  KING // 1 king bed, max 2 guests
+  SUITE // 2 king beds + whirlpool bath, max 4 guests
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  // Hashed password for the Credentials provider (nullable for OAuth users).
+  password      String?
+  role          Role      @default(CUSTOMER)
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  type        RoomType
+  // Base price per night in the smallest currency unit (cents). Weekday
+  // overrides live in RoomPriceRule.
+  basePrice   Int
+  capacity    Int      @default(2)
+  beds        Int      @default(1)
+  featured    Boolean  @default(false)
+  floor       Int?
+  roomNumber  String   @unique
+  isCatalog   Boolean  @default(false)
+
+  amenities    Amenity[]       @relation("RoomAmenities")
+  images       RoomImage[]
+  blackouts    RoomBlackout[]
+  priceRules   RoomPriceRule[]
+  bookings     Booking[]
+  nearbyPlaces NearbyPlace[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([floor])
+}
+
+// Catalog of amenities. Linked to rooms via an implicit many-to-many join
+// table, so deleting an amenity automatically removes it from every room.
+model Amenity {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  // Optional grouping to reflect the "room type" the amenity was seeded for.
+  category  String?
+  rooms     Room[]   @relation("RoomAmenities")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Images for a room (uploaded via UploadThing). Cascade-deleted with the room.
+model RoomImage {
+  id        String   @id @default(cuid())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  url       String
+  // UploadThing file key, used to delete the file from storage.
+  key       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([roomId])
+}
+
+// A date range during which a room cannot be booked.
+model RoomBlackout {
+  id        String   @id @default(cuid())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([roomId])
+}
+
+// Per-weekday price override for a room. dayOfWeek: 0 = Sunday .. 6 = Saturday.
+model RoomPriceRule {
+  id        String   @id @default(cuid())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  dayOfWeek Int
+  // Price in cents for this weekday; overrides the room's basePrice.
+  price     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, dayOfWeek])
+  @@index([roomId])
+}
+
+model NearbyPlace {
+  id       String @id @default(cuid())
+  room     Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId   String
+  name     String
+  category String
+  distance String
+
+  @@unique([roomId, name])
+  @@index([roomId])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  room            Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId          String
+  checkIn         DateTime      @db.Date
+  checkOut        DateTime      @db.Date
+  guests          Int           @default(1)
+  // Total price in the smallest currency unit (e.g. cents).
+  totalPrice      Int
+  status          BookingStatus @default(PENDING)
+  stripeSessionId String?
+  guestName       String?
+  guestEmail      String?
+  guestPhone      String?
+  specialRequests String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([roomId])
+  @@index([userId])
+}

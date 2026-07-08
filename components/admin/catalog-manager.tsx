@@ -1,0 +1,253 @@
+"use client"
+
+import * as React from "react"
+import type { RoomType } from "@prisma/client"
+import { toast } from "sonner"
+
+import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
+import { TYPE_TOTALS } from "@/lib/floor-plan"
+import {
+  ROOM_TYPE_LABELS,
+  ROOM_TYPES,
+  formatPrice,
+} from "@/lib/rooms"
+import { RoomManageDialog } from "@/components/admin/room-manage-dialog"
+import {
+  AdminPagination,
+  type AdminPageSize,
+} from "@/components/admin/admin-pagination"
+import { syncTypeQuantityAction, setRoomFeatured } from "@/app/admin/actions"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
+
+type InventorySummary = Record<
+  RoomType,
+  { count: number; roomNumbers: string[]; total: number }
+>
+
+function FeaturedToggle({
+  roomId,
+  initialFeatured,
+  disabled,
+}: {
+  roomId: string
+  initialFeatured: boolean
+  disabled?: boolean
+}) {
+  const [featured, setFeatured] = React.useState(initialFeatured)
+  const [pending, startTransition] = React.useTransition()
+
+  React.useEffect(() => {
+    setFeatured(initialFeatured)
+  }, [roomId, initialFeatured])
+
+  function toggle(checked: boolean) {
+    setFeatured(checked)
+    startTransition(async () => {
+      const result = await setRoomFeatured(roomId, checked)
+      if (result.ok) {
+        toast.success(
+          checked ? "Room type marked as featured" : "Featured removed",
+        )
+      } else {
+        setFeatured(!checked)
+        toast.error(result.error)
+      }
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Switch
+        id={`featured-${roomId}`}
+        checked={featured}
+        disabled={disabled || pending}
+        onCheckedChange={toggle}
+      />
+      <Label htmlFor={`featured-${roomId}`} className="text-xs font-normal">
+        Featured
+      </Label>
+    </div>
+  )
+}
+
+export function CatalogManager({
+  catalogRooms,
+  inventoryUnits,
+  allAmenities,
+  inventory,
+}: {
+  catalogRooms: RoomForAdmin[]
+  inventoryUnits: RoomForAdmin[]
+  allAmenities: AmenityWithCount[]
+  inventory: InventorySummary
+}) {
+  const [activeType, setActiveType] = React.useState<RoomType>("TWIN")
+  const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState<AdminPageSize>(10)
+  const [pending, startTransition] = React.useTransition()
+
+  const catalog = catalogRooms.find((r) => r.type === activeType)
+  const childRooms = inventoryUnits.filter((r) => r.type === activeType)
+  const inventoryInfo = inventory[activeType]
+
+  const totalPages = Math.max(1, Math.ceil(childRooms.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedChildren = childRooms.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  )
+
+  React.useEffect(() => {
+    setPage(1)
+  }, [activeType, pageSize])
+
+  function saveQuantity(quantity: number) {
+    startTransition(async () => {
+      const result = await syncTypeQuantityAction(activeType, quantity)
+      if (result.ok) toast.success(`${ROOM_TYPE_LABELS[activeType]} quantity updated`)
+      else toast.error(result.error)
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <Tabs
+        value={activeType}
+        onValueChange={(v) => setActiveType(v as RoomType)}
+      >
+        <TabsList className="grid w-full grid-cols-4">
+          {ROOM_TYPES.map((type) => (
+            <TabsTrigger key={type} value={type}>
+              {type.charAt(0) + type.slice(1).toLowerCase()}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {catalog ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <CardTitle>{catalog.name} — Room Type</CardTitle>
+                <CardDescription className="mt-1 max-w-2xl">
+                  {catalog.description}
+                </CardDescription>
+              </div>
+              <RoomManageDialog
+                room={catalog}
+                allAmenities={allAmenities}
+                defaultTab="images"
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-6 text-sm">
+            <span>{formatPrice(catalog.basePrice)}/night</span>
+            <span>{catalog.images.length} image(s)</span>
+            <span>{catalog.amenities.length} amenities</span>
+            <span>{inventoryInfo.count} total units</span>
+            <FeaturedToggle
+              roomId={catalog.id}
+              initialFeatured={catalog.featured}
+              disabled={pending}
+            />
+            <div className="flex items-end gap-2">
+              <div className="space-y-1">
+                <Label htmlFor={`qty-${activeType}`} className="text-xs">
+                  Quantity
+                </Label>
+                <Input
+                  id={`qty-${activeType}`}
+                  type="number"
+                  min={0}
+                  defaultValue={inventoryInfo.count}
+                  className="h-8 w-20"
+                  disabled={pending}
+                  onBlur={(e) => {
+                    const next = Number.parseInt(e.target.value, 10)
+                    if (Number.isFinite(next) && next !== inventoryInfo.count) {
+                      saveQuantity(next)
+                    }
+                  }}
+                />
+              </div>
+              <span className="text-muted-foreground pb-2 text-xs">
+                of {TYPE_TOTALS[activeType]} slots
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          Rooms in this category ({childRooms.length})
+        </h2>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[520px] text-left">
+            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
+              <tr>
+                <th className="px-3 py-2 font-medium">Floor</th>
+                <th className="px-3 py-2 font-medium">Room #</th>
+                <th className="px-3 py-2 font-medium">Base price</th>
+                <th className="px-3 py-2 font-medium">Blackouts</th>
+                <th className="px-3 py-2 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedChildren.length ? (
+                paginatedChildren.map((room) => (
+                  <tr key={room.id} className="border-b last:border-0">
+                    <td className="px-3 py-2 text-sm">{room.floor ?? "—"}</td>
+                    <td className="px-3 py-2 text-sm">{room.roomNumber}</td>
+                    <td className="px-3 py-2 text-sm">
+                      {formatPrice(room.basePrice)}
+                    </td>
+                    <td className="px-3 py-2 text-sm">{room.blackouts.length}</td>
+                    <td className="px-3 py-2">
+                      <RoomManageDialog
+                        room={room}
+                        allAmenities={allAmenities}
+                        inventoryMode
+                      />
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="text-muted-foreground px-3 py-8 text-center text-sm"
+                  >
+                    No inventory units for this category.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <AdminPagination
+          page={currentPage}
+          pageSize={pageSize}
+          total={childRooms.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPage(1)
+          }}
+        />
+      </section>
+    </div>
+  )
+}

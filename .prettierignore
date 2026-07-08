@@ -1,0 +1,14 @@
+# Build output & dependencies
+node_modules
+.next
+out
+build
+next-env.d.ts
+
+# Generated / lockfiles
+package-lock.json
+prisma/migrations
+
+# Test artifacts
+playwright-report
+test-results

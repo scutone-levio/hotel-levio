@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hotel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel}
+      POSTGRES_DB: ${POSTGRES_DB:-hotel}
+    ports:
+      # Host port is 5433 by default to avoid clashing with a local Postgres on
+      # 5432. Override with DB_PORT. The container still listens on 5432 (used by
+      # the web service via the @db:5432 host).
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-hotel} -d ${POSTGRES_DB:-hotel}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Pre-fill the login form to point at the db service.
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      # Web UI at http://localhost:8080 (override with ADMINER_PORT).
+      - "${ADMINER_PORT:-8080}:8080"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      # SMTP — point SMTP_HOST=mailpit / SMTP_PORT=1025 in the web service.
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      # Web UI at http://localhost:8025 (override with MAILPIT_PORT).
+      - "${MAILPIT_PORT:-8025}:8025"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Note the @db host — this resolves to the "db" service on the compose network.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://hotel:hotel@db:5432/hotel?schema=public}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      UPLOADTHING_TOKEN: ${UPLOADTHING_TOKEN}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@hotellevio.com}
+    ports:
+      - "3000:3000"
+    # The standalone image runs the server directly. Apply migrations from the
+    # host against the exposed db (see README): `npm run db:deploy`.
+
+volumes:
+  db_data:

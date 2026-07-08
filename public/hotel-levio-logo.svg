@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 72" role="img" aria-label="Hôtel Levio">
+  <g fill="#1a2b4a" stroke="#1a2b4a" stroke-width="0.75">
+    <line x1="48" y1="10" x2="92" y2="10" />
+    <text
+      x="130"
+      y="14"
+      text-anchor="middle"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="10.5"
+      letter-spacing="3.5"
+      fill="#1a2b4a"
+      stroke="none"
+    >
+      HÔTEL
+    </text>
+    <line x1="168" y1="10" x2="212" y2="10" />
+    <text
+      x="130"
+      y="46"
+      text-anchor="middle"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="34"
+      letter-spacing="2.5"
+      fill="#1a2b4a"
+      stroke="none"
+    >
+      LEVIO
+    </text>
+    <line x1="98" y1="60" x2="118" y2="60" />
+    <path
+      d="M130 54 L132.2 60.5 L139 60.5 L133.4 64.5 L135.6 71 L130 67.2 L124.4 71 L126.6 64.5 L121 60.5 L127.8 60.5 Z"
+      fill="#1a2b4a"
+      stroke="none"
+    />
+    <line x1="142" y1="60" x2="162" y2="60" />
+  </g>
+</svg>
