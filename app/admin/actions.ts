@@ -414,3 +414,90 @@ export async function deleteBooking(id: string): Promise<ActionResult> {
     )
   })
 }
+
+export async function createRoomSubcategory(
+  roomType: string,
+  name: string,
+  basePrice: number,
+): Promise<ActionResult> {
+  return run(async () => {
+    const schema = z.object({
+      roomType: z.enum(["TWIN", "QUEEN", "KING", "SUITE"]),
+      name: z.string().min(1, "Name is required"),
+      basePrice: z.number().int().min(0, "Price must be non-negative"),
+    })
+
+    const parsed = schema.safeParse({ roomType, name, basePrice })
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
+    }
+
+    await prisma.roomSubcategory.create({
+      data: parsed.data,
+    })
+  })
+}
+
+export async function updateRoomSubcategory(
+  id: string,
+  name: string,
+  basePrice: number,
+): Promise<ActionResult> {
+  return run(async () => {
+    const schema = z.object({
+      name: z.string().min(1, "Name is required"),
+      basePrice: z.number().int().min(0, "Price must be non-negative"),
+    })
+
+    const parsed = schema.safeParse({ name, basePrice })
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
+    }
+
+    await prisma.roomSubcategory.update({
+      where: { id },
+      data: parsed.data,
+    })
+  })
+}
+
+export async function deleteRoomSubcategory(id: string): Promise<ActionResult> {
+  return run(async () => {
+    // Check if any rooms are using this subcategory
+    const roomCount = await prisma.room.count({
+      where: { subcategoryId: id },
+    })
+
+    if (roomCount > 0) {
+      throw new Error(`Cannot delete: ${roomCount} room(s) are assigned to this subcategory`)
+    }
+
+    await prisma.roomSubcategory.delete({
+      where: { id },
+    })
+  })
+}
+
+export async function assignRoomToSubcategory(
+  roomId: string,
+  subcategoryId: string | null,
+): Promise<ActionResult> {
+  return run(async () => {
+    await prisma.room.update({
+      where: { id: roomId },
+      data: { subcategoryId },
+    })
+  })
+}
+
+export async function assignRoomsToSubcategoryBulk(
+  roomIds: string[],
+  subcategoryId: string | null,
+): Promise<ActionResult> {
+  return run(async () => {
+    await prisma.room.updateMany({
+      where: { id: { in: roomIds } },
+      data: { subcategoryId },
+    })
+  })
+}

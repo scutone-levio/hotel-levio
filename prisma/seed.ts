@@ -335,6 +335,67 @@ async function ensureNearbyPlaces() {
   return upserted
 }
 
+async function ensureSubcategories() {
+  // Create "Lower Level" subcategory for each room type with independent pricing
+  const LOWER_LEVEL_PRICE = 11900 // $119 CAD - lower than standard pricing
+  let created = 0
+
+  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
+    const existing = await prisma.roomSubcategory.findFirst({
+      where: {
+        name: "Lower Level",
+        roomType: type,
+      },
+    })
+
+    if (!existing) {
+      await prisma.roomSubcategory.create({
+        data: {
+          name: "Lower Level",
+          roomType: type,
+          basePrice: LOWER_LEVEL_PRICE,
+        },
+      })
+      created += 1
+    }
+  }
+
+  // Assign all 100-level rooms to Lower Level subcategory
+  let assigned = 0
+  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
+    const lowerLevel = await prisma.roomSubcategory.findFirst({
+      where: {
+        name: "Lower Level",
+        roomType: type,
+      },
+    })
+    if (!lowerLevel) continue
+
+    const rooms = await prisma.room.findMany({
+      where: {
+        type,
+        roomNumber: {
+          gte: "100",
+          lt: "200",
+        },
+        isCatalog: false,
+      },
+    })
+
+    for (const room of rooms) {
+      if (!room.subcategoryId) {
+        await prisma.room.update({
+          where: { id: room.id },
+          data: { subcategoryId: lowerLevel.id },
+        })
+        assigned += 1
+      }
+    }
+  }
+
+  return { created, assigned }
+}
+
 async function main() {
   console.log("🌱 Seeding database (non-destructive)…")
 
@@ -363,6 +424,14 @@ async function main() {
   const placesUpserted = await ensureNearbyPlaces()
   console.log(`  • ${placesUpserted} nearby place entries ensured`)
 
+  const { created: subCreated, assigned: subAssigned } = await ensureSubcategories()
+  if (subCreated > 0) {
+    console.log(`  • ${subCreated} subcategory(ies) created`)
+  }
+  if (subAssigned > 0) {
+    console.log(`  • ${subAssigned} room(s) assigned to subcategories`)
+  }
+
   console.log("✅ Seed complete.")
 }
 
@@ -374,3 +443,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
+
+// This is just a placeholder - actual function added via edit

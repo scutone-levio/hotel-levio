@@ -28,6 +28,20 @@ enum RoomType {
   SUITE // 2 king beds + whirlpool bath, max 4 guests
 }
 
+model RoomSubcategory {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Lower Level", "City View", "Garden View"
+  roomType  RoomType
+  // Base price per night in cents for rooms with this subcategory.
+  basePrice Int
+  rooms     Room[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomType, name])
+  @@index([roomType])
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -49,14 +63,18 @@ model Room {
   description String
   type        RoomType
   // Base price per night in the smallest currency unit (cents). Weekday
-  // overrides live in RoomPriceRule.
+  // overrides live in RoomPriceRule. If a subcategory is assigned, its
+  // basePrice takes precedence.
   basePrice   Int
   capacity    Int      @default(2)
   beds        Int      @default(1)
   featured    Boolean  @default(false)
   floor       Int?
   roomNumber  String   @unique
-  isCatalog   Boolean  @default(false)
+
+  subcategory    RoomSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  subcategoryId  String?
+  isCatalog      Boolean          @default(false)
 
   amenities    Amenity[]       @relation("RoomAmenities")
   images       RoomImage[]
@@ -70,6 +88,7 @@ model Room {
 
   @@index([type])
   @@index([floor])
+  @@index([subcategoryId])
 }
 
 // Catalog of amenities. Linked to rooms via an implicit many-to-many join
