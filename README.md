@@ -2,6 +2,8 @@
 
 A modern full-stack hotel booking application built with **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS v4**, and **shadcn/ui**. Users browse rooms, pick dates, add items to a cart, and pay via Stripe. Admins manage rooms and reservations through a protected dashboard.
 
+**Author:** Sergio Cutone
+
 ## Features
 
 - 🏨 **Public homepage** with room browser, date-range picker, and room cards with availability
