@@ -12,6 +12,7 @@ const roomWithDetails = Prisma.validator<Prisma.RoomDefaultArgs>()({
     priceRules: { orderBy: { dayOfWeek: "asc" } },
     blackouts: { orderBy: { startDate: "asc" } },
     nearbyPlaces: { orderBy: { category: "asc" } },
+    subcategory: true,
   },
 })
 
@@ -115,5 +116,24 @@ export function getCatalogRoomForType(type: RoomType) {
   return prisma.room.findFirst({
     where: { type, isCatalog: true },
     ...roomWithDetails,
+  })
+}
+
+export function getSubcategoriesByType(roomType: RoomType) {
+  return prisma.roomSubcategory.findMany({
+    where: { roomType },
+    include: { _count: { select: { rooms: true } } },
+    orderBy: { name: "asc" },
+  })
+}
+
+export type RoomSubcategoryWithCount = Prisma.PromiseReturnType<
+  typeof getSubcategoriesByType
+>[number]
+
+export function getAllSubcategories() {
+  return prisma.roomSubcategory.findMany({
+    include: { _count: { select: { rooms: true } } },
+    orderBy: [{ roomType: "asc" }, { name: "asc" }],
   })
 }

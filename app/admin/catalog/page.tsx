@@ -3,18 +3,21 @@ import {
   getInventoryUnitsForAdmin,
   getAmenities,
   getInventoryByType,
+  getAllSubcategories,
 } from "@/lib/queries"
 import { CatalogManager } from "@/components/admin/catalog-manager"
+import { SubcategoriesManager } from "@/components/admin/subcategories-manager"
 
 export const metadata = { title: "Room Type — Hôtel Levio Admin" }
 export const dynamic = "force-dynamic"
 
 export default async function AdminCatalogPage() {
-  const [catalogRooms, inventoryUnits, amenities, inventory] = await Promise.all([
+  const [catalogRooms, inventoryUnits, amenities, inventory, subcategories] = await Promise.all([
     getCatalogRoomsForAdmin(),
     getInventoryUnitsForAdmin(),
     getAmenities(),
     getInventoryByType(),
+    getAllSubcategories(),
   ])
 
   return (
@@ -22,15 +25,31 @@ export default async function AdminCatalogPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Room Type</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          Manage room types and view their inventory units.
+          Manage room types, subcategories, and view their inventory units.
         </p>
       </div>
-      <CatalogManager
-        catalogRooms={catalogRooms}
-        inventoryUnits={inventoryUnits}
-        allAmenities={amenities}
-        inventory={inventory}
-      />
+
+      {/* Subcategories section */}
+      <div className="rounded-lg border bg-card p-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Subcategories</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Create and manage room subcategories (e.g., Lower Level, City View) with independent pricing.
+          </p>
+        </div>
+        <SubcategoriesManager initialSubcategories={subcategories} />
+      </div>
+
+      {/* Catalog manager section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Room Types</h2>
+        <CatalogManager
+          catalogRooms={catalogRooms}
+          inventoryUnits={inventoryUnits}
+          allAmenities={amenities}
+          inventory={inventory}
+        />
+      </div>
     </div>
   )
 }

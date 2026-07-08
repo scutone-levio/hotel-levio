@@ -1,4 +1,4 @@
-import type { RoomType } from "@prisma/client"
+import type { RoomType, RoomSubcategory } from "@prisma/client"
 
 // Display helpers and constants shared across the app.
 
@@ -27,12 +27,22 @@ export function roomPath(slug: string) {
   return `/rooms/${slug}`
 }
 
-/** Lowest nightly price across base rate and weekday rules. */
+/** Get effective price for a room: subcategory price if assigned, otherwise basePrice. */
+export function getRoomPrice(room: {
+  basePrice: number
+  subcategory?: { basePrice: number } | null
+}): number {
+  return room.subcategory?.basePrice ?? room.basePrice
+}
+
+/** Lowest nightly price across base rate and weekday rules, accounting for subcategory. */
 export function fromPrice(room: {
   basePrice: number
+  subcategory?: { basePrice: number } | null
   priceRules: { price: number }[]
 }) {
-  const prices = [room.basePrice, ...room.priceRules.map((r) => r.price)]
+  const effectiveBase = getRoomPrice(room)
+  const prices = [effectiveBase, ...room.priceRules.map((r) => r.price)]
   return Math.min(...prices)
 }
 

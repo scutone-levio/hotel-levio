@@ -131,9 +131,16 @@ export default async function RoomPage({ params }: PageProps) {
             <div className="space-y-8">
               {/* Header */}
               <div>
-                <Badge variant="secondary" className="mb-3">
-                  {ROOM_TYPE_LABELS[room.type]}
-                </Badge>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Badge variant="secondary">
+                    {ROOM_TYPE_LABELS[room.type]}
+                  </Badge>
+                  {room.subcategory && (
+                    <Badge variant="outline">
+                      {room.subcategory.name}
+                    </Badge>
+                  )}
+                </div>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   {room.name}
                 </h1>

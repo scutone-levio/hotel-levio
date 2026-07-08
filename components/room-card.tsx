@@ -34,11 +34,18 @@ export function RoomCard({
       <RoomCardGallery room={room} />
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg">
-            <Link href={roomPath(room.slug)} className="hover:underline">
-              {room.name}
-            </Link>
-          </CardTitle>
+          <div className="flex-1">
+            <CardTitle className="text-lg">
+              <Link href={roomPath(room.slug)} className="hover:underline">
+                {room.name}
+              </Link>
+            </CardTitle>
+            {room.subcategory && (
+              <p className="text-muted-foreground text-sm mt-1">
+                {room.subcategory.name}
+              </p>
+            )}
+          </div>
           <div className="text-right">
             <div className="text-lg font-semibold">
               {hasWeekendRule ? "from " : ""}
