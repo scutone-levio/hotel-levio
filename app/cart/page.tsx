@@ -1,6 +1,7 @@
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { CartCheckoutForm } from "@/components/cart-checkout-form"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata = { title: "Your Cart — Hôtel Levio" }
 
@@ -10,12 +11,11 @@ export default function CartPage() {
       <Header />
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-6 py-12">
-          <div className="mb-8">
-            <h1 className="text-3xl tracking-tight">Your cart</h1>
-            <p className="text-muted-foreground mt-1">
-              Review your rooms, enter your details, and complete payment.
-            </p>
-          </div>
+          <PageHeader
+            eyebrow="Your stay"
+            title="Your cart"
+            subtitle="Review your rooms, enter your details, and complete payment."
+          />
           <CartCheckoutForm
             publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!}
           />

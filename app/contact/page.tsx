@@ -2,6 +2,7 @@ import { MapPin, Phone, Mail, Clock } from "lucide-react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ContactForm } from "@/components/contact-form"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata = {
   title: "Contact Us — Hôtel Levio",
@@ -17,14 +18,11 @@ export default function ContactPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
           <div className="mx-auto max-w-2xl text-center mb-14">
-            <h1 className="text-4xl tracking-tight sm:text-5xl">
-              We'd love to hear from you
-            </h1>
-            <p className="text-muted-foreground mt-4 text-lg text-pretty">
-              Whether you're planning a stay, organising a private event, or
-              simply have a question, our team is here around the clock to make
-              it effortless.
-            </p>
+            <PageHeader
+              eyebrow="Get in touch"
+              title="We'd love to hear from you"
+              subtitle="Whether you're planning a stay, organising a private event, or simply have a question, our team is here around the clock to make it effortless."
+            />
           </div>
 
           <div className="grid gap-12 lg:grid-cols-3">
