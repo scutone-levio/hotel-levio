@@ -20,7 +20,7 @@ export default function PrivacyPage() {
             subtitle="Last updated: July 2026"
           />
 
-          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-10 text-sm leading-7 text-[#0f2a3d]">
+          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-10 text-sm leading-7 text-foreground">
 
             <section className="space-y-3">
               <h2 className="text-xl">1. Introduction</h2>
