@@ -36,13 +36,7 @@ export function RoomCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <CardTitle
-              className="!text-lg text-[#0f2a3d]"
-              style={{
-                fontFamily:
-                  '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
-              }}
-            >
+            <CardTitle className="!text-lg text-[#0f2a3d]">
               <Link
                 href={roomPath(room.slug, room.subcategory?.id)}
                 className="hover:underline"

@@ -239,13 +239,7 @@ export function RoomsBrowser({
           <span className="mb-2 block text-[0.72rem] tracking-[0.24em] text-[#a9793c] uppercase">
             The Collection
           </span>
-          <h2
-            className="text-[1.7rem] text-[#0f2a3d] sm:text-[2.1rem]"
-            style={{
-              fontFamily:
-                '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
-            }}
-          >
+          <h2 className="text-[1.7rem] text-[#0f2a3d] sm:text-[2.1rem]">
             Available rooms
           </h2>
           <p className="mt-2 flex items-center gap-1.5 text-[#0f2a3d]/60">
@@ -374,13 +368,7 @@ export function RoomsBrowser({
           <div className="space-y-10">
             {grouped.map(({ type, rooms: sectionRooms }) => (
               <section key={type}>
-                <h3
-                  className="mb-4 text-xl text-[#0f2a3d]"
-                  style={{
-                    fontFamily:
-                      '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
-                  }}
-                >
+                <h3 className="mb-4 text-xl text-[#0f2a3d]">
                   {ROOM_TYPE_SHORT_LABELS[type]}
                 </h3>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

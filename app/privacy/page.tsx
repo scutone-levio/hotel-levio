@@ -176,7 +176,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl">10. Children's privacy</h2>
+              <h2 className="text-xl">10. Children&apos;s privacy</h2>
               <p className="text-muted-foreground">
                 Our services are not directed to children under the age of 14. We
                 do not knowingly collect personal information from children. If

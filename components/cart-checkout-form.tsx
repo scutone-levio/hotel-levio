@@ -282,7 +282,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
       {/* Right column — order summary */}
       <aside className="lg:col-span-2">
         <div className="sticky top-24 space-y-4 rounded-xl border bg-card p-6">
-          <h2>Order summary</h2>
+          <h2 className="text-lg">Order summary</h2>
 
           <div className="space-y-4">
             {items.map((item) => (

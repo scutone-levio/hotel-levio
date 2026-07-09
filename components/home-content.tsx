@@ -93,7 +93,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#081a27] via-[#0f2a3d] to-[#3f6f83] px-6 py-24 text-center sm:py-28">
+      <section className="relative overflow-hidden bg-linear-to-b from-[#081a27] via-[#0f2a3d] to-[#3f6f83] px-6 py-24 text-center sm:py-28">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-[30%] left-1/2 h-[60rem] w-[60rem] -translate-x-1/2 rounded-full"
@@ -110,13 +110,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
             <span className="h-px w-9 bg-[#dcae70]/70" />
           </span>
 
-          <h1
-            className="mx-auto mt-6 max-w-2xl text-4xl leading-[1.1] font-medium text-balance text-[#f8f3e6] sm:text-6xl"
-            style={{
-              fontFamily:
-                '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
-            }}
-          >
+          <h1 className="mx-auto mt-6 max-w-2xl text-4xl leading-[1.1] font-medium text-balance text-[#f8f3e6] sm:text-6xl">
             Your lakeside escape starts at{" "}
             <em className="text-[#dcae70] not-italic">Hôtel Levio</em>
           </h1>
