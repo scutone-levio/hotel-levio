@@ -112,11 +112,7 @@ export function RoomsBrowser({
 
   const filtered = React.useMemo(() => {
     const result = rooms.filter((r) => {
-      if (availableIds !== null) {
-        const key = r.subcategory?.id
-          ? listingAvailabilityKey(r.id, r.subcategory.id)
-          : r.id
-        if (!availableIds.has(key)) return false
+      if (availableIds != null) {
       }
       const typeOk = types.size === 0 || types.has(r.type)
       const roomAmenities = new Set(r.amenities.map((a) => a.id))
