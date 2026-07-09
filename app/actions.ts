@@ -75,6 +75,7 @@ export async function getAvailabilityCountsByListing(
     const key = listingAvailabilityKey(listing.roomId, listing.subcategoryId)
     const total = await prisma.room.count({
       where: {
+        type: listing.type,
         subcategoryId: listing.subcategoryId,
         isCatalog: false,
       },
