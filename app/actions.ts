@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { startOfDay, differenceInCalendarDays } from "date-fns"
-import type { RoomType } from "@prisma/client"
+import type { RoomType, RoomSubcategory } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { quoteRange } from "@/lib/pricing"
@@ -17,6 +17,18 @@ import { sendMail } from "@/lib/mailer"
 import { guestConfirmationEmail, adminNotificationEmail } from "@/lib/email-templates"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
+
+/** Resolve subcategory for a catalog listing; scoped to the catalog room type. */
+async function resolveListingSubcategory(
+  catalog: { type: RoomType; subcategory: RoomSubcategory | null },
+  subcategoryId?: string,
+): Promise<RoomSubcategory | null> {
+  if (catalog.subcategory) return catalog.subcategory
+  if (!subcategoryId) return null
+  return prisma.roomSubcategory.findFirst({
+    where: { id: subcategoryId, roomType: catalog.type },
+  })
+}
 
 export type AvailabilityCount = { available: number; total: number }
 
@@ -140,12 +152,13 @@ export async function finalizeBooking(input: {
     })
     if (!catalog) return { ok: false, error: "Room not found" }
 
-    const subcategory =
-      input.subcategoryId && !catalog.subcategory
-        ? await prisma.roomSubcategory.findUnique({
-            where: { id: input.subcategoryId },
-          })
-        : catalog.subcategory
+    const subcategory = await resolveListingSubcategory(
+      catalog,
+      input.subcategoryId,
+    )
+    if (input.subcategoryId && !subcategory) {
+      return { ok: false, error: "Invalid subcategory for this room type" }
+    }
 
     const room = await resolveBookingRoom({
       roomId: input.roomId,
@@ -258,12 +271,13 @@ export async function createBooking(input: {
       return { ok: false, error: "Room not found" }
     }
 
-    const subcategory =
-      input.subcategoryId && !catalog.subcategory
-        ? await prisma.roomSubcategory.findUnique({
-            where: { id: input.subcategoryId },
-          })
-        : catalog.subcategory
+    const subcategory = await resolveListingSubcategory(
+      catalog,
+      input.subcategoryId,
+    )
+    if (input.subcategoryId && !subcategory) {
+      return { ok: false, error: "Invalid subcategory for this room type" }
+    }
 
     const room = await resolveBookingRoom({
       roomId: input.roomId,
@@ -343,12 +357,13 @@ export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promis
         })
         if (!catalog) throw new Error(`Room not found: ${item.roomId}`)
 
-        const subcategory =
-          item.subcategoryId && !catalog.subcategory
-            ? await prisma.roomSubcategory.findUnique({
-                where: { id: item.subcategoryId },
-              })
-            : catalog.subcategory
+        const subcategory = await resolveListingSubcategory(
+          catalog,
+          item.subcategoryId,
+        )
+        if (item.subcategoryId && !subcategory) {
+          throw new Error(`Invalid subcategory for ${catalog.name}`)
+        }
 
         const unit = await assignAvailableUnit(
           catalog.type,
@@ -418,12 +433,13 @@ export async function finalizeCartBookings(input: {
         })
         if (!catalog) throw new Error("Room not found")
 
-        const subcategory =
-          item.subcategoryId && !catalog.subcategory
-            ? await prisma.roomSubcategory.findUnique({
-                where: { id: item.subcategoryId },
-              })
-            : catalog.subcategory
+        const subcategory = await resolveListingSubcategory(
+          catalog,
+          item.subcategoryId,
+        )
+        if (item.subcategoryId && !subcategory) {
+          throw new Error(`Invalid subcategory for ${catalog.name}`)
+        }
 
         const room = await assignAvailableUnit(
           catalog.type,
