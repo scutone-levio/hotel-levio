@@ -441,6 +441,11 @@ export function RoomsBrowser({
             </div>
           </div>
         </>
+      ) : isCheckingAvailability ? (
+        <div className="text-muted-foreground flex items-center justify-center gap-2 rounded-lg border border-dashed p-12 text-center">
+          <Loader2 className="size-4 animate-spin" />
+          Checking availability…
+        </div>
       ) : (
         <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
           {hasDates && availableIds !== null
