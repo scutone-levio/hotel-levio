@@ -11,9 +11,6 @@ export const ROOM_TYPE_LABELS: Record<RoomType, string> = {
 
 export const ROOM_TYPES: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
 
-/** @deprecated Import from @/lib/subcategories instead. */
-export { PUBLIC_SUBCATEGORY_NAMES } from "@/lib/subcategories"
-
 export const ROOM_TYPE_SHORT_LABELS: Record<RoomType, string> = {
   TWIN: "Twin Room",
   QUEEN: "Queen Room",
@@ -97,22 +94,26 @@ export function formatPrice(cents: number, currency = "USD") {
   }).format(cents / 100).replace(/^([A-Z]{2})(\$)/, "$1 $2")
 }
 
-/** Rank rooms by similarity to `current` and return up to `limit` matches. */
-export function pickSimilarRooms<
-  T extends {
-    id: string
-    type: RoomType
-    basePrice: number
-    capacity: number
-    beds: number
-    name: string
-    amenities: { id: string }[]
-  },
->(current: T, candidates: T[], limit = 3): T[] {
+/** Rank listings by similarity to `current` and return up to `limit` matches. */
+type SimilarListing = {
+  type: RoomType
+  basePrice: number
+  subcategory?: { basePrice: number } | null
+  capacity: number
+  beds: number
+  name: string
+  amenities: { id: string }[]
+}
+
+export function pickSimilarRooms<C extends SimilarListing>(
+  current: SimilarListing,
+  candidates: C[],
+  limit = 3,
+): C[] {
   const currentAmenityIds = new Set(current.amenities.map((a) => a.id))
+  const currentPrice = getRoomPrice(current)
 
   const scored = candidates
-    .filter((room) => room.id !== current.id)
     .map((room) => {
       let score = 0
 
@@ -126,7 +127,7 @@ export function pickSimilarRooms<
       if (room.capacity === current.capacity) score += 15
       if (room.beds === current.beds) score += 10
 
-      const priceDiff = Math.abs(room.basePrice - current.basePrice)
+      const priceDiff = Math.abs(getRoomPrice(room) - currentPrice)
       score += Math.max(0, 40 - priceDiff / 500)
 
       return { room, score }

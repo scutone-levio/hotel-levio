@@ -43,7 +43,7 @@ Alternatives considered:
 
 ```
 RoomPage
-  └─ getRoomBySlug(slug, subcategoryId)     → current listing
+  └─ getCatalogRoomBySlug(slug, subcategoryId) → current listing
   └─ getSimilarRooms(current, 3)
        └─ getPublicRoomListings()           → all inventory-backed listings
        └─ filter out current listing        → isSamePublicListing()

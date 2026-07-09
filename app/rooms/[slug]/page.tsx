@@ -26,9 +26,13 @@ import {
   Wine,
 } from "lucide-react"
 
-import { getRoomBySlug, getSimilarRooms } from "@/lib/queries"
+import { getCatalogRoomBySlug, getSimilarRooms } from "@/lib/queries"
 import { TYPE_TOTALS } from "@/lib/floor-plan"
-import { isListingFeatured, ROOM_TYPE_LABELS } from "@/lib/rooms"
+import {
+  isListingFeatured,
+  listingAvailabilityKey,
+  ROOM_TYPE_LABELS,
+} from "@/lib/rooms"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
@@ -49,7 +53,7 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const { subcategory: subcategoryId } = await searchParams
-  const room = await getRoomBySlug(slug, subcategoryId)
+  const room = await getCatalogRoomBySlug(slug, subcategoryId)
   if (!room) return { title: "Room not found — Hôtel Levio" }
   return { title: `${room.name} — Hôtel Levio`, description: room.description }
 }
@@ -105,7 +109,7 @@ function NearbyIcon({ category }: { category: string }) {
 export default async function RoomPage({ params, searchParams }: PageProps) {
   const { slug } = await params
   const { subcategory: subcategoryId } = await searchParams
-  const room = await getRoomBySlug(slug, subcategoryId)
+  const room = await getCatalogRoomBySlug(slug, subcategoryId)
   if (!room) notFound()
 
   const similarRooms = await getSimilarRooms(room, 3)
@@ -235,7 +239,13 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
               </p>
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {similarRooms.map((similar) => (
-                  <RoomCard key={similar.id} room={similar} />
+                  <RoomCard
+                    key={listingAvailabilityKey(
+                      similar.id,
+                      similar.subcategory.id,
+                    )}
+                    room={similar}
+                  />
                 ))}
               </div>
             </section>
