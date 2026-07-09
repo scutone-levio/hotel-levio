@@ -23,7 +23,7 @@ export default async function AdminCatalogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Room Type</h1>
+        <h1 className="text-2xl tracking-tight">Room Type</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
           Manage room types, subcategories, and view their inventory units.
         </p>
@@ -32,7 +32,7 @@ export default async function AdminCatalogPage() {
       {/* Subcategories section */}
       <div className="rounded-lg border bg-card p-6">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold">Subcategories</h2>
+          <h2 className="text-lg">Subcategories</h2>
           <p className="text-muted-foreground text-sm mt-1">
             Create and manage room subcategories (e.g., Lower Level, City View) with independent pricing.
           </p>
@@ -42,7 +42,7 @@ export default async function AdminCatalogPage() {
 
       {/* Catalog manager section */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Room Types</h2>
+        <h2 className="text-lg mb-4">Room Types</h2>
         <CatalogManager
           catalogRooms={catalogRooms}
           inventoryUnits={inventoryUnits}

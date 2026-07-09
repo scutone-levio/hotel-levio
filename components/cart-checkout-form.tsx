@@ -208,7 +208,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
         {step === "review" ? (
           <>
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold">Guest information</h2>
+              <h2 className="text-lg">Guest information</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 {(["firstName", "lastName"] as const).map((k) => (
                   <div key={k} className="space-y-1.5">
@@ -259,7 +259,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
         ) : (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Payment</h2>
+              <h2 className="text-lg">Payment</h2>
               <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
                 ← Back
               </Button>
@@ -282,7 +282,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
       {/* Right column — order summary */}
       <aside className="lg:col-span-2">
         <div className="sticky top-24 space-y-4 rounded-xl border bg-card p-6">
-          <h2 className="font-semibold">Order summary</h2>
+          <h2>Order summary</h2>
 
           <div className="space-y-4">
             {items.map((item) => (

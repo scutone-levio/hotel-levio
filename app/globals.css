@@ -130,7 +130,10 @@
   h3,
   h4,
   h5,
-  h6 {
+  h6,
+  [data-slot="card-title"],
+  [data-slot="dialog-title"],
+  [data-slot="popover-title"] {
     @apply font-serif font-black;
   }
 }

@@ -76,6 +76,23 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
 const CATALOG_ORDER: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
 
+// Re-themes the sort/page-size/filter controls to sit on the section's fixed
+// cream background — their dropdown panels are portaled and intentionally
+// left in the app's default theme (see BookingPicker for the same tradeoff).
+const listingsControlsTheme = {
+  "--background": "#fbf8ee",
+  "--foreground": "#0f2a3d",
+  "--input": "rgba(15, 42, 61, 0.25)",
+  "--border": "rgba(15, 42, 61, 0.25)",
+  "--muted": "rgba(15, 42, 61, 0.06)",
+  "--muted-foreground": "rgba(15, 42, 61, 0.55)",
+  "--ring": "#a9793c",
+  "--accent": "rgba(169, 121, 60, 0.12)",
+  "--accent-foreground": "#0f2a3d",
+  "--primary": "#a9793c",
+  "--primary-foreground": "#fbf8ee",
+} as React.CSSProperties
+
 type Props = {
   rooms: PublicRoomListing[]
   /** Listing availability keys (`roomId:subcategoryId`) with stock for the selected dates. Null = no date filter. */
@@ -217,12 +234,21 @@ export function RoomsBrowser({
 
   return (
     <>
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          <span className="mb-2 block text-[0.72rem] tracking-[0.24em] text-[#a9793c] uppercase">
+            The Collection
+          </span>
+          <h2
+            className="text-[1.7rem] text-[#0f2a3d] sm:text-[2.1rem]"
+            style={{
+              fontFamily:
+                '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
+            }}
+          >
             Available rooms
           </h2>
-          <p className="text-muted-foreground mt-1 flex items-center gap-1.5">
+          <p className="mt-2 flex items-center gap-1.5 text-[#0f2a3d]/60">
             {isCheckingAvailability && (
               <Loader2 className="size-3.5 animate-spin" />
             )}
@@ -230,7 +256,10 @@ export function RoomsBrowser({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div
+          className="flex flex-wrap items-center justify-end gap-2 text-[#0f2a3d]"
+          style={listingsControlsTheme}
+        >
           <Select
             value={String(pageSize)}
             onValueChange={(v) => setPageSize(Number(v) as PageSize)}
@@ -286,7 +315,7 @@ export function RoomsBrowser({
 
               <div className="space-y-5">
                 <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">Room type</h3>
+                  <h3 className="text-sm">Room type</h3>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {availableTypes.map((t) => (
                       <CheckboxRow
@@ -300,7 +329,7 @@ export function RoomsBrowser({
                 </section>
 
                 <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">Amenities</h3>
+                  <h3 className="text-sm">Amenities</h3>
                   <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
                     {availableAmenities.map((a) => (
                       <CheckboxRow
@@ -345,7 +374,13 @@ export function RoomsBrowser({
           <div className="space-y-10">
             {grouped.map(({ type, rooms: sectionRooms }) => (
               <section key={type}>
-                <h3 className="mb-4 text-xl font-semibold tracking-tight">
+                <h3
+                  className="mb-4 text-xl text-[#0f2a3d]"
+                  style={{
+                    fontFamily:
+                      '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
+                  }}
+                >
                   {ROOM_TYPE_SHORT_LABELS[type]}
                 </h3>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

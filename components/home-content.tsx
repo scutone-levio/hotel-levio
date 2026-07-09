@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { MapPin, Star } from "lucide-react"
+import { MapPin } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
 import type { PublicRoomListing } from "@/lib/queries"
@@ -13,9 +13,20 @@ import {
 } from "@/app/actions"
 import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { Badge } from "@/components/ui/badge"
 import { BookingPicker } from "@/components/booking-picker"
 import { RoomsBrowser } from "@/components/rooms-browser"
+
+// Re-themes the BookingPicker trigger (and its calendar-icon/placeholder
+// text) to sit on the hero's navy gradient — the popover panel itself is
+// intentionally left in the app's default theme for calendar legibility.
+const bookingPickerTheme = {
+  "--background": "#12324a",
+  "--foreground": "#f3ecda",
+  "--border": "rgba(198, 148, 86, 0.45)",
+  "--muted": "rgba(198, 148, 86, 0.16)",
+  "--muted-foreground": "#dcae70",
+  "--ring": "#c69456",
+} as React.CSSProperties
 
 export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
   const router = useRouter()
@@ -82,41 +93,71 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="via-background dark:via-background absolute inset-0 -z-10 bg-gradient-to-br from-sky-100 to-emerald-50 dark:from-sky-950/40 dark:to-emerald-950/30" />
-        <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
-          <Badge variant="secondary" className="mb-5 gap-1">
-            <Star className="size-3.5 fill-current" /> Rated 4.9 by 2,300+
-            guests
-          </Badge>
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-balance sm:text-6xl">
-            Your seaside escape starts at Hôtel Levio
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#081a27] via-[#0f2a3d] to-[#3f6f83] px-6 py-24 text-center sm:py-28">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-[30%] left-1/2 h-[60rem] w-[60rem] -translate-x-1/2 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(220,174,112,0.14) 0%, transparent 60%)",
+          }}
+        />
+
+        <div className="relative mx-auto max-w-2xl">
+          <span className="inline-flex items-center gap-3 text-[0.72rem] tracking-[0.24em] text-[#dcae70] uppercase">
+            <span className="h-px w-9 bg-[#dcae70]/70" />
+            <span>Rated 4.9 · 2,300+ Guests</span>
+            <span className="h-px w-9 bg-[#dcae70]/70" />
+          </span>
+
+          <h1
+            className="mx-auto mt-6 max-w-2xl text-4xl leading-[1.1] font-medium text-balance text-[#f8f3e6] sm:text-6xl"
+            style={{
+              fontFamily:
+                '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
+            }}
+          >
+            Your lakeside escape starts at{" "}
+            <em className="text-[#dcae70] not-italic">Hôtel Levio</em>
           </h1>
-          <p className="text-muted-foreground mx-auto mt-5 max-w-xl text-lg text-pretty">
+
+          <p className="mx-auto mt-5 max-w-md text-[1.05rem] leading-relaxed text-[#f8f3e6]/70 text-pretty">
             Ocean-view suites, a rooftop pool, and effortless booking. Pick
             your dates and reserve your stay in seconds.
           </p>
 
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <BookingPicker
-              initialRange={dateRange}
-              onRangeChange={handleRangeChange}
-            />
-            <p className="text-muted-foreground flex items-center gap-1 text-sm">
-              <MapPin className="size-4" /> 1 Harbour Road, Levio
+          <div className="mt-8 flex flex-col items-center gap-6">
+            <div style={bookingPickerTheme} className="text-[#f3ecda]">
+              <BookingPicker
+                initialRange={dateRange}
+                onRangeChange={handleRangeChange}
+              />
+            </div>
+            <p className="flex items-center gap-1.5 text-sm tracking-wide text-[#f8f3e6]/60 uppercase">
+              <MapPin className="size-3.5 text-[#dcae70]" /> 1 Harbour Road,
+              Levio
             </p>
           </div>
         </div>
       </section>
 
       {/* Rooms */}
-      <section id="rooms" className="mx-auto max-w-6xl px-6 pb-24">
-        <RoomsBrowser
-          rooms={rooms}
-          availableIds={availableListingKeys}
-          availabilityCounts={availabilityCounts}
-          isCheckingAvailability={isPending}
-        />
+      <section
+        id="rooms"
+        className="pt-30 pb-24"
+        style={{
+          backgroundColor:
+            "color-mix(in srgb, rgb(243, 236, 218) 30%, white)",
+        }}
+      >
+        <div className="mx-auto max-w-6xl px-6">
+          <RoomsBrowser
+            rooms={rooms}
+            availableIds={availableListingKeys}
+            availabilityCounts={availabilityCounts}
+            isCheckingAvailability={isPending}
+          />
+        </div>
       </section>
     </>
   )

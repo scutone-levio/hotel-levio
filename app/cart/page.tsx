@@ -11,7 +11,7 @@ export default function CartPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-6 py-12">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight">Your cart</h1>
+            <h1 className="text-3xl tracking-tight">Your cart</h1>
             <p className="text-muted-foreground mt-1">
               Review your rooms, enter your details, and complete payment.
             </p>

@@ -103,7 +103,7 @@ export function BookRoomDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-fit">
         <DialogHeader>
-          <DialogTitle>Book {room.name}</DialogTitle>
+          <DialogTitle className="text-lg">Book {room.name}</DialogTitle>
           <DialogDescription>
             Sleeps up to {room.capacity}. Select your dates then add to cart.
           </DialogDescription>

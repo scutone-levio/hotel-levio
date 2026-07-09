@@ -62,7 +62,7 @@ export default async function AdminReservationsPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reservations</h1>
+          <h1 className="text-2xl tracking-tight">Reservations</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             All hotel bookings — search, filter, edit, or cancel.
           </p>

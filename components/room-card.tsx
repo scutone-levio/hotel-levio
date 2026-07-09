@@ -37,7 +37,7 @@ export function RoomCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle
-              className="!text-lg font-bold text-[#0f2a3d]"
+              className="!text-lg text-[#0f2a3d]"
               style={{
                 fontFamily:
                   '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
@@ -52,7 +52,7 @@ export function RoomCard({
             </CardTitle>
           </div>
           <div className="text-right">
-            <div className="text-lg font-semibold text-[#0f2a3d]">
+            <div className="text-lg font-black text-[#0f2a3d]">
               {hasWeekendRule ? "from " : ""}
               {formatPrice(fromPrice(room))}
             </div>

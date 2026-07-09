@@ -129,7 +129,7 @@ function PaymentForm({
         <div className="space-y-8 lg:col-span-3">
           {/* Guest info */}
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Guest information</h2>
+            <h2 className="text-lg">Guest information</h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -221,7 +221,7 @@ function PaymentForm({
 
           {/* Payment */}
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Payment</h2>
+            <h2 className="text-lg">Payment</h2>
             <p className="text-muted-foreground text-sm">
               Use test card{" "}
               <code className="bg-muted rounded px-1 py-0.5 text-xs">

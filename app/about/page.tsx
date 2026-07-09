@@ -110,7 +110,7 @@ export default function AboutPage() {
             <Badge variant="secondary" className="mb-5">
               Downtown Montréal
             </Badge>
-            <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-balance sm:text-6xl">
+            <h1 className="mx-auto max-w-3xl text-4xl tracking-tight text-balance sm:text-6xl">
               Where Montréal's golden mile meets timeless luxury
             </h1>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-lg text-pretty">
@@ -129,7 +129,7 @@ export default function AboutPage() {
         <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Our story</h2>
+              <h2 className="text-3xl tracking-tight">Our story</h2>
               <div className="text-muted-foreground mt-4 space-y-4 text-base leading-relaxed">
                 <p>
                   Founded in 2018 by a trio of hospitality veterans who shared a
@@ -168,7 +168,7 @@ export default function AboutPage() {
         {/* Photo Gallery */}
         <section className="bg-muted/30 py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="mb-12 text-center text-3xl font-bold tracking-tight">
+            <h2 className="mb-12 text-center text-3xl tracking-tight">
               Inside Hôtel Levio
             </h2>
             <div className="grid gap-10 sm:grid-cols-2">
@@ -217,7 +217,7 @@ export default function AboutPage() {
         {/* Nearby Amenities */}
         <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight">
+            <h2 className="text-3xl tracking-tight">
               Everything Montréal within reach
             </h2>
             <p className="text-muted-foreground mx-auto mt-3 max-w-xl">
@@ -269,7 +269,7 @@ export default function AboutPage() {
         {/* Quick facts */}
         <section className="bg-muted/30 py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="mb-8 text-center text-3xl font-bold tracking-tight">
+            <h2 className="mb-8 text-center text-3xl tracking-tight">
               At a glance
             </h2>
             <div className="grid gap-6 sm:grid-cols-3">

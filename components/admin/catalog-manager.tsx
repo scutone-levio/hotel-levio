@@ -138,7 +138,7 @@ export function CatalogManager({
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg">
           Rooms in this category ({childRooms.length})
         </h2>
         <div className="overflow-x-auto rounded-lg border">

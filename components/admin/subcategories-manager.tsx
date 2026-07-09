@@ -234,7 +234,7 @@ export function SubcategoriesManager({
       {/* Create form */}
       {isCreating && (
         <div className="rounded-lg border bg-card p-4">
-          <h3 className="font-semibold mb-4">New Subcategory</h3>
+          <h3 className="mb-4">New Subcategory</h3>
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Name</Label>
