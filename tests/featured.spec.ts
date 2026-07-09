@@ -1,6 +1,10 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Locator } from "@playwright/test"
 
 import { SEED_FEATURED_SUBCATEGORY_NAME } from "../lib/subcategories"
+
+function roomTitleLink(card: Locator) {
+  return card.locator('[data-slot="card-title"] a')
+}
 
 test.describe("Featured subcategories", () => {
   test("featured listings show a badge on room cards", async ({ page }) => {
@@ -22,11 +26,7 @@ test.describe("Featured subcategories", () => {
       nonFeaturedCards.first().getByTestId("featured-badge"),
     ).toHaveCount(0)
 
-    const featuredTitle = await featuredCards
-      .first()
-      .getByRole("link")
-      .first()
-      .textContent()
+    const featuredTitle = await roomTitleLink(featuredCards.first()).textContent()
     expect(featuredTitle).toContain(SEED_FEATURED_SUBCATEGORY_NAME)
   })
 
@@ -64,7 +64,7 @@ test.describe("Featured subcategories", () => {
       .first()
     await expect(featuredCard).toBeVisible()
 
-    await featuredCard.getByRole("link").first().click()
+    await roomTitleLink(featuredCard).click()
     await expect(page).toHaveURL(/\/rooms\/.*\?subcategory=/)
 
     await expect(page.getByTestId("featured-badge")).toBeVisible()
