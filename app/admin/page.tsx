@@ -1,7 +1,7 @@
 import { startOfDay, startOfMonth, endOfMonth } from "date-fns"
 
 import { prisma } from "@/lib/prisma"
-import { getRoomsForAdmin } from "@/lib/queries"
+import { getInventoryUnitsForAdmin } from "@/lib/queries"
 import { formatPrice } from "@/lib/rooms"
 import { ReservationsTable } from "@/components/admin/reservations-table"
 
@@ -29,7 +29,7 @@ async function getReservationStats() {
         createdAt: { gte: monthStart, lte: monthEnd },
       },
     }),
-    getRoomsForAdmin(),
+    getInventoryUnitsForAdmin(),
   ])
 
   // Occupancy: rooms that have a confirmed booking overlapping today

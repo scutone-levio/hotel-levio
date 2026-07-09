@@ -118,29 +118,24 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     })
 }
 
-/** @deprecated Use getPublicRoomListings for the homepage. */
-export function getRooms(): Promise<RoomWithDetails[]> {
-  return getCatalogRooms()
-}
-
-/** @deprecated Use getCatalogRoomBySlug for public pages. */
-export function getRoomBySlug(
-  slug: string,
-  subcategoryId?: string,
-): Promise<RoomWithDetails | null> {
-  return getCatalogRoomBySlug(slug, subcategoryId)
+function isSamePublicListing(
+  current: RoomWithDetails,
+  candidate: PublicRoomListing,
+): boolean {
+  if (current.id !== candidate.id) return false
+  if (!current.subcategory?.id) return false
+  return current.subcategory.id === candidate.subcategory.id
 }
 
 export async function getSimilarRooms(
   room: RoomWithDetails,
   limit = 3,
-): Promise<RoomWithDetails[]> {
-  const others = await getCatalogRooms()
-  return pickSimilarRooms(room, others, limit)
-}
-
-export function getRoomsForAdmin(): Promise<RoomForAdmin[]> {
-  return getInventoryUnitsForAdmin()
+): Promise<PublicRoomListing[]> {
+  const listings = await getPublicRoomListings()
+  const candidates = listings.filter(
+    (listing) => !isSamePublicListing(room, listing),
+  )
+  return pickSimilarRooms(room, candidates, limit)
 }
 
 export function getCatalogRoomsForAdmin(): Promise<RoomForAdmin[]> {
