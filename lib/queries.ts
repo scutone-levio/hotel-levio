@@ -123,10 +123,8 @@ function isSamePublicListing(
   candidate: PublicRoomListing,
 ): boolean {
   if (current.id !== candidate.id) return false
-  if (current.subcategory?.id && candidate.subcategory.id) {
-    return current.subcategory.id === candidate.subcategory.id
-  }
-  return false
+  if (!current.subcategory?.id) return false
+  return current.subcategory.id === candidate.subcategory.id
 }
 
 export async function getSimilarRooms(
