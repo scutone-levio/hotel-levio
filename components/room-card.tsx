@@ -28,7 +28,7 @@ export function RoomCard({
 
   return (
     <Card
-      className="flex flex-col overflow-hidden pt-0"
+      className="flex flex-col overflow-hidden pt-0 shadow-[0_1px_2px_rgba(15,42,61,0.07),0_18px_34px_-18px_rgba(15,42,61,0.32)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,42,61,0.08),0_26px_42px_-16px_rgba(15,42,61,0.38)]"
       data-testid="room-card"
       data-featured={isListingFeatured(room) ? "true" : "false"}
     >
@@ -36,7 +36,13 @@ export function RoomCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <CardTitle className="text-lg">
+            <CardTitle
+              className="!text-lg font-bold text-[#0f2a3d]"
+              style={{
+                fontFamily:
+                  '"Big Caslon", "Hoefler Text", Georgia, "Times New Roman", serif',
+              }}
+            >
               <Link
                 href={roomPath(room.slug, room.subcategory?.id)}
                 className="hover:underline"
@@ -46,22 +52,24 @@ export function RoomCard({
             </CardTitle>
           </div>
           <div className="text-right">
-            <div className="text-lg font-semibold">
+            <div className="text-lg font-semibold text-[#0f2a3d]">
               {hasWeekendRule ? "from " : ""}
               {formatPrice(fromPrice(room))}
             </div>
-            <div className="text-muted-foreground text-xs">per night</div>
+            <div className="text-xs text-[#0f2a3d]/50">per night</div>
           </div>
         </div>
-        <CardDescription>{room.description}</CardDescription>
+        <CardDescription className="!text-[#0f2a3d]/70">
+          {room.description}
+        </CardDescription>
         {availability ? (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-[#0f2a3d]/50">
             {availability.available} of {availability.total} rooms available
           </p>
         ) : null}
       </CardHeader>
       <CardContent className="flex-1">
-        <div className="text-muted-foreground mb-3 flex flex-wrap gap-3 text-sm">
+        <div className="mb-3 flex flex-wrap gap-3 text-sm text-[#0f2a3d]/60">
           <span className="flex items-center gap-1">
             <Users className="size-4" /> Sleeps {room.capacity}
           </span>
@@ -72,12 +80,21 @@ export function RoomCard({
         </div>
         <div className="flex flex-wrap gap-1.5">
           {room.amenities.slice(0, 4).map((a) => (
-            <Badge key={a.id} variant="secondary">
+            <Badge
+              key={a.id}
+              variant="secondary"
+              className="!rounded-none !border !border-[#0f2a3d]/15 !bg-transparent !px-2.5 !py-1 !text-[0.64rem] !tracking-wider text-[#0f2a3d]/75 uppercase"
+            >
               {a.name}
             </Badge>
           ))}
           {room.amenities.length > 4 ? (
-            <Badge variant="outline">+{room.amenities.length - 4} more</Badge>
+            <Badge
+              variant="outline"
+              className="!rounded-none !border !border-[#0f2a3d]/15 !bg-transparent !px-2.5 !py-1 !text-[0.64rem] !tracking-wider text-[#0f2a3d]/60 uppercase"
+            >
+              +{room.amenities.length - 4} more
+            </Badge>
           ) : null}
         </div>
       </CardContent>
@@ -85,7 +102,10 @@ export function RoomCard({
         <BookRoomDialog
           room={room}
           trigger={
-            <Button className="w-full cursor-pointer" data-testid="book-now">
+            <Button
+              className="w-full cursor-pointer !bg-[#0f2a3d] !text-[#f3ecda] hover:!bg-[#c69456] hover:!text-[#0f2a3d]"
+              data-testid="book-now"
+            >
               Book Now
             </Button>
           }
