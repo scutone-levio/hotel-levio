@@ -310,7 +310,12 @@ function PricingPanel({ room }: { room: RoomForAdmin }) {
   const ruleByDay = new Map(room.priceRules.map((r) => [r.dayOfWeek, r.price]))
 
   function saveBase() {
-    const basePriceCents = parseDollarsToCents(base)
+    const trimmed = base.trim()
+    if (trimmed === "") {
+      toast.error("Enter a valid price")
+      return
+    }
+    const basePriceCents = parseDollarsToCents(trimmed)
     if (basePriceCents === null) {
       toast.error("Enter a valid price")
       return
