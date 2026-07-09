@@ -45,9 +45,11 @@ type PageProps = {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const room = await getRoomBySlug(slug)
+  const { subcategory: subcategoryId } = await searchParams
+  const room = await getRoomBySlug(slug, subcategoryId)
   if (!room) return { title: "Room not found — Hôtel Levio" }
   return { title: `${room.name} — Hôtel Levio`, description: room.description }
 }
