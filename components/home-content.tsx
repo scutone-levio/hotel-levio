@@ -34,7 +34,9 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
     [rooms],
   )
 
-  const [availableIds, setAvailableIds] = React.useState<Set<string> | null>(null)
+  const [availableListingKeys, setAvailableListingKeys] = React.useState<
+    Set<string> | null
+  >(null)
   const [availabilityCounts, setAvailabilityCounts] = React.useState<
     Record<string, AvailabilityCount> | null
   >(null)
@@ -56,7 +58,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
     if (!isHydrated) return
 
     if (!dateRange?.from || !dateRange?.to) {
-      setAvailableIds(null)
+      setAvailableListingKeys(null)
       setAvailabilityCounts(null)
       return
     }
@@ -68,7 +70,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
         getAvailableRoomIds(checkIn, checkOut, listingInputs),
         getAvailabilityCountsByListing(checkIn, checkOut, listingInputs),
       ])
-      setAvailableIds(new Set(ids))
+      setAvailableListingKeys(new Set(ids))
       setAvailabilityCounts(counts)
     })
   }, [dateRange, isHydrated, listingInputs])
@@ -111,7 +113,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
       <section id="rooms" className="mx-auto max-w-6xl px-6 pb-24">
         <RoomsBrowser
           rooms={rooms}
-          availableIds={availableIds}
+          availableIds={availableListingKeys}
           availabilityCounts={availabilityCounts}
           isCheckingAvailability={isPending}
         />

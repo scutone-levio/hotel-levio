@@ -27,7 +27,9 @@ export type ListingAvailabilityInput = {
 }
 
 /**
- * Return catalog room IDs for listings that have at least one available unit.
+ * Return listing availability keys (`roomId:subcategoryId`) for listings that
+ * have at least one available unit in the date range. Keys match
+ * `listingAvailabilityKey` — not bare catalog room IDs.
  */
 export async function getAvailableRoomIds(
   checkIn: string,
@@ -51,6 +53,7 @@ export async function getAvailabilityCountsByListing(
   checkOut: string,
   listings: ListingAvailabilityInput[],
 ): Promise<Record<string, AvailabilityCount>> {
+  // Keys are listing availability keys from listingAvailabilityKey(roomId, subcategoryId).
   const from = startOfDay(new Date(checkIn))
   const to = startOfDay(new Date(checkOut))
 

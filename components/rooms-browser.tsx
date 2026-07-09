@@ -78,7 +78,7 @@ const CATALOG_ORDER: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
 
 type Props = {
   rooms: PublicRoomListing[]
-  /** Set of catalog room IDs available for the selected date range. Null = no date filter. */
+  /** Listing availability keys (`roomId:subcategoryId`) with stock for the selected dates. Null = no date filter. */
   availableIds?: Set<string> | null
   availabilityCounts?: Record<string, AvailabilityCount> | null
   isCheckingAvailability?: boolean
