@@ -48,7 +48,7 @@ export default async function CartConfirmationPage({
             <div className="flex justify-center mb-4">
               <CheckCircle className="text-primary size-14" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-3xl tracking-tight">
               {bookings.length > 1 ? "Rooms confirmed!" : "Reservation confirmed!"}
             </h1>
             <p className="text-muted-foreground mt-2">

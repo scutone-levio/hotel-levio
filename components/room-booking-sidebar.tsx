@@ -78,7 +78,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
     <div className="rounded-2xl border bg-card p-5 space-y-4">
       {/* Price header */}
       <div className="flex items-baseline gap-1.5">
-        <p className="text-2xl font-bold">
+        <p className="text-2xl font-black">
           {weekendRules.length > 0 ? "from " : ""}
           {formatPrice(fromPrice(room))}
         </p>

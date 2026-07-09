@@ -13,7 +13,7 @@ export default function PrivacyPage() {
 
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
-          <h1 className="text-4xl font-bold tracking-tight mb-2">
+          <h1 className="text-4xl tracking-tight mb-2">
             Privacy Policy
           </h1>
           <p className="text-muted-foreground text-sm mb-12">
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           <div className="prose prose-neutral dark:prose-invert max-w-none space-y-10 text-sm leading-7">
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">1. Introduction</h2>
+              <h2 className="text-xl">1. Introduction</h2>
               <p className="text-muted-foreground">
                 Hôtel Levio ("<strong>we</strong>", "<strong>us</strong>", or
                 "<strong>our</strong>") is committed to protecting the personal
@@ -40,11 +40,11 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">2. Information we collect</h2>
+              <h2 className="text-xl">2. Information we collect</h2>
               <p className="text-muted-foreground">We collect information in two principal ways:</p>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium">Information you provide directly</h3>
+                  <h3>Information you provide directly</h3>
                   <ul className="text-muted-foreground list-disc list-inside mt-1 space-y-1">
                     <li>Full name, email address, and telephone number</li>
                     <li>Mailing address and billing information</li>
@@ -55,7 +55,7 @@ export default function PrivacyPage() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-medium">Information collected automatically</h3>
+                  <h3>Information collected automatically</h3>
                   <ul className="text-muted-foreground list-disc list-inside mt-1 space-y-1">
                     <li>IP address, browser type, and operating system</li>
                     <li>Pages visited, time spent, and referring URLs</li>
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">3. How we use your information</h2>
+              <h2 className="text-xl">3. How we use your information</h2>
               <p className="text-muted-foreground">We use your personal information to:</p>
               <ul className="text-muted-foreground list-disc list-inside space-y-1">
                 <li>Process reservations and manage your stay</li>
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">4. Legal bases for processing</h2>
+              <h2 className="text-xl">4. Legal bases for processing</h2>
               <p className="text-muted-foreground">
                 Where applicable under Québec's Act respecting the protection of
                 personal information in the private sector (Law 25) and other
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">5. Cookies</h2>
+              <h2 className="text-xl">5. Cookies</h2>
               <p className="text-muted-foreground">
                 Our website uses cookies and similar tracking technologies to
                 enhance your browsing experience, analyse site traffic, and
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">6. Sharing of information</h2>
+              <h2 className="text-xl">6. Sharing of information</h2>
               <p className="text-muted-foreground">
                 We do not sell your personal information. We may share it with:
               </p>
@@ -129,7 +129,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">7. Data retention</h2>
+              <h2 className="text-xl">7. Data retention</h2>
               <p className="text-muted-foreground">
                 We retain your personal information for as long as necessary to
                 fulfil the purposes described in this policy, unless a longer
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">8. Your rights</h2>
+              <h2 className="text-xl">8. Your rights</h2>
               <p className="text-muted-foreground">
                 Depending on your jurisdiction, you may have the right to:
               </p>
@@ -164,7 +164,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">9. Security</h2>
+              <h2 className="text-xl">9. Security</h2>
               <p className="text-muted-foreground">
                 We implement appropriate technical and organisational measures to
                 protect your personal information against unauthorised access,
@@ -176,7 +176,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">10. Children's privacy</h2>
+              <h2 className="text-xl">10. Children&apos;s privacy</h2>
               <p className="text-muted-foreground">
                 Our services are not directed to children under the age of 14. We
                 do not knowingly collect personal information from children. If
@@ -186,7 +186,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">11. Changes to this policy</h2>
+              <h2 className="text-xl">11. Changes to this policy</h2>
               <p className="text-muted-foreground">
                 We may update this Privacy Policy from time to time to reflect
                 changes in our practices or applicable law. We will notify you of
@@ -198,7 +198,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">12. Contact us</h2>
+              <h2 className="text-xl">12. Contact us</h2>
               <p className="text-muted-foreground">
                 If you have questions or concerns about this Privacy Policy or our
                 data practices, please contact our Privacy Officer:

@@ -28,7 +28,7 @@ test.describe("Booking flow", () => {
     await page.goto("/")
 
     await expect(
-      page.getByRole("heading", { name: /seaside escape/i }),
+      page.getByRole("heading", { name: /lakeside escape/i }),
     ).toBeVisible()
 
     const trigger = await selectAndApplyDateRange(page)
@@ -50,7 +50,7 @@ test.describe("Booking flow", () => {
 
     await page.goto("/")
     await expect(
-      page.getByRole("heading", { name: /seaside escape/i }),
+      page.getByRole("heading", { name: /lakeside escape/i }),
     ).toBeVisible()
 
     const restoredTrigger = page.getByTestId("booking-date-trigger")

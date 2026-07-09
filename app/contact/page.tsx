@@ -17,7 +17,7 @@ export default function ContactPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
           <div className="mx-auto max-w-2xl text-center mb-14">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            <h1 className="text-4xl tracking-tight sm:text-5xl">
               We'd love to hear from you
             </h1>
             <p className="text-muted-foreground mt-4 text-lg text-pretty">
@@ -96,7 +96,7 @@ export default function ContactPage() {
 
             {/* Form */}
             <div className="rounded-xl border bg-card p-8 lg:col-span-2">
-              <h2 className="text-xl font-semibold mb-6">Send us a message</h2>
+              <h2 className="text-xl mb-6">Send us a message</h2>
               <ContactForm />
             </div>
           </div>

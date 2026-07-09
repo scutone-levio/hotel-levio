@@ -52,7 +52,7 @@ export function ContactForm() {
     return (
       <div className="rounded-xl border bg-card p-8 text-center space-y-3">
         <div className="text-4xl">✉️</div>
-        <h3 className="text-lg font-semibold">Message received</h3>
+        <h3 className="text-lg">Message received</h3>
         <p className="text-muted-foreground text-sm">
           Thank you for reaching out. A member of our concierge team will be in
           touch within 24 hours.
