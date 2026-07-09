@@ -49,7 +49,7 @@ export default function ContactPage() {
 
             {/* Contact channel strip */}
             <div
-              className="mt-10 grid grid-cols-4 overflow-hidden rounded-[0.875rem] border border-[#c69456]/20"
+              className="mt-10 grid grid-cols-2 sm:grid-cols-4 overflow-hidden rounded-[0.875rem] border border-[#c69456]/20"
               style={{ background: "rgba(8,26,39,0.40)", backdropFilter: "blur(4px)" }}
             >
               <div className="flex flex-col items-center gap-2.5 px-4 py-5 text-center">
@@ -67,14 +67,14 @@ export default function ContactPage() {
                 <span className="text-[0.82rem] font-medium leading-snug text-[#f8f3e6]">+1 (514) 555-0199</span>
                 <span className="text-[0.68rem] text-[#f8f3e6]/40">Reservations &amp; enquiries</span>
               </div>
-              <div className="flex flex-col items-center gap-2.5 border-l border-[#c69456]/20 px-4 py-5 text-center">
+              <div className="flex flex-col items-center gap-2.5 border-t border-[#c69456]/20 sm:border-t-0 sm:border-l px-4 py-5 text-center">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#c69456]/25 bg-[#c69456]/12">
                   <Mail className="size-3.5 text-[#dcae70]" />
                 </div>
                 <span className="text-[0.62rem] tracking-[0.16em] text-[#f8f3e6]/40 uppercase">Email</span>
                 <span className="text-[0.82rem] font-medium leading-snug text-[#f8f3e6]">bonjour@<br />hotellevio.com</span>
               </div>
-              <div className="flex flex-col items-center gap-2.5 border-l border-[#c69456]/20 px-4 py-5 text-center">
+              <div className="flex flex-col items-center gap-2.5 border-l border-t border-[#c69456]/20 sm:border-t-0 px-4 py-5 text-center">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#c69456]/25 bg-[#c69456]/12">
                   <Clock className="size-3.5 text-[#dcae70]" />
                 </div>
