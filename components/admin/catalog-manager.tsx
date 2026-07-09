@@ -147,6 +147,7 @@ export function CatalogManager({
               <tr>
                 <th className="px-3 py-2 font-medium">Floor</th>
                 <th className="px-3 py-2 font-medium">Room #</th>
+                <th className="px-3 py-2 font-medium">Subcategory</th>
                 <th className="px-3 py-2 font-medium">Base price</th>
                 <th className="px-3 py-2 font-medium">Blackouts</th>
                 <th className="px-3 py-2 font-medium">Actions</th>
@@ -158,6 +159,9 @@ export function CatalogManager({
                   <tr key={room.id} className="border-b last:border-0">
                     <td className="px-3 py-2 text-sm">{room.floor ?? "—"}</td>
                     <td className="px-3 py-2 text-sm">{room.roomNumber}</td>
+                    <td className="px-3 py-2 text-sm text-muted-foreground">
+                      {room.subcategory?.name ?? "—"}
+                    </td>
                     <td className="px-3 py-2 text-sm">
                       {formatPrice(room.basePrice)}
                     </td>
@@ -174,7 +178,7 @@ export function CatalogManager({
               ) : (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="text-muted-foreground px-3 py-8 text-center text-sm"
                   >
                     No inventory units for this category.
