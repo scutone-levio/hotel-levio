@@ -1,5 +1,6 @@
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata = {
   title: "Privacy Policy — Hôtel Levio",
@@ -13,14 +14,13 @@ export default function PrivacyPage() {
 
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
-          <h1 className="text-4xl tracking-tight mb-2">
-            Privacy Policy
-          </h1>
-          <p className="text-muted-foreground text-sm mb-12">
-            Last updated: July 2026
-          </p>
+          <PageHeader
+            eyebrow="Legal"
+            title="Privacy Policy"
+            subtitle="Last updated: July 2026"
+          />
 
-          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-10 text-sm leading-7">
+          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-10 text-sm leading-7 text-foreground">
 
             <section className="space-y-3">
               <h2 className="text-xl">1. Introduction</h2>

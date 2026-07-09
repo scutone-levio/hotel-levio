@@ -150,7 +150,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     </Badge>
                   )}
                 </div>
-                <h1 className="text-3xl tracking-tight sm:text-4xl">
+                <h1 className="text-3xl tracking-tight text-primary-foreground sm:text-4xl">
                   {room.name}
                 </h1>
                 <p className="text-muted-foreground mt-2 text-sm">
@@ -175,7 +175,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
               {/* Amenities */}
               {room.amenities.length > 0 && (
                 <section>
-                  <h2 className="text-xl tracking-tight mb-4">
+                  <h2 className="text-xl tracking-tight text-primary-foreground mb-4">
                     Amenities
                   </h2>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
@@ -197,7 +197,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                 <>
                   <div className="border-t" />
                   <section>
-                    <h2 className="text-xl tracking-tight mb-4">
+                    <h2 className="text-xl tracking-tight text-primary-foreground mb-4">
                       What&apos;s nearby
                     </h2>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -231,7 +231,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
           {/* Similar rooms */}
           {similarRooms.length > 0 && (
             <section className="mt-14">
-              <h2 className="text-2xl tracking-tight">
+              <h2 className="text-2xl tracking-tight text-primary-foreground">
                 Other Rooms You Might Like
               </h2>
               <p className="text-muted-foreground mt-1">

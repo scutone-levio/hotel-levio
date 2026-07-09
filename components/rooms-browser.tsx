@@ -8,7 +8,12 @@ import { format } from "date-fns"
 import type { PublicRoomListing } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { fromPrice, listingAvailabilityKey, ROOM_TYPE_LABELS, ROOM_TYPE_SHORT_LABELS } from "@/lib/rooms"
+import {
+  fromPrice,
+  listingAvailabilityKey,
+  ROOM_TYPE_LABELS,
+  ROOM_TYPE_SHORT_LABELS,
+} from "@/lib/rooms"
 import { subcategorySortIndex } from "@/lib/subcategories"
 import { RoomCard } from "@/components/room-card"
 import { Button } from "@/components/ui/button"
@@ -34,11 +39,11 @@ function CheckboxRow({
   checked,
   onChange,
   label,
-}: {
+}: Readonly<{
   checked: boolean
   onChange: () => void
   label: string
-}) {
+}>) {
   return (
     <label className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
       <input
@@ -106,7 +111,7 @@ export function RoomsBrowser({
   availableIds = null,
   availabilityCounts = null,
   isCheckingAvailability = false,
-}: Props) {
+}: Readonly<Props>) {
   const { dateRange } = useDateRange()
   const [open, setOpen] = React.useState(false)
   const [types, setTypes] = React.useState<Set<RoomType>>(new Set())
@@ -130,6 +135,12 @@ export function RoomsBrowser({
   const filtered = React.useMemo(() => {
     const result = rooms.filter((r) => {
       if (availableIds != null) {
+        const listingKey = r.subcategory?.id
+          ? listingAvailabilityKey(r.id, r.subcategory.id)
+          : null
+        if (listingKey == null || !availableIds.has(listingKey)) {
+          return false
+        }
       }
       const typeOk = types.size === 0 || types.has(r.type)
       const roomAmenities = new Set(r.amenities.map((a) => a.id))
@@ -193,7 +204,8 @@ export function RoomsBrowser({
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeStart =
+    filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const rangeEnd = Math.min(currentPage * pageSize, filtered.length)
 
   const activeCount = types.size + amenityIds.size
@@ -205,7 +217,8 @@ export function RoomsBrowser({
       const dateLabel = `${format(dateRange.from!, "MMM d")} – ${format(dateRange.to!, "MMM d, yyyy")}`
       return `${filtered.length} room${filtered.length === 1 ? "" : "s"} available · ${dateLabel}`
     }
-    if (activeCount > 0) return `Showing ${filtered.length} of ${rooms.length} rooms`
+    if (activeCount > 0)
+      return `Showing ${filtered.length} of ${rooms.length} rooms`
     return "Handpicked stays for every kind of traveller."
   }
 
@@ -236,13 +249,18 @@ export function RoomsBrowser({
     <>
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span className="mb-2 block text-[0.72rem] tracking-[0.24em] text-[#a9793c] uppercase">
+          <span className="text-primary mb-2 block text-[0.72rem] tracking-[0.24em] uppercase">
             The Collection
           </span>
-          <h2 className="text-[1.7rem] text-[#0f2a3d] sm:text-[2.1rem]">
+          <h2 className="text-primary-foreground text-[1.7rem] sm:text-[2.1rem]">
             Available rooms
           </h2>
-          <p className="mt-2 flex items-center gap-1.5 text-[#0f2a3d]/60">
+          <p
+            className="text-primary-foreground/60 mt-2 flex items-center gap-1.5"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {isCheckingAvailability && (
               <Loader2 className="size-3.5 animate-spin" />
             )}
@@ -251,14 +269,17 @@ export function RoomsBrowser({
         </div>
 
         <div
-          className="flex flex-wrap items-center justify-end gap-2 text-[#0f2a3d]"
+          className="text-primary-foreground flex flex-wrap items-center justify-end gap-2"
           style={listingsControlsTheme}
         >
           <Select
             value={String(pageSize)}
             onValueChange={(v) => setPageSize(Number(v) as PageSize)}
           >
-            <SelectTrigger className="h-9 w-[70px] text-sm" data-testid="page-size">
+            <SelectTrigger
+              className="h-9 w-[70px] text-sm"
+              data-testid="page-size"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" align="end">
@@ -354,21 +375,24 @@ export function RoomsBrowser({
         </div>
       </div>
 
-      {isCheckingAvailability ? (
+      {isCheckingAvailability && filtered.length === 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.slice(0, 6).map((room) => (
             <div
               key={`${room.id}-${room.subcategory?.id ?? "default"}`}
-              className="bg-muted animate-pulse rounded-xl aspect-[3/4]"
+              className="bg-muted aspect-[3/4] animate-pulse rounded-xl"
             />
           ))}
         </div>
       ) : filtered.length ? (
         <>
-          <div className="space-y-10">
+          <div
+            className={`space-y-10 transition-opacity duration-200 ${isCheckingAvailability ? "opacity-50" : ""}`}
+            aria-busy={isCheckingAvailability}
+          >
             {grouped.map(({ type, rooms: sectionRooms }) => (
               <section key={type}>
-                <h3 className="mb-4 text-xl text-[#0f2a3d]">
+                <h3 className="text-primary-foreground mb-4 text-xl">
                   {ROOM_TYPE_SHORT_LABELS[type]}
                 </h3>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -378,9 +402,12 @@ export function RoomsBrowser({
                       room={room}
                       availability={
                         room.subcategory?.id
-                          ? availabilityCounts?.[
-                              listingAvailabilityKey(room.id, room.subcategory.id)
-                            ] ?? null
+                          ? (availabilityCounts?.[
+                              listingAvailabilityKey(
+                                room.id,
+                                room.subcategory.id,
+                              )
+                            ] ?? null)
                           : null
                       }
                     />

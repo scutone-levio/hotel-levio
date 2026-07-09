@@ -105,12 +105,12 @@ export default function AboutPage() {
       <main className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden">
-          <div className="via-background dark:via-background absolute inset-0 -z-10 bg-gradient-to-br from-slate-100 to-amber-50 dark:from-slate-950/40 dark:to-amber-950/20" />
+          <div className="absolute inset-0 -z-10 bg-linear-to-br from-[#f3ecda]/50 to-background" />
           <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
-            <Badge variant="secondary" className="mb-5">
-              Downtown Montréal
-            </Badge>
-            <h1 className="mx-auto max-w-3xl text-4xl tracking-tight text-balance sm:text-6xl">
+            <span className="mb-3 block text-[0.72rem] tracking-[0.24em] text-primary uppercase">
+              Hôtel Levio · Downtown Montréal
+            </span>
+            <h1 className="mx-auto max-w-3xl text-4xl tracking-tight text-balance text-primary-foreground sm:text-6xl">
               Where Montréal's golden mile meets timeless luxury
             </h1>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-lg text-pretty">
@@ -129,7 +129,7 @@ export default function AboutPage() {
         <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>
-              <h2 className="text-3xl tracking-tight">Our story</h2>
+              <h2 className="text-3xl tracking-tight text-primary-foreground">Our story</h2>
               <div className="text-muted-foreground mt-4 space-y-4 text-base leading-relaxed">
                 <p>
                   Founded in 2018 by a trio of hospitality veterans who shared a
@@ -168,7 +168,7 @@ export default function AboutPage() {
         {/* Photo Gallery */}
         <section className="bg-muted/30 py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="mb-12 text-center text-3xl tracking-tight">
+            <h2 className="mb-12 text-center text-3xl tracking-tight text-primary-foreground">
               Inside Hôtel Levio
             </h2>
             <div className="grid gap-10 sm:grid-cols-2">
@@ -217,7 +217,7 @@ export default function AboutPage() {
         {/* Nearby Amenities */}
         <section className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl tracking-tight">
+            <h2 className="text-3xl tracking-tight text-primary-foreground">
               Everything Montréal within reach
             </h2>
             <p className="text-muted-foreground mx-auto mt-3 max-w-xl">
@@ -236,7 +236,7 @@ export default function AboutPage() {
               sizes="100vw"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-5 left-6 text-white">
               <p className="text-lg font-semibold">Old Port of Montréal</p>
               <p className="text-sm opacity-80">12 minutes on foot</p>
@@ -269,20 +269,20 @@ export default function AboutPage() {
         {/* Quick facts */}
         <section className="bg-muted/30 py-20">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="mb-8 text-center text-3xl tracking-tight">
+            <h2 className="mb-8 text-center text-3xl tracking-tight text-primary-foreground">
               At a glance
             </h2>
             <div className="grid gap-6 sm:grid-cols-3">
               <div className="text-center space-y-2">
-                <div className="text-4xl font-bold">10</div>
+                <div className="text-4xl font-bold text-primary-foreground">10</div>
                 <div className="text-muted-foreground text-sm">Floors of guest rooms</div>
               </div>
               <div className="text-center space-y-2">
-                <div className="text-4xl font-bold">4.9★</div>
+                <div className="text-4xl font-bold text-primary-foreground">4.9★</div>
                 <div className="text-muted-foreground text-sm">Average guest rating</div>
               </div>
               <div className="text-center space-y-2">
-                <div className="text-4xl font-bold">24/7</div>
+                <div className="text-4xl font-bold text-primary-foreground">24/7</div>
                 <div className="text-muted-foreground text-sm">Concierge & room service</div>
               </div>
             </div>

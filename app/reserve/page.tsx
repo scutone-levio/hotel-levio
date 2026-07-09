@@ -7,6 +7,7 @@ import { quoteRange } from "@/lib/pricing"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ReserveForm } from "@/components/reserve-form"
+import { PageHeader } from "@/components/page-header"
 
 export const metadata = { title: "Reserve — Hôtel Levio" }
 
@@ -59,14 +60,11 @@ export default async function ReservePage({
       <Header />
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-6 py-12">
-          <div className="mb-8">
-            <h1 className="text-3xl tracking-tight">
-              Complete your reservation
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Review your stay and enter your details to confirm.
-            </p>
-          </div>
+          <PageHeader
+            eyebrow="One more step"
+            title="Complete your reservation"
+            subtitle="Review your stay and enter your details to confirm."
+          />
 
           <ReserveForm
             room={{
