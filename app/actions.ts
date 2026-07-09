@@ -29,6 +29,7 @@ async function resolveListingSubcategory(
     })
   }
   return catalog.subcategory
+}
 
 export type AvailabilityCount = { available: number; total: number }
 
@@ -69,30 +70,24 @@ export async function getAvailabilityCountsByListing(
   const from = startOfDay(new Date(checkIn))
   const to = startOfDay(new Date(checkOut))
 
-  const result: Record<string, AvailabilityCount> = {}
+  const entries = await Promise.all(
+    listings.map(async (listing) => {
+      const key = listingAvailabilityKey(listing.roomId, listing.subcategoryId)
+      const [total, available] = await Promise.all([
+        prisma.room.count({
+          where: {
+            type: listing.type,
+            subcategoryId: listing.subcategoryId,
+            isCatalog: false,
+          },
+        }),
+        getAvailableUnits(listing.type, from, to, listing.subcategoryId),
+      ])
+      return [key, { available: available.length, total }] as const
+    }),
+  )
 
-  for (const listing of listings) {
-    const key = listingAvailabilityKey(listing.roomId, listing.subcategoryId)
-    const total = await prisma.room.count({
-      where: {
-        type: listing.type,
-        subcategoryId: listing.subcategoryId,
-        isCatalog: false,
-      },
-    })
-    const available = await getAvailableUnits(
-      listing.type,
-      from,
-      to,
-      listing.subcategoryId,
-    )
-    result[key] = {
-      available: available.length,
-      total,
-    }
-  }
-
-  return result
+  return Object.fromEntries(entries)
 }
 
 /** @deprecated Use getAvailabilityCountsByListing for homepage listings. */

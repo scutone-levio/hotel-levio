@@ -248,7 +248,10 @@ export function RoomsBrowser({
           </Select>
 
           <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger
+              className="h-9 text-sm"
+              data-testid="rooms-sort-trigger"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" align="end">

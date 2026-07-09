@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { ChevronLeft, ChevronRight, Star } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,6 +26,7 @@ export function RoomImageCarousel({
   featured = false,
   variant,
   className,
+  imageHref,
   "data-testid": dataTestId,
 }: {
   images: GalleryImage[]
@@ -32,6 +34,7 @@ export function RoomImageCarousel({
   featured?: boolean
   variant: "hero" | "card"
   className?: string
+  imageHref?: string
   "data-testid"?: string
 }) {
   const slides =
@@ -61,13 +64,47 @@ export function RoomImageCarousel({
     e.stopPropagation()
   }
 
+  function SlideFrame({
+    children,
+    className: frameClassName,
+    testId,
+    ariaLabel,
+  }: {
+    children: React.ReactNode
+    className?: string
+    testId?: string
+    ariaLabel?: string
+  }) {
+    const frameClassNameMerged = cn(
+      "relative overflow-hidden",
+      frameClass,
+      frameClassName,
+    )
+
+    if (imageHref && !isHero) {
+      return (
+        <Link
+          href={imageHref}
+          className={cn("block", frameClassNameMerged)}
+          aria-label={ariaLabel ?? `View ${roomName}`}
+          data-testid={testId}
+        >
+          {children}
+        </Link>
+      )
+    }
+
+    return (
+      <div className={frameClassNameMerged} data-testid={testId}>
+        {children}
+      </div>
+    )
+  }
+
   if (!hasMultiple) {
     const img = slides[0]
     return (
-      <div
-        className={cn("relative overflow-hidden", frameClass, className)}
-        data-testid={dataTestId}
-      >
+      <SlideFrame className={className} testId={dataTestId}>
         <Image
           src={img.url}
           alt={roomName}
@@ -87,20 +124,22 @@ export function RoomImageCarousel({
             </Badge>
           </div>
         )}
-      </div>
+      </SlideFrame>
     )
   }
 
   return (
     <div
       className={cn(isHero ? "relative mb-10" : "relative", className)}
-      data-testid={dataTestId}
     >
       <Carousel setApi={setApi} className="w-full">
         <CarouselContent className="ml-0">
           {slides.map((img, index) => (
             <CarouselItem key={img.id} className="pl-0">
-              <div className={cn("relative overflow-hidden", frameClass)}>
+              <SlideFrame
+                testId={index === 0 ? dataTestId : undefined}
+                ariaLabel={`View ${roomName} — photo ${index + 1}`}
+              >
                 <Image
                   src={img.url}
                   alt={`${roomName} — photo ${index + 1}`}
@@ -120,12 +159,13 @@ export function RoomImageCarousel({
                     </Badge>
                   </div>
                 )}
-              </div>
+              </SlideFrame>
             </CarouselItem>
           ))}
         </CarouselContent>
+      </Carousel>
 
-        <Button
+      <Button
           type="button"
           variant="outline"
           size="icon"
@@ -157,7 +197,6 @@ export function RoomImageCarousel({
         >
           <ChevronRight className={isHero ? "size-5" : "size-4"} />
         </Button>
-      </Carousel>
 
       {showDots ? (
         <div className="mt-3 flex justify-center gap-1.5">

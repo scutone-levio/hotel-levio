@@ -57,6 +57,18 @@ export function isListingFeatured(room: {
   return room.featured ?? room.subcategory?.featured ?? false
 }
 
+/** Parse admin dollar input to cents, or null when invalid. */
+export function parseDollarsToCents(value: string): number | null {
+  const dollars = Number(value)
+  if (!Number.isFinite(dollars) || dollars < 0) return null
+  return Math.round(dollars * 100)
+}
+
+/** Format stored cents for admin dollar inputs. */
+export function centsToDollarsString(cents: number): string {
+  return String(cents / 100)
+}
+
 /** Get effective price for a room: subcategory price if assigned, otherwise basePrice. */
 export function getRoomPrice(room: {
   basePrice: number

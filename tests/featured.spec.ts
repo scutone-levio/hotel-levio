@@ -35,21 +35,29 @@ test.describe("Featured subcategories", () => {
   }) => {
     await page.goto("/")
 
-    const cards = page.getByTestId("room-card")
-    await expect(cards.first()).toBeVisible()
+    const sections = page.locator("#rooms section").filter({
+      has: page.getByRole("heading", { level: 3 }),
+    })
+    await expect(sections.first()).toBeVisible()
 
-    const count = await cards.count()
-    expect(count).toBeGreaterThan(1)
+    const sectionCount = await sections.count()
+    expect(sectionCount).toBeGreaterThan(0)
 
-    let sawNonFeatured = false
-    for (let i = 0; i < count; i++) {
-      const featured = await cards.nth(i).getAttribute("data-featured")
-      if (featured === "false") {
-        sawNonFeatured = true
-      } else if (sawNonFeatured) {
-        throw new Error(
-          `Non-featured card at index ${i - 1} was followed by featured card at index ${i}`,
-        )
+    for (let s = 0; s < sectionCount; s++) {
+      const cards = sections.nth(s).getByTestId("room-card")
+      const count = await cards.count()
+      if (count <= 1) continue
+
+      let sawNonFeatured = false
+      for (let i = 0; i < count; i++) {
+        const featured = await cards.nth(i).getAttribute("data-featured")
+        if (featured === "false") {
+          sawNonFeatured = true
+        } else if (sawNonFeatured) {
+          throw new Error(
+            `Section ${s}: non-featured card at index ${i - 1} was followed by featured card at index ${i}`,
+          )
+        }
       }
     }
   })
@@ -75,7 +83,7 @@ test.describe("Featured subcategories", () => {
   }) => {
     await page.goto("/")
 
-    const sortTrigger = page.locator('[role="combobox"]').nth(1)
+    const sortTrigger = page.getByTestId("rooms-sort-trigger")
     await sortTrigger.click()
     await page.getByRole("option", { name: "Price: low to high" }).click()
 

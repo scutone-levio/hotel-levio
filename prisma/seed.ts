@@ -3,6 +3,7 @@ import { RoomType } from "@prisma/client"
 import { prisma } from "../lib/prisma"
 import {
   assignSubcategoryNamesForRooms,
+  CATALOG_BASE_PRICES,
   PUBLIC_SUBCATEGORY_NAMES,
   SEED_FEATURED_SUBCATEGORY_NAME,
   subcategoryPriceForType,
@@ -118,7 +119,7 @@ const roomTypeMeta: Record<
     label: "Twin Room",
     description:
       "A comfortable room with two single beds — ideal for friends or colleagues travelling together.",
-    basePrice: 12900,
+    basePrice: CATALOG_BASE_PRICES.TWIN,
     capacity: 2,
     beds: 2,
     image: coverImageForType("TWIN"),
@@ -127,7 +128,7 @@ const roomTypeMeta: Record<
     label: "Queen Room",
     description:
       "A spacious room with two queen beds, comfortably sleeping up to four guests.",
-    basePrice: 18900,
+    basePrice: CATALOG_BASE_PRICES.QUEEN,
     capacity: 4,
     beds: 2,
     image: coverImageForType("QUEEN"),
@@ -136,7 +137,7 @@ const roomTypeMeta: Record<
     label: "King Room",
     description:
       "An elegant room anchored by a plush king bed and a luxury walk-in shower.",
-    basePrice: 22900,
+    basePrice: CATALOG_BASE_PRICES.KING,
     capacity: 2,
     beds: 1,
     image: coverImageForType("KING"),
@@ -145,7 +146,7 @@ const roomTypeMeta: Record<
     label: "Suite",
     description:
       "A two-bedroom suite with two king beds, a separate living area, and a whirlpool bath.",
-    basePrice: 39900,
+    basePrice: CATALOG_BASE_PRICES.SUITE,
     capacity: 4,
     beds: 2,
     image: coverImageForType("SUITE"),
@@ -340,30 +341,21 @@ async function ensureSubcategories() {
 
   for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
     for (const name of PUBLIC_SUBCATEGORY_NAMES) {
-      const existing = await prisma.roomSubcategory.findFirst({
-        where: { name, roomType: type },
+      const basePrice = subcategoryPriceForType(type, name)
+      const featured = name === SEED_FEATURED_SUBCATEGORY_NAME
+
+      const before = await prisma.roomSubcategory.findUnique({
+        where: { roomType_name: { roomType: type, name } },
+        select: { id: true },
       })
 
-      if (!existing) {
-        await prisma.roomSubcategory.create({
-          data: {
-            name,
-            roomType: type,
-            basePrice: subcategoryPriceForType(type, name),
-            featured: name === SEED_FEATURED_SUBCATEGORY_NAME,
-          },
-        })
-        created += 1
-      } else {
-        const basePrice = subcategoryPriceForType(type, name)
-        const featured = name === SEED_FEATURED_SUBCATEGORY_NAME
-        if (existing.featured !== featured || existing.basePrice !== basePrice) {
-          await prisma.roomSubcategory.update({
-            where: { id: existing.id },
-            data: { featured, basePrice },
-          })
-        }
-      }
+      await prisma.roomSubcategory.upsert({
+        where: { roomType_name: { roomType: type, name } },
+        create: { name, roomType: type, basePrice, featured },
+        update: { basePrice, featured },
+      })
+
+      if (!before) created += 1
     }
   }
 

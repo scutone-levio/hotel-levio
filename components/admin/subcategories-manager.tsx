@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
 
 import type { RoomSubcategoryWithCount } from "@/lib/queries"
-import { ROOM_TYPES, ROOM_TYPE_LABELS, formatPrice } from "@/lib/rooms"
+import { ROOM_TYPES, ROOM_TYPE_LABELS, centsToDollarsString, formatPrice, parseDollarsToCents } from "@/lib/rooms"
 import {
   createRoomSubcategory,
   updateRoomSubcategory,
@@ -107,12 +107,6 @@ export function SubcategoriesManager({
     setSubcategories((prev) =>
       prev.map((s) => (s.id === subcategoryId ? { ...s, featured } : s)),
     )
-  }
-
-  function parseDollarsToCents(value: string): number | null {
-    const dollars = Number(value)
-    if (!Number.isFinite(dollars) || dollars < 0) return null
-    return Math.round(dollars * 100)
   }
 
   const handleCreate = async () => {
@@ -374,7 +368,7 @@ export function SubcategoriesManager({
                             onClick={() => {
                               setEditingId(sub.id)
                               setEditName(sub.name)
-                              setEditPrice(String(sub.basePrice / 100))
+                              setEditPrice(centsToDollarsString(sub.basePrice))
                             }}
                             disabled={isSubmitting}
                             className="p-1.5 hover:bg-muted rounded"
