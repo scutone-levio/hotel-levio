@@ -152,13 +152,18 @@ async function subcategoryIdForNewUnit(
   type: RoomType,
   floor: number,
   indexOnFloor: number,
-): Promise<string | undefined> {
+): Promise<string> {
   const name = subcategoryNameForInventoryRoom(floor, indexOnFloor)
   const sub = await prisma.roomSubcategory.findFirst({
     where: { roomType: type, name },
     select: { id: true },
   })
-  return sub?.id
+  if (!sub) {
+    throw new Error(
+      `No "${name}" subcategory for ${type}. Create it in admin before adding inventory.`,
+    )
+  }
+  return sub.id
 }
 
 export async function syncTypeQuantity(type: RoomType, targetQty: number) {
