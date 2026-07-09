@@ -6,6 +6,7 @@ import type { RoomType } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { quoteRange } from "@/lib/pricing"
+import { getRoomPrice, listingAvailabilityKey } from "@/lib/rooms"
 import {
   assignAvailableUnit,
   getAvailableUnits,
@@ -19,24 +20,66 @@ const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
 export type AvailabilityCount = { available: number; total: number }
 
+export type ListingAvailabilityInput = {
+  roomId: string
+  type: RoomType
+  subcategoryId: string
+}
+
 /**
- * Return catalog room IDs for types that have at least one available unit.
+ * Return catalog room IDs for listings that have at least one available unit.
  */
 export async function getAvailableRoomIds(
   checkIn: string,
   checkOut: string,
+  listings: ListingAvailabilityInput[],
 ): Promise<string[]> {
-  const counts = await getAvailabilityCountsByType(checkIn, checkOut)
-  const catalogRooms = await prisma.room.findMany({
-    where: { isCatalog: true },
-    select: { id: true, type: true },
-  })
-
-  return catalogRooms
-    .filter((room) => (counts[room.type]?.available ?? 0) > 0)
-    .map((r) => r.id)
+  const counts = await getAvailabilityCountsByListing(checkIn, checkOut, listings)
+  return listings
+    .filter(
+      (listing) =>
+        (counts[listingAvailabilityKey(listing.roomId, listing.subcategoryId)]
+          ?.available ?? 0) > 0,
+    )
+    .map((listing) =>
+      listingAvailabilityKey(listing.roomId, listing.subcategoryId),
+    )
 }
 
+export async function getAvailabilityCountsByListing(
+  checkIn: string,
+  checkOut: string,
+  listings: ListingAvailabilityInput[],
+): Promise<Record<string, AvailabilityCount>> {
+  const from = startOfDay(new Date(checkIn))
+  const to = startOfDay(new Date(checkOut))
+
+  const result: Record<string, AvailabilityCount> = {}
+
+  for (const listing of listings) {
+    const key = listingAvailabilityKey(listing.roomId, listing.subcategoryId)
+    const total = await prisma.room.count({
+      where: {
+        subcategoryId: listing.subcategoryId,
+        isCatalog: false,
+      },
+    })
+    const available = await getAvailableUnits(
+      listing.type,
+      from,
+      to,
+      listing.subcategoryId,
+    )
+    result[key] = {
+      available: available.length,
+      total,
+    }
+  }
+
+  return result
+}
+
+/** @deprecated Use getAvailabilityCountsByListing for homepage listings. */
 export async function getAvailabilityCountsByType(
   checkIn: string,
   checkOut: string,
@@ -46,6 +89,7 @@ export async function getAvailabilityCountsByType(
 
   const totals = await prisma.room.groupBy({
     by: ["type"],
+    where: { isCatalog: false },
     _count: { _all: true },
   })
   const totalByType = Object.fromEntries(
@@ -77,6 +121,7 @@ export async function finalizeBooking(input: {
   guestPhone?: string
   specialRequests?: string
   stripePaymentIntentId: string
+  subcategoryId?: string
 }): Promise<FinalizeResult> {
   try {
     const checkIn = startOfDay(new Date(input.checkIn))
@@ -88,13 +133,22 @@ export async function finalizeBooking(input: {
 
     const catalog = await prisma.room.findUnique({
       where: { id: input.roomId },
+      include: { priceRules: true, subcategory: true },
     })
     if (!catalog) return { ok: false, error: "Room not found" }
+
+    const subcategory =
+      input.subcategoryId && !catalog.subcategory
+        ? await prisma.roomSubcategory.findUnique({
+            where: { id: input.subcategoryId },
+          })
+        : catalog.subcategory
 
     const room = await resolveBookingRoom({
       roomId: input.roomId,
       checkIn,
       checkOut,
+      subcategoryId: input.subcategoryId ?? subcategory?.id,
     })
     if (!room) {
       return { ok: false, error: "Those dates are no longer available" }
@@ -104,7 +158,12 @@ export async function finalizeBooking(input: {
       return { ok: false, error: `This room sleeps up to ${room.capacity}` }
     }
 
-    const quote = quoteRange(room.basePrice, room.priceRules, checkIn, checkOut)
+    const quote = quoteRange(
+      getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
+      catalog.priceRules,
+      checkIn,
+      checkOut,
+    )
 
     const guest = await prisma.user.upsert({
       where: { email: input.guestEmail.toLowerCase() },
@@ -171,6 +230,7 @@ export async function createBooking(input: {
   checkIn: string | Date
   checkOut: string | Date
   guests: number
+  subcategoryId?: string
 }): Promise<BookingResult> {
   try {
     const checkIn = startOfDay(new Date(input.checkIn))
@@ -187,10 +247,26 @@ export async function createBooking(input: {
       return { ok: false, error: "Check-in cannot be in the past" }
     }
 
+    const catalog = await prisma.room.findUnique({
+      where: { id: input.roomId },
+      include: { priceRules: true, subcategory: true },
+    })
+    if (!catalog) {
+      return { ok: false, error: "Room not found" }
+    }
+
+    const subcategory =
+      input.subcategoryId && !catalog.subcategory
+        ? await prisma.roomSubcategory.findUnique({
+            where: { id: input.subcategoryId },
+          })
+        : catalog.subcategory
+
     const room = await resolveBookingRoom({
       roomId: input.roomId,
       checkIn,
       checkOut,
+      subcategoryId: input.subcategoryId ?? subcategory?.id,
     })
     if (!room) {
       return { ok: false, error: "The room is not available for those dates" }
@@ -200,7 +276,12 @@ export async function createBooking(input: {
       return { ok: false, error: `This room sleeps up to ${room.capacity}` }
     }
 
-    const quote = quoteRange(room.basePrice, room.priceRules, checkIn, checkOut)
+    const quote = quoteRange(
+      getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
+      catalog.priceRules,
+      checkIn,
+      checkOut,
+    )
 
     const guest = await prisma.user.upsert({
       where: { email: "guest@hotel.test" },
@@ -239,6 +320,7 @@ export type CartCheckoutItem = {
   checkIn: string
   checkOut: string
   guests: number
+  subcategoryId?: string
 }
 
 export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promise<
@@ -254,14 +336,31 @@ export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promis
         const checkOut = startOfDay(new Date(item.checkOut))
         const catalog = await prisma.room.findUnique({
           where: { id: item.roomId },
-          select: { id: true, name: true, type: true },
+          include: { priceRules: true, subcategory: true },
         })
         if (!catalog) throw new Error(`Room not found: ${item.roomId}`)
 
-        const unit = await assignAvailableUnit(catalog.type, checkIn, checkOut)
+        const subcategory =
+          item.subcategoryId && !catalog.subcategory
+            ? await prisma.roomSubcategory.findUnique({
+                where: { id: item.subcategoryId },
+              })
+            : catalog.subcategory
+
+        const unit = await assignAvailableUnit(
+          catalog.type,
+          checkIn,
+          checkOut,
+          item.subcategoryId ?? subcategory?.id,
+        )
         if (!unit) throw new Error(`${catalog.name} is not available for those dates`)
 
-        const quote = quoteRange(unit.basePrice, unit.priceRules, checkIn, checkOut)
+        const quote = quoteRange(
+          getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
+          catalog.priceRules,
+          checkIn,
+          checkOut,
+        )
         return { roomId: catalog.id, roomName: catalog.name, total: quote.total, nights: quote.nights }
       }),
     )
@@ -312,18 +411,35 @@ export async function finalizeCartBookings(input: {
 
         const catalog = await prisma.room.findUnique({
           where: { id: item.roomId },
-          select: { id: true, name: true, type: true },
+          include: { priceRules: true, subcategory: true },
         })
         if (!catalog) throw new Error("Room not found")
 
-        const room = await assignAvailableUnit(catalog.type, checkIn, checkOut)
+        const subcategory =
+          item.subcategoryId && !catalog.subcategory
+            ? await prisma.roomSubcategory.findUnique({
+                where: { id: item.subcategoryId },
+              })
+            : catalog.subcategory
+
+        const room = await assignAvailableUnit(
+          catalog.type,
+          checkIn,
+          checkOut,
+          item.subcategoryId ?? subcategory?.id,
+        )
         if (!room) throw new Error(`${catalog.name}: those dates are no longer available`)
 
         if (item.guests < 1 || item.guests > room.capacity) {
           throw new Error(`${catalog.name} sleeps up to ${room.capacity}`)
         }
 
-        const quote = quoteRange(room.basePrice, room.priceRules, checkIn, checkOut)
+        const quote = quoteRange(
+          getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
+          catalog.priceRules,
+          checkIn,
+          checkOut,
+        )
         return { catalog, room, checkIn, checkOut, guests: item.guests, quote }
       }),
     )

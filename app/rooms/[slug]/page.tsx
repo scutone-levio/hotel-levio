@@ -28,7 +28,7 @@ import {
 
 import { getRoomBySlug, getSimilarRooms } from "@/lib/queries"
 import { TYPE_TOTALS } from "@/lib/floor-plan"
-import { ROOM_TYPE_LABELS } from "@/lib/rooms"
+import { isListingFeatured, ROOM_TYPE_LABELS } from "@/lib/rooms"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +40,7 @@ export const dynamic = "force-dynamic"
 
 type PageProps = {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ subcategory?: string }>
 }
 
 export async function generateMetadata({
@@ -99,12 +100,14 @@ function NearbyIcon({ category }: { category: string }) {
 /*  Page                                                                 */
 /* ------------------------------------------------------------------ */
 
-export default async function RoomPage({ params }: PageProps) {
+export default async function RoomPage({ params, searchParams }: PageProps) {
   const { slug } = await params
-  const room = await getRoomBySlug(slug)
+  const { subcategory: subcategoryId } = await searchParams
+  const room = await getRoomBySlug(slug, subcategoryId)
   if (!room) notFound()
 
   const similarRooms = await getSimilarRooms(room, 3)
+  const featured = isListingFeatured(room)
 
   return (
     <div className="bg-background flex min-h-screen flex-col">
@@ -122,7 +125,7 @@ export default async function RoomPage({ params }: PageProps) {
           <RoomImageGallery
             images={room.images}
             roomName={room.name}
-            featured={room.featured}
+            featured={featured}
           />
 
           {/* Content grid */}

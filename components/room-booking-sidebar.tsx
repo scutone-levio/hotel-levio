@@ -8,7 +8,7 @@ import type { DateRange } from "react-day-picker"
 
 import type { RoomWithDetails } from "@/lib/queries"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice, fromPrice } from "@/lib/rooms"
+import { formatPrice, fromPrice, getRoomPrice } from "@/lib/rooms"
 import { quoteRange } from "@/lib/pricing"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
@@ -35,7 +35,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
 
   const quote =
     range?.from && range?.to
-      ? quoteRange(room.basePrice, room.priceRules, range.from, range.to)
+      ? quoteRange(getRoomPrice(room), room.priceRules, range.from, range.to)
       : null
 
   const disabled = [{ before: new Date() }, ...blackoutMatchers(room.blackouts)]
@@ -43,13 +43,15 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const alreadyInCart = items.some(
     (i) =>
       i.roomId === room.id &&
+      (i.subcategoryId ?? null) === (room.subcategory?.id ?? null) &&
       range?.from &&
       range?.to &&
       new Date(i.checkIn) < range.to &&
       new Date(i.checkOut) > range.from,
   )
 
-  const weekendRules = room.priceRules.filter((r) => r.price > room.basePrice)
+  const effectiveBase = getRoomPrice(room)
+  const weekendRules = room.priceRules.filter((r) => r.price > effectiveBase)
 
   function handleAddToCart() {
     if (!range?.from || !range?.to || !quote || quote.nights === 0) return
@@ -62,6 +64,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
       guests,
       nights: quote.nights,
       totalPrice: quote.total,
+      subcategoryId: room.subcategory?.id,
     })
     toast.success(`${room.name} added to cart`, {
       action: {

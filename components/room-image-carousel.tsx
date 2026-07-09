@@ -81,7 +81,7 @@ export function RoomImageCarousel({
             <Badge
               className="gap-1 text-white hover:opacity-90"
               style={{ backgroundColor: "#69C94F" }}
-              data-testid={!isHero ? "featured-badge" : undefined}
+              data-testid="featured-badge"
             >
               <Star className="size-3 fill-current" /> Featured
             </Badge>
@@ -114,7 +114,7 @@ export function RoomImageCarousel({
                     <Badge
                       className="gap-1 text-white hover:opacity-90"
                       style={{ backgroundColor: "#69C94F" }}
-                      data-testid={!isHero ? "featured-badge" : undefined}
+                      data-testid="featured-badge"
                     >
                       <Star className="size-3 fill-current" /> Featured
                     </Badge>

@@ -8,7 +8,7 @@ import type { DateRange } from "react-day-picker"
 
 import type { RoomWithDetails } from "@/lib/queries"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice } from "@/lib/rooms"
+import { formatPrice, getRoomPrice } from "@/lib/rooms"
 import { quoteRange } from "@/lib/pricing"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
@@ -55,7 +55,12 @@ export function BookRoomDialog({
 
   const quote =
     range?.from && range?.to
-      ? quoteRange(room.basePrice, room.priceRules, range.from, range.to)
+      ? quoteRange(
+          getRoomPrice(room),
+          room.priceRules,
+          range.from,
+          range.to,
+        )
       : null
 
   const disabled = [{ before: new Date() }, ...blackoutMatchers(room.blackouts)]
@@ -64,6 +69,7 @@ export function BookRoomDialog({
   const alreadyInCart = items.some(
     (i) =>
       i.roomId === room.id &&
+      (i.subcategoryId ?? null) === (room.subcategory?.id ?? null) &&
       range?.from &&
       range?.to &&
       new Date(i.checkIn) < range.to &&
@@ -81,6 +87,7 @@ export function BookRoomDialog({
       guests,
       nights: quote.nights,
       totalPrice: quote.total,
+      subcategoryId: room.subcategory?.id,
     })
     setOpen(false)
     toast.success(`${room.name} added to cart`, {

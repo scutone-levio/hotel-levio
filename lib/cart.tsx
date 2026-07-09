@@ -14,6 +14,7 @@ export type CartItem = {
   guests: number
   nights: number
   totalPrice: number // cents, pre-quoted client-side (re-verified server-side at checkout)
+  subcategoryId?: string
 }
 
 type CartCtx = {

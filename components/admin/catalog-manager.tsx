@@ -16,8 +16,7 @@ import {
   AdminPagination,
   type AdminPageSize,
 } from "@/components/admin/admin-pagination"
-import { syncTypeQuantityAction, setRoomFeatured } from "@/app/admin/actions"
-import { Button } from "@/components/ui/button"
+import { syncTypeQuantityAction } from "@/app/admin/actions"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -28,58 +27,11 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
 
 type InventorySummary = Record<
   RoomType,
   { count: number; roomNumbers: string[]; total: number }
 >
-
-function FeaturedToggle({
-  roomId,
-  initialFeatured,
-  disabled,
-}: {
-  roomId: string
-  initialFeatured: boolean
-  disabled?: boolean
-}) {
-  const [featured, setFeatured] = React.useState(initialFeatured)
-  const [pending, startTransition] = React.useTransition()
-
-  React.useEffect(() => {
-    setFeatured(initialFeatured)
-  }, [roomId, initialFeatured])
-
-  function toggle(checked: boolean) {
-    setFeatured(checked)
-    startTransition(async () => {
-      const result = await setRoomFeatured(roomId, checked)
-      if (result.ok) {
-        toast.success(
-          checked ? "Room type marked as featured" : "Featured removed",
-        )
-      } else {
-        setFeatured(!checked)
-        toast.error(result.error)
-      }
-    })
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <Switch
-        id={`featured-${roomId}`}
-        checked={featured}
-        disabled={disabled || pending}
-        onCheckedChange={toggle}
-      />
-      <Label htmlFor={`featured-${roomId}`} className="text-xs font-normal">
-        Featured
-      </Label>
-    </div>
-  )
-}
 
 export function CatalogManager({
   catalogRooms,
@@ -157,11 +109,6 @@ export function CatalogManager({
             <span>{catalog.images.length} image(s)</span>
             <span>{catalog.amenities.length} amenities</span>
             <span>{inventoryInfo.count} total units</span>
-            <FeaturedToggle
-              roomId={catalog.id}
-              initialFeatured={catalog.featured}
-              disabled={pending}
-            />
             <div className="flex items-end gap-2">
               <div className="space-y-1">
                 <Label htmlFor={`qty-${activeType}`} className="text-xs">

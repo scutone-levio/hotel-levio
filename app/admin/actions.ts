@@ -196,15 +196,18 @@ export async function deleteBlackout(id: string): Promise<ActionResult> {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Featured flag                                                               */
+/*  Featured flag (per subcategory)                                             */
 /* -------------------------------------------------------------------------- */
 
-export async function setRoomFeatured(
-  roomId: string,
+export async function setSubcategoryFeatured(
+  subcategoryId: string,
   featured: boolean,
 ): Promise<ActionResult> {
   return run(async () => {
-    await prisma.room.update({ where: { id: roomId }, data: { featured } })
+    await prisma.roomSubcategory.update({
+      where: { id: subcategoryId },
+      data: { featured },
+    })
   })
 }
 
@@ -418,7 +421,7 @@ export async function deleteBooking(id: string): Promise<ActionResult> {
 export async function createRoomSubcategory(
   roomType: string,
   name: string,
-  basePrice: number,
+  basePriceCents: number,
 ): Promise<ActionResult> {
   return run(async () => {
     const schema = z.object({
@@ -427,7 +430,11 @@ export async function createRoomSubcategory(
       basePrice: z.number().int().min(0, "Price must be non-negative"),
     })
 
-    const parsed = schema.safeParse({ roomType, name, basePrice })
+    const parsed = schema.safeParse({
+      roomType,
+      name,
+      basePrice: basePriceCents,
+    })
     if (!parsed.success) {
       throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
     }
@@ -441,7 +448,7 @@ export async function createRoomSubcategory(
 export async function updateRoomSubcategory(
   id: string,
   name: string,
-  basePrice: number,
+  basePriceCents: number,
 ): Promise<ActionResult> {
   return run(async () => {
     const schema = z.object({
@@ -449,7 +456,7 @@ export async function updateRoomSubcategory(
       basePrice: z.number().int().min(0, "Price must be non-negative"),
     })
 
-    const parsed = schema.safeParse({ name, basePrice })
+    const parsed = schema.safeParse({ name, basePrice: basePriceCents })
     if (!parsed.success) {
       throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
     }

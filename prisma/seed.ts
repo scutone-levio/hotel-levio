@@ -2,6 +2,12 @@ import { RoomType } from "@prisma/client"
 
 import { prisma } from "../lib/prisma"
 import {
+  assignSubcategoryNamesForRooms,
+  PUBLIC_SUBCATEGORY_NAMES,
+  SEED_FEATURED_SUBCATEGORY_NAME,
+  subcategoryPriceForType,
+} from "../lib/subcategories"
+import {
   CATALOG_ROOM_NUMBERS,
   DEFAULT_FLOOR_PLAN,
   catalogSlug,
@@ -218,7 +224,6 @@ async function ensureInventory(amenityIdByName: Map<string, string>) {
         floor: slot.floor,
         roomNumber: slot.roomNumber,
         isCatalog,
-        featured: isCatalog,
         amenities: { connect: amenityIds },
         images: isCatalog
           ? {
@@ -234,20 +239,15 @@ async function ensureInventory(amenityIdByName: Map<string, string>) {
     created += 1
   }
 
-  await prisma.room.updateMany({
-    where: { isCatalog: true },
-    data: { featured: true },
-  })
-
   for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
     const catalogNumber = CATALOG_ROOM_NUMBERS[type]
     await prisma.room.updateMany({
       where: { type, isCatalog: true, NOT: { roomNumber: catalogNumber } },
-      data: { isCatalog: false, featured: false },
+      data: { isCatalog: false },
     })
     await prisma.room.updateMany({
       where: { roomNumber: catalogNumber },
-      data: { isCatalog: true, featured: true, slug: catalogSlug(type), name: roomTypeMeta[type].label },
+      data: { isCatalog: true, slug: catalogSlug(type), name: roomTypeMeta[type].label },
     })
   }
 
@@ -336,64 +336,66 @@ async function ensureNearbyPlaces() {
 }
 
 async function ensureSubcategories() {
-  // Create "Lower Level" subcategory for each room type with independent pricing
-  const LOWER_LEVEL_PRICE = 11900 // $119 CAD - lower than standard pricing
   let created = 0
 
   for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
-    const existing = await prisma.roomSubcategory.findFirst({
-      where: {
-        name: "Lower Level",
-        roomType: type,
-      },
-    })
-
-    if (!existing) {
-      await prisma.roomSubcategory.create({
-        data: {
-          name: "Lower Level",
-          roomType: type,
-          basePrice: LOWER_LEVEL_PRICE,
-        },
+    for (const name of PUBLIC_SUBCATEGORY_NAMES) {
+      const existing = await prisma.roomSubcategory.findFirst({
+        where: { name, roomType: type },
       })
-      created += 1
-    }
-  }
 
-  // Assign all 100-level rooms to Lower Level subcategory
-  let assigned = 0
-  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
-    const lowerLevel = await prisma.roomSubcategory.findFirst({
-      where: {
-        name: "Lower Level",
-        roomType: type,
-      },
-    })
-    if (!lowerLevel) continue
-
-    const rooms = await prisma.room.findMany({
-      where: {
-        type,
-        roomNumber: {
-          gte: "100",
-          lt: "200",
-        },
-        isCatalog: false,
-      },
-    })
-
-    for (const room of rooms) {
-      if (!room.subcategoryId) {
-        await prisma.room.update({
-          where: { id: room.id },
-          data: { subcategoryId: lowerLevel.id },
+      if (!existing) {
+        await prisma.roomSubcategory.create({
+          data: {
+            name,
+            roomType: type,
+            basePrice: subcategoryPriceForType(type, name),
+            featured: name === SEED_FEATURED_SUBCATEGORY_NAME,
+          },
         })
-        assigned += 1
+        created += 1
+      } else if (
+        existing.featured !== (name === SEED_FEATURED_SUBCATEGORY_NAME)
+      ) {
+        await prisma.roomSubcategory.update({
+          where: { id: existing.id },
+          data: { featured: name === SEED_FEATURED_SUBCATEGORY_NAME },
+        })
       }
     }
   }
 
-  return { created, assigned }
+  const subcategoryIdByTypeAndName = new Map<string, string>()
+  const allSubs = await prisma.roomSubcategory.findMany()
+  for (const sub of allSubs) {
+    subcategoryIdByTypeAndName.set(`${sub.roomType}:${sub.name}`, sub.id)
+  }
+
+  const inventoryRooms = await prisma.room.findMany({
+    where: { isCatalog: false },
+    select: { id: true, type: true, floor: true, roomNumber: true },
+    orderBy: { roomNumber: "asc" },
+  })
+
+  const assignments = assignSubcategoryNamesForRooms(inventoryRooms)
+  let assigned = 0
+  const assignedByName: Record<string, number> = {}
+
+  for (const { room, subcategoryName } of assignments) {
+    const subcategoryId = subcategoryIdByTypeAndName.get(
+      `${room.type}:${subcategoryName}`,
+    )
+    if (!subcategoryId) continue
+
+    await prisma.room.update({
+      where: { id: room.id },
+      data: { subcategoryId },
+    })
+    assigned += 1
+    assignedByName[subcategoryName] = (assignedByName[subcategoryName] ?? 0) + 1
+  }
+
+  return { created, assigned, assignedByName }
 }
 
 async function main() {
@@ -424,12 +426,16 @@ async function main() {
   const placesUpserted = await ensureNearbyPlaces()
   console.log(`  • ${placesUpserted} nearby place entries ensured`)
 
-  const { created: subCreated, assigned: subAssigned } = await ensureSubcategories()
+  const { created: subCreated, assigned: subAssigned, assignedByName } =
+    await ensureSubcategories()
   if (subCreated > 0) {
     console.log(`  • ${subCreated} subcategory(ies) created`)
   }
   if (subAssigned > 0) {
     console.log(`  • ${subAssigned} room(s) assigned to subcategories`)
+    for (const [name, count] of Object.entries(assignedByName)) {
+      console.log(`    – ${name}: ${count}`)
+    }
   }
 
   console.log("✅ Seed complete.")
@@ -443,5 +449,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
-
-// This is just a placeholder - actual function added via edit

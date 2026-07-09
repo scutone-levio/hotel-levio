@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { RoomType, RoomSubcategory } from "@prisma/client"
+import type { RoomType } from "@prisma/client"
 import { toast } from "sonner"
 import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
 
@@ -11,6 +11,7 @@ import {
   createRoomSubcategory,
   updateRoomSubcategory,
   deleteRoomSubcategory,
+  setSubcategoryFeatured,
 } from "@/app/admin/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +31,52 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Switch } from "@/components/ui/switch"
+
+function FeaturedToggle({
+  subcategoryId,
+  initialFeatured,
+  disabled,
+  onFeaturedChange,
+}: {
+  subcategoryId: string
+  initialFeatured: boolean
+  disabled?: boolean
+  onFeaturedChange?: (featured: boolean) => void
+}) {
+  const [featured, setFeatured] = React.useState(initialFeatured)
+  const [pending, startTransition] = React.useTransition()
+
+  React.useEffect(() => {
+    setFeatured(initialFeatured)
+  }, [subcategoryId, initialFeatured])
+
+  function toggle(checked: boolean) {
+    setFeatured(checked)
+    startTransition(async () => {
+      const result = await setSubcategoryFeatured(subcategoryId, checked)
+      if (result.ok) {
+        onFeaturedChange?.(checked)
+        toast.success(
+          checked ? "Subcategory marked as featured" : "Featured removed",
+        )
+      } else {
+        setFeatured(!checked)
+        toast.error(result.error)
+      }
+    })
+  }
+
+  return (
+    <Switch
+      id={`featured-${subcategoryId}`}
+      checked={featured}
+      disabled={disabled || pending}
+      onCheckedChange={toggle}
+      data-testid={`featured-toggle-${subcategoryId}`}
+    />
+  )
+}
 
 interface SubcategoriesManagerProps {
   initialSubcategories: RoomSubcategoryWithCount[]
@@ -56,9 +103,27 @@ export function SubcategoriesManager({
     [subcategories, selectedType],
   )
 
+  function handleFeaturedChange(subcategoryId: string, featured: boolean) {
+    setSubcategories((prev) =>
+      prev.map((s) => (s.id === subcategoryId ? { ...s, featured } : s)),
+    )
+  }
+
+  function parseDollarsToCents(value: string): number | null {
+    const dollars = Number(value)
+    if (!Number.isFinite(dollars) || dollars < 0) return null
+    return Math.round(dollars * 100)
+  }
+
   const handleCreate = async () => {
     if (!newName || !newPrice) {
       toast.error("Fill in all fields")
+      return
+    }
+
+    const basePriceCents = parseDollarsToCents(newPrice)
+    if (basePriceCents === null) {
+      toast.error("Enter a valid price")
       return
     }
 
@@ -67,7 +132,7 @@ export function SubcategoriesManager({
       const result = await createRoomSubcategory(
         selectedType,
         newName,
-        parseInt(newPrice),
+        basePriceCents,
       )
       if (result.ok) {
         toast.success(`Created "${newName}"`)
@@ -92,9 +157,15 @@ export function SubcategoriesManager({
       return
     }
 
+    const basePriceCents = parseDollarsToCents(editPrice)
+    if (basePriceCents === null) {
+      toast.error("Enter a valid price")
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      const result = await updateRoomSubcategory(id, editName, parseInt(editPrice))
+      const result = await updateRoomSubcategory(id, editName, basePriceCents)
       if (result.ok) {
         toast.success("Updated successfully")
         setEditingId(null)
@@ -181,19 +252,16 @@ export function SubcategoriesManager({
               />
             </div>
             <div>
-              <Label className="text-xs">Base Price (cents)</Label>
+              <Label className="text-xs">Base price / night ($)</Label>
               <Input
                 type="number"
+                min={0}
+                step="0.01"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
-                placeholder="11900"
+                placeholder="119"
                 className="h-8 text-sm mt-1"
               />
-              {newPrice && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  ≈ {formatPrice(parseInt(newPrice) || 0, "CAD")} per night
-                </p>
-              )}
             </div>
             <div className="flex gap-2">
               <Button
@@ -227,6 +295,7 @@ export function SubcategoriesManager({
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead className="text-center">Featured</TableHead>
               <TableHead className="text-right">Base Price</TableHead>
               <TableHead className="text-center">Rooms Using</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -235,7 +304,7 @@ export function SubcategoriesManager({
           <TableBody>
             {filteredSubs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
                   No subcategories for this room type
                 </TableCell>
               </TableRow>
@@ -251,9 +320,12 @@ export function SubcategoriesManager({
                           className="h-8 text-sm"
                         />
                       </TableCell>
+                      <TableCell />
                       <TableCell className="text-right">
                         <Input
                           type="number"
+                          min={0}
+                          step="0.01"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           className="h-8 text-sm text-right"
@@ -282,6 +354,16 @@ export function SubcategoriesManager({
                   ) : (
                     <>
                       <TableCell className="font-medium">{sub.name}</TableCell>
+                      <TableCell className="text-center">
+                        <FeaturedToggle
+                          subcategoryId={sub.id}
+                          initialFeatured={sub.featured}
+                          disabled={isSubmitting}
+                          onFeaturedChange={(featured) =>
+                            handleFeaturedChange(sub.id, featured)
+                          }
+                        />
+                      </TableCell>
                       <TableCell className="text-right text-sm">
                         {formatPrice(sub.basePrice, "CAD")}
                       </TableCell>
@@ -292,7 +374,7 @@ export function SubcategoriesManager({
                             onClick={() => {
                               setEditingId(sub.id)
                               setEditName(sub.name)
-                              setEditPrice(String(sub.basePrice))
+                              setEditPrice(String(sub.basePrice / 100))
                             }}
                             disabled={isSubmitting}
                             className="p-1.5 hover:bg-muted rounded"
