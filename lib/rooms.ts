@@ -94,7 +94,7 @@ export function formatPrice(cents: number, currency = "USD") {
   }).format(cents / 100).replace(/^([A-Z]{2})(\$)/, "$1 $2")
 }
 
-/** Rank listings by similarity to `current` and return up to `limit` matches. */
+/** Rank listings by similarity to `current` and return up to `limit` matches. Callers should exclude the current listing from `candidates`. */
 type SimilarListing = {
   type: RoomType
   basePrice: number
