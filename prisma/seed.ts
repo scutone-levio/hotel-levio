@@ -354,13 +354,15 @@ async function ensureSubcategories() {
           },
         })
         created += 1
-      } else if (
-        existing.featured !== (name === SEED_FEATURED_SUBCATEGORY_NAME)
-      ) {
-        await prisma.roomSubcategory.update({
-          where: { id: existing.id },
-          data: { featured: name === SEED_FEATURED_SUBCATEGORY_NAME },
-        })
+      } else {
+        const basePrice = subcategoryPriceForType(type, name)
+        const featured = name === SEED_FEATURED_SUBCATEGORY_NAME
+        if (existing.featured !== featured || existing.basePrice !== basePrice) {
+          await prisma.roomSubcategory.update({
+            where: { id: existing.id },
+            data: { featured, basePrice },
+          })
+        }
       }
     }
   }
