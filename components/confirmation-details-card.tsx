@@ -37,7 +37,9 @@ export function ConfirmationDetailsCard({
   currency = "CAD",
 }: ConfirmationDetailsCardProps) {
   const nights = Math.round(
-    (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
+    (Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate()) -
+      Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate())) /
+      (1000 * 60 * 60 * 24),
   )
   const paddingClass = compact ? "p-5" : "p-6"
 
