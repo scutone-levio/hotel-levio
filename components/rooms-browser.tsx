@@ -269,7 +269,7 @@ export function RoomsBrowser({
         </div>
 
         <div
-          className="text-primary-foreground flex flex-wrap items-center justify-end gap-2"
+          className="text-foreground flex flex-wrap items-center justify-end gap-2"
           style={listingsControlsTheme}
         >
           <Select
