@@ -34,6 +34,7 @@ model RoomSubcategory {
   roomType  RoomType
   // Base price per night in cents for rooms with this subcategory.
   basePrice Int
+  featured  Boolean  @default(false)
   rooms     Room[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -68,7 +69,6 @@ model Room {
   basePrice   Int
   capacity    Int      @default(2)
   beds        Int      @default(1)
-  featured    Boolean  @default(false)
   floor       Int?
   roomNumber  String   @unique
 

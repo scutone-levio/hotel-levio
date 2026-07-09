@@ -82,6 +82,7 @@ function PaymentStep({
           checkIn: i.checkIn,
           checkOut: i.checkOut,
           guests: i.guests,
+          subcategoryId: i.subcategoryId,
         })),
         guestName: `${guestInfo.firstName.trim()} ${guestInfo.lastName.trim()}`,
         guestEmail: guestInfo.email.trim(),
@@ -176,6 +177,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
           checkIn: i.checkIn,
           checkOut: i.checkOut,
           guests: i.guests,
+          subcategoryId: i.subcategoryId,
         })),
       )
       if (result.ok) {

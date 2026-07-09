@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import Image from "next/image"
 
 import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
-import { ROOM_TYPE_LABELS, WEEKDAYS, formatPrice } from "@/lib/rooms"
+import { ROOM_TYPE_LABELS, WEEKDAYS, formatPrice, parseDollarsToCents } from "@/lib/rooms"
 import { ReservationsTable } from "@/components/admin/reservations-table"
 import {
   setRoomAmenities,
@@ -310,13 +310,18 @@ function PricingPanel({ room }: { room: RoomForAdmin }) {
   const ruleByDay = new Map(room.priceRules.map((r) => [r.dayOfWeek, r.price]))
 
   function saveBase() {
-    const dollars = Number(base)
-    if (!Number.isFinite(dollars) || dollars < 0) {
+    const trimmed = base.trim()
+    if (trimmed === "") {
+      toast.error("Enter a valid price")
+      return
+    }
+    const basePriceCents = parseDollarsToCents(trimmed)
+    if (basePriceCents === null) {
       toast.error("Enter a valid price")
       return
     }
     startTransition(async () => {
-      const result = await updateBasePrice(room.id, Math.round(dollars * 100))
+      const result = await updateBasePrice(room.id, basePriceCents)
       if (result.ok) toast.success("Base price updated")
       else toast.error(result.error)
     })
@@ -324,8 +329,8 @@ function PricingPanel({ room }: { room: RoomForAdmin }) {
 
   function saveDay(day: number, value: string) {
     const trimmed = value.trim()
-    const cents = trimmed === "" ? null : Math.round(Number(trimmed) * 100)
-    if (cents !== null && (!Number.isFinite(cents) || cents < 0)) {
+    const cents = trimmed === "" ? null : parseDollarsToCents(trimmed)
+    if (trimmed !== "" && cents === null) {
       toast.error("Enter a valid price")
       return
     }

@@ -1,4 +1,4 @@
-import type { RoomType, RoomSubcategory } from "@prisma/client"
+import type { RoomType } from "@prisma/client"
 
 // Display helpers and constants shared across the app.
 
@@ -11,6 +11,26 @@ export const ROOM_TYPE_LABELS: Record<RoomType, string> = {
 
 export const ROOM_TYPES: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
 
+/** @deprecated Import from @/lib/subcategories instead. */
+export { PUBLIC_SUBCATEGORY_NAMES } from "@/lib/subcategories"
+
+export const ROOM_TYPE_SHORT_LABELS: Record<RoomType, string> = {
+  TWIN: "Twin Room",
+  QUEEN: "Queen Room",
+  KING: "King Room",
+  SUITE: "Suite",
+}
+
+/** Display name for a catalog room + subcategory listing, e.g. "Twin Room - Lower Level". */
+export function formatListingName(catalogName: string, subcategoryName: string) {
+  return `${catalogName} - ${subcategoryName}`
+}
+
+/** Unique key for a catalog + subcategory listing (shared catalog id across subcategories). */
+export function listingAvailabilityKey(roomId: string, subcategoryId: string) {
+  return `${roomId}:${subcategoryId}`
+}
+
 // dayOfWeek 0 = Sunday .. 6 = Saturday (matches JS Date.getDay()).
 export const WEEKDAYS = [
   "Sunday",
@@ -22,9 +42,31 @@ export const WEEKDAYS = [
   "Saturday",
 ] as const
 
-/** URL path for an individual room page. */
-export function roomPath(slug: string) {
-  return `/rooms/${slug}`
+/** URL path for an individual room page, optionally scoped to a subcategory listing. */
+export function roomPath(slug: string, subcategoryId?: string) {
+  const base = `/rooms/${slug}`
+  if (!subcategoryId) return base
+  return `${base}?subcategory=${subcategoryId}`
+}
+
+/** Whether a listing (or catalog room) should show the Featured badge. */
+export function isListingFeatured(room: {
+  featured?: boolean
+  subcategory?: { featured: boolean } | null
+}) {
+  return room.featured ?? room.subcategory?.featured ?? false
+}
+
+/** Parse admin dollar input to cents, or null when invalid. */
+export function parseDollarsToCents(value: string): number | null {
+  const dollars = Number(value)
+  if (!Number.isFinite(dollars) || dollars < 0) return null
+  return Math.round(dollars * 100)
+}
+
+/** Format stored cents for admin dollar inputs. */
+export function centsToDollarsString(cents: number): string {
+  return String(cents / 100)
 }
 
 /** Get effective price for a room: subcategory price if assigned, otherwise basePrice. */
@@ -63,7 +105,6 @@ export function pickSimilarRooms<
     basePrice: number
     capacity: number
     beds: number
-    featured: boolean
     name: string
     amenities: { id: string }[]
   },
@@ -87,8 +128,6 @@ export function pickSimilarRooms<
 
       const priceDiff = Math.abs(room.basePrice - current.basePrice)
       score += Math.max(0, 40 - priceDiff / 500)
-
-      if (room.featured) score += 5
 
       return { room, score }
     })

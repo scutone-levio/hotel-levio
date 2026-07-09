@@ -5,10 +5,11 @@ import { Loader2, SlidersHorizontal } from "lucide-react"
 import type { RoomType } from "@prisma/client"
 import { format } from "date-fns"
 
-import type { RoomWithDetails } from "@/lib/queries"
+import type { PublicRoomListing } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { ROOM_TYPE_LABELS } from "@/lib/rooms"
+import { fromPrice, listingAvailabilityKey, ROOM_TYPE_LABELS, ROOM_TYPE_SHORT_LABELS } from "@/lib/rooms"
+import { subcategorySortIndex } from "@/lib/subcategories"
 import { RoomCard } from "@/components/room-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -73,9 +74,11 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
+const CATALOG_ORDER: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
+
 type Props = {
-  rooms: RoomWithDetails[]
-  /** Set of catalog room IDs available for the selected date range. Null = no date filter. */
+  rooms: PublicRoomListing[]
+  /** Listing availability keys (`roomId:subcategoryId`) with stock for the selected dates. Null = no date filter. */
   availableIds?: Set<string> | null
   availabilityCounts?: Record<string, AvailabilityCount> | null
   isCheckingAvailability?: boolean
@@ -109,7 +112,8 @@ export function RoomsBrowser({
 
   const filtered = React.useMemo(() => {
     const result = rooms.filter((r) => {
-      if (availableIds !== null && !availableIds.has(r.id)) return false
+      if (availableIds != null) {
+      }
       const typeOk = types.size === 0 || types.has(r.type)
       const roomAmenities = new Set(r.amenities.map((a) => a.id))
       const amenityOk =
@@ -120,9 +124,9 @@ export function RoomsBrowser({
 
     switch (sort) {
       case "price-asc":
-        return [...result].sort((a, b) => a.basePrice - b.basePrice)
+        return [...result].sort((a, b) => fromPrice(a) - fromPrice(b))
       case "price-desc":
-        return [...result].sort((a, b) => b.basePrice - a.basePrice)
+        return [...result].sort((a, b) => fromPrice(b) - fromPrice(a))
       case "name-asc":
         return [...result].sort((a, b) => a.name.localeCompare(b.name))
       case "name-desc":
@@ -134,7 +138,11 @@ export function RoomsBrowser({
       default:
         return [...result].sort((a, b) => {
           if (a.featured !== b.featured) return a.featured ? -1 : 1
-          return b.basePrice - a.basePrice
+          const subOrder =
+            subcategorySortIndex(a.subcategory.name) -
+            subcategorySortIndex(b.subcategory.name)
+          if (subOrder !== 0) return subOrder
+          return fromPrice(b) - fromPrice(a)
         })
     }
   }, [rooms, types, amenityIds, sort, availableIds])
@@ -146,6 +154,19 @@ export function RoomsBrowser({
     const start = (currentPage - 1) * pageSize
     return filtered.slice(start, start + pageSize)
   }, [filtered, currentPage, pageSize])
+
+  const grouped = React.useMemo(() => {
+    const byType = new Map<RoomType, PublicRoomListing[]>()
+    for (const room of paginated) {
+      const list = byType.get(room.type) ?? []
+      list.push(room)
+      byType.set(room.type, list)
+    }
+    return CATALOG_ORDER.filter((type) => byType.has(type)).map((type) => ({
+      type,
+      rooms: byType.get(type)!,
+    }))
+  }, [paginated])
 
   React.useEffect(() => {
     setPage(1)
@@ -227,7 +248,10 @@ export function RoomsBrowser({
           </Select>
 
           <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger
+              className="h-9 text-sm"
+              data-testid="rooms-sort-trigger"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" align="end">
@@ -311,20 +335,35 @@ export function RoomsBrowser({
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.slice(0, 6).map((room) => (
             <div
-              key={room.id}
+              key={`${room.id}-${room.subcategory?.id ?? "default"}`}
               className="bg-muted animate-pulse rounded-xl aspect-[3/4]"
             />
           ))}
         </div>
       ) : filtered.length ? (
         <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {paginated.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                availability={availabilityCounts?.[room.type] ?? null}
-              />
+          <div className="space-y-10">
+            {grouped.map(({ type, rooms: sectionRooms }) => (
+              <section key={type}>
+                <h3 className="mb-4 text-xl font-semibold tracking-tight">
+                  {ROOM_TYPE_SHORT_LABELS[type]}
+                </h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {sectionRooms.map((room) => (
+                    <RoomCard
+                      key={`${room.id}-${room.subcategory?.id ?? "default"}`}
+                      room={room}
+                      availability={
+                        room.subcategory?.id
+                          ? availabilityCounts?.[
+                              listingAvailabilityKey(room.id, room.subcategory.id)
+                            ] ?? null
+                          : null
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
 

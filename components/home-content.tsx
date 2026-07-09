@@ -5,20 +5,38 @@ import { usePathname, useRouter } from "next/navigation"
 import { MapPin, Star } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
-import type { RoomWithDetails } from "@/lib/queries"
-import { getAvailableRoomIds, getAvailabilityCountsByType } from "@/app/actions"
+import type { PublicRoomListing } from "@/lib/queries"
+import {
+  getAvailableRoomIds,
+  getAvailabilityCountsByListing,
+  type ListingAvailabilityInput,
+} from "@/app/actions"
 import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
 import { Badge } from "@/components/ui/badge"
 import { BookingPicker } from "@/components/booking-picker"
 import { RoomsBrowser } from "@/components/rooms-browser"
 
-export function HomeContent({ rooms }: { rooms: RoomWithDetails[] }) {
+export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const { dateRange, setDateRange, isHydrated } = useDateRange()
 
-  const [availableIds, setAvailableIds] = React.useState<Set<string> | null>(null)
+  const listingInputs = React.useMemo<ListingAvailabilityInput[]>(
+    () =>
+      rooms
+        .filter((room) => room.subcategory?.id)
+        .map((room) => ({
+          roomId: room.id,
+          type: room.type,
+          subcategoryId: room.subcategory!.id,
+        })),
+    [rooms],
+  )
+
+  const [availableListingKeys, setAvailableListingKeys] = React.useState<
+    Set<string> | null
+  >(null)
   const [availabilityCounts, setAvailabilityCounts] = React.useState<
     Record<string, AvailabilityCount> | null
   >(null)
@@ -40,7 +58,7 @@ export function HomeContent({ rooms }: { rooms: RoomWithDetails[] }) {
     if (!isHydrated) return
 
     if (!dateRange?.from || !dateRange?.to) {
-      setAvailableIds(null)
+      setAvailableListingKeys(null)
       setAvailabilityCounts(null)
       return
     }
@@ -49,13 +67,13 @@ export function HomeContent({ rooms }: { rooms: RoomWithDetails[] }) {
       const checkIn = dateRange.from!.toISOString()
       const checkOut = dateRange.to!.toISOString()
       const [ids, counts] = await Promise.all([
-        getAvailableRoomIds(checkIn, checkOut),
-        getAvailabilityCountsByType(checkIn, checkOut),
+        getAvailableRoomIds(checkIn, checkOut, listingInputs),
+        getAvailabilityCountsByListing(checkIn, checkOut, listingInputs),
       ])
-      setAvailableIds(new Set(ids))
+      setAvailableListingKeys(new Set(ids))
       setAvailabilityCounts(counts)
     })
-  }, [dateRange, isHydrated])
+  }, [dateRange, isHydrated, listingInputs])
 
   function handleRangeChange(range: DateRange | undefined) {
     setDateRange(range)
@@ -95,7 +113,7 @@ export function HomeContent({ rooms }: { rooms: RoomWithDetails[] }) {
       <section id="rooms" className="mx-auto max-w-6xl px-6 pb-24">
         <RoomsBrowser
           rooms={rooms}
-          availableIds={availableIds}
+          availableIds={availableListingKeys}
           availabilityCounts={availabilityCounts}
           isCheckingAvailability={isPending}
         />

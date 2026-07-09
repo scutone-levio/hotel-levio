@@ -3,7 +3,7 @@ import { BedDouble, Users } from "lucide-react"
 
 import type { RoomWithDetails } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
-import { formatPrice, fromPrice, roomPath } from "@/lib/rooms"
+import { formatPrice, fromPrice, isListingFeatured, roomPath } from "@/lib/rooms"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -30,21 +30,20 @@ export function RoomCard({
     <Card
       className="flex flex-col overflow-hidden pt-0"
       data-testid="room-card"
+      data-featured={isListingFeatured(room) ? "true" : "false"}
     >
       <RoomCardGallery room={room} />
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-lg">
-              <Link href={roomPath(room.slug)} className="hover:underline">
+              <Link
+                href={roomPath(room.slug, room.subcategory?.id)}
+                className="hover:underline"
+              >
                 {room.name}
               </Link>
             </CardTitle>
-            {room.subcategory && (
-              <p className="text-muted-foreground text-sm mt-1">
-                {room.subcategory.name}
-              </p>
-            )}
           </div>
           <div className="text-right">
             <div className="text-lg font-semibold">

@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { getRooms } from "@/lib/queries"
+import { getPublicRoomListings } from "@/lib/queries"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { HomeContent } from "@/components/home-content"
@@ -7,7 +7,7 @@ import { HomeContent } from "@/components/home-content"
 export const dynamic = "force-dynamic"
 
 export default async function Home() {
-  const rooms = await getRooms()
+  const rooms = await getPublicRoomListings()
 
   return (
     <div className="bg-background min-h-screen flex flex-col">
