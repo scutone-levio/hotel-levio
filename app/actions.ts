@@ -23,12 +23,12 @@ async function resolveListingSubcategory(
   catalog: { type: RoomType; subcategory: RoomSubcategory | null },
   subcategoryId?: string,
 ): Promise<RoomSubcategory | null> {
-  if (catalog.subcategory) return catalog.subcategory
-  if (!subcategoryId) return null
-  return prisma.roomSubcategory.findFirst({
-    where: { id: subcategoryId, roomType: catalog.type },
-  })
-}
+  if (subcategoryId) {
+    return prisma.roomSubcategory.findFirst({
+      where: { id: subcategoryId, roomType: catalog.type },
+    })
+  }
+  return catalog.subcategory
 
 export type AvailabilityCount = { available: number; total: number }
 
