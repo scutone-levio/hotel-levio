@@ -1,4 +1,4 @@
-import { format } from "date-fns"
+import { differenceInCalendarDays, format, startOfDay } from "date-fns"
 import { CalendarDays, Users } from "lucide-react"
 
 import { formatPrice } from "@/lib/rooms"
@@ -36,10 +36,9 @@ export function ConfirmationDetailsCard({
   totalLabel,
   currency = "CAD",
 }: ConfirmationDetailsCardProps) {
-  const nights = Math.round(
-    (Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate()) -
-      Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate())) /
-      (1000 * 60 * 60 * 24),
+  const nights = differenceInCalendarDays(
+    startOfDay(checkOut),
+    startOfDay(checkIn),
   )
   const paddingClass = compact ? "p-5" : "p-6"
 

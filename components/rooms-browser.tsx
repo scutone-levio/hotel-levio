@@ -375,7 +375,16 @@ export function RoomsBrowser({
         </div>
       </div>
 
-      {filtered.length ? (
+      {isCheckingAvailability && filtered.length === 0 ? (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {rooms.slice(0, 6).map((room) => (
+            <div
+              key={`${room.id}-${room.subcategory?.id ?? "default"}`}
+              className="bg-muted aspect-[3/4] animate-pulse rounded-xl"
+            />
+          ))}
+        </div>
+      ) : filtered.length ? (
         <>
           <div
             className={`space-y-10 transition-opacity duration-200 ${isCheckingAvailability ? "opacity-50" : ""}`}
@@ -441,11 +450,6 @@ export function RoomsBrowser({
             </div>
           </div>
         </>
-      ) : isCheckingAvailability ? (
-        <div className="text-muted-foreground flex items-center justify-center gap-2 rounded-lg border border-dashed p-12 text-center">
-          <Loader2 className="size-4 animate-spin" />
-          Checking availability…
-        </div>
       ) : (
         <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
           {hasDates && availableIds !== null

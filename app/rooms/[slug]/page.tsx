@@ -234,7 +234,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
               <h2 className="text-2xl tracking-tight text-primary-foreground">
                 Other Rooms You Might Like
               </h2>
-              <p className="text-primary-foreground/55 mt-1">
+              <p className="text-muted-foreground mt-1">
                 Similar stays based on room type, amenities, and price.
               </p>
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

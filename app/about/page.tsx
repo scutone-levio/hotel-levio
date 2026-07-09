@@ -105,7 +105,7 @@ export default function AboutPage() {
       <main className="flex-1">
         {/* Hero */}
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#f3ecda]/50 to-background" />
+          <div className="absolute inset-0 -z-10 bg-linear-to-br from-[#f3ecda]/50 to-background" />
           <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
             <span className="mb-3 block text-[0.72rem] tracking-[0.24em] text-primary uppercase">
               Hôtel Levio · Downtown Montréal
@@ -236,7 +236,7 @@ export default function AboutPage() {
               sizes="100vw"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-5 left-6 text-white">
               <p className="text-lg font-semibold">Old Port of Montréal</p>
               <p className="text-sm opacity-80">12 minutes on foot</p>
