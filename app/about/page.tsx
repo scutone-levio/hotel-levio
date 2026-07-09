@@ -1,8 +1,10 @@
 import Image from "next/image"
+import Link from "next/link"
 import { MapPin, Clock, Phone, Globe } from "lucide-react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 export const metadata = {
   title: "About Us — Hôtel Levio",
@@ -104,29 +106,89 @@ export default function AboutPage() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 -z-10 bg-linear-to-br from-[#f3ecda]/50 to-background" />
-          <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-28">
-            <span className="mb-3 block text-[0.72rem] tracking-[0.24em] text-primary uppercase">
-              Hôtel Levio · Downtown Montréal
-            </span>
-            <h1 className="mx-auto max-w-3xl text-4xl tracking-tight text-balance text-primary-foreground sm:text-6xl">
-              Where Montréal's golden mile meets timeless luxury
-            </h1>
-            <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-lg text-pretty">
-              Hôtel Levio occupies the crown floors of one of downtown
-              Montréal's most prestigious addresses — steps from the Old Port,
-              McGill University, and the finest dining the city has to offer.
+        <section className="relative overflow-hidden bg-linear-to-b from-[#081a27] via-[#0f2a3d] to-[#3f6f83] px-6 py-24 text-center sm:py-32">
+          {/* Ambient gold radial glow */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-[30%] left-1/2 h-[60rem] w-[60rem] -translate-x-1/2 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(220,174,112,0.13) 0%, transparent 60%)" }}
+          />
+          {/* Directional light sweep */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(115deg, rgba(220,174,112,0.04) 0%, transparent 40%)" }}
+          />
+
+          <div className="relative mx-auto max-w-2xl">
+            {/* Eyebrow */}
+            <p className="inline-flex items-center gap-3 text-[0.72rem] tracking-[0.24em] text-[#dcae70] uppercase">
+              <span className="h-px w-9 bg-[#dcae70]/70" />
+              Boutique Hotel · Founded 2018
+              <span className="h-px w-9 bg-[#dcae70]/70" />
             </p>
-            <div className="text-muted-foreground mt-4 flex items-center justify-center gap-1 text-sm">
-              <MapPin className="size-4 shrink-0" />
-              1801 av. McGill College, bureau 1055, Montréal (QC) H3A 2N4
+
+            {/* H1 */}
+            <h1 className="mx-auto mt-6 max-w-2xl text-4xl leading-[1.1] font-medium text-balance text-[#f8f3e6] sm:text-6xl">
+              Where Montréal&apos;s{" "}
+              <em className="text-[#dcae70] not-italic">golden mile</em>{" "}
+              meets timeless luxury
+            </h1>
+
+            <p className="mx-auto mt-5 max-w-md text-[1.05rem] leading-relaxed text-[#f8f3e6]/70 text-pretty">
+              Hôtel Levio occupies the crown floors of one of downtown
+              Montréal&apos;s most prestigious addresses — steps from the Old
+              Port, McGill, and the finest dining the city has to offer.
+            </p>
+
+            {/* Stat strip */}
+            <div
+              className="mt-10 inline-flex overflow-hidden rounded-xl border border-[#c69456]/20"
+              style={{ background: "rgba(8,26,39,0.35)", backdropFilter: "blur(4px)" }}
+            >
+              <div className="px-8 py-4 text-center">
+                <div className="font-serif text-2xl font-medium text-[#dcae70]">10</div>
+                <div className="mt-1 text-[0.65rem] tracking-[0.18em] text-[#f8f3e6]/45 uppercase">Floors</div>
+              </div>
+              <div className="border-l border-[#c69456]/20 px-8 py-4 text-center">
+                <div className="font-serif text-2xl font-medium text-[#dcae70]">4.9★</div>
+                <div className="mt-1 text-[0.65rem] tracking-[0.18em] text-[#f8f3e6]/45 uppercase">Rating</div>
+              </div>
+              <div className="border-l border-[#c69456]/20 px-8 py-4 text-center">
+                <div className="font-serif text-2xl font-medium text-[#dcae70]">2,300+</div>
+                <div className="mt-1 text-[0.65rem] tracking-[0.18em] text-[#f8f3e6]/45 uppercase">Guests</div>
+              </div>
+              <div className="border-l border-[#c69456]/20 px-8 py-4 text-center">
+                <div className="font-serif text-2xl font-medium text-[#dcae70]">24/7</div>
+                <div className="mt-1 text-[0.65rem] tracking-[0.18em] text-[#f8f3e6]/45 uppercase">Concierge</div>
+              </div>
             </div>
+
+            {/* CTAs */}
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button asChild size="lg">
+                <Link href="/#rooms">Explore our rooms</Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-[#c69456]/35 bg-transparent text-[#f8f3e6] hover:border-[#c69456]/70 hover:bg-[#c69456]/10 hover:text-[#dcae70]"
+                asChild
+              >
+                <Link href="#story">Our story ↓</Link>
+              </Button>
+            </div>
+
+            {/* Location */}
+            <p className="mt-7 flex items-center justify-center gap-1.5 text-[0.72rem] tracking-[0.12em] text-[#f8f3e6]/50 uppercase">
+              <MapPin className="size-3.5 text-[#dcae70]" />
+              1801 av. McGill College · Montréal (QC)
+            </p>
           </div>
         </section>
 
         {/* Our Story */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section id="story" className="mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>
               <h2 className="text-3xl tracking-tight text-primary-foreground">Our story</h2>
