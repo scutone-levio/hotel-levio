@@ -186,4 +186,5 @@ model Booking {
 
   @@index([roomId])
   @@index([userId])
+  @@index([subcategoryId])
 }
