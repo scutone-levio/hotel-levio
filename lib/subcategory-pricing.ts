@@ -111,7 +111,10 @@ export async function syncInventoryBasesToSubcategory(
 
 export async function deleteOrphanSubcategories(): Promise<number> {
   const orphans = await prisma.roomSubcategory.findMany({
-    where: { rooms: { none: { isCatalog: false } } },
+    where: {
+      rooms: { none: { isCatalog: false } },
+      bookings: { none: {} },
+    },
     select: { id: true },
   })
 

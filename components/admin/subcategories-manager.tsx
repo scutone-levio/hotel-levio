@@ -233,7 +233,6 @@ export function SubcategoriesManager({
       toast.success(
         `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
       )
-      window.location.reload()
     })
   }
 

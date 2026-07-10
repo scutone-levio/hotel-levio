@@ -36,7 +36,7 @@ model RoomSubcategory {
   basePrice Int
   // Lowest nightly rate across inventory rooms (for listing cards).
   fromPriceCents   Int     @default(0)
-  // True when any inventory room has a weekday rule above its base price.
+  // True when any inventory room has a price rule above its base price.
   hasWeekendRates  Boolean @default(false)
   featured  Boolean  @default(false)
   rooms     Room[]
