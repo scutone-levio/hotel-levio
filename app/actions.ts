@@ -51,14 +51,20 @@ async function resolveAndQuoteListing(input: {
 > {
   const catalog = await prisma.room.findUnique({
     where: { id: input.roomId },
-    select: { id: true, type: true, name: true, isCatalog: true },
+    select: {
+      id: true,
+      type: true,
+      name: true,
+      isCatalog: true,
+      subcategory: true,
+    },
   })
   if (!catalog) {
     return { ok: false, error: "Room not found" }
   }
 
   const subcategory = await resolveListingSubcategory(
-    { type: catalog.type, subcategory: null },
+    { type: catalog.type, subcategory: catalog.subcategory },
     input.subcategoryId,
   )
   if (input.subcategoryId && !subcategory) {
