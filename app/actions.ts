@@ -789,6 +789,19 @@ export async function finalizeCartBookings(input: {
           throw new Error("Cart contents changed. Please restart checkout.")
         }
 
+        const conflicting = await tx.booking.findFirst({
+          where: {
+            roomId: p.unit.id,
+            status: { in: ["PENDING", "CONFIRMED"] },
+            checkIn: { lt: p.checkOut },
+            checkOut: { gt: p.checkIn },
+          },
+          select: { id: true },
+        })
+        if (conflicting) {
+          throw new Error("Quoted room is no longer available. Please restart checkout.")
+        }
+
         const b = await tx.booking.create({
           data: {
             roomId: p.unit.id,
