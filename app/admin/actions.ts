@@ -15,10 +15,29 @@ import {
   adminBookingModifiedEmail,
   adminBookingDeletedEmail,
 } from "@/lib/email-templates"
+import {
+  LAKE_VIEW_NAME,
+  LAKE_VIEW_PRICE_MULTIPLIER,
+  applyPricePremium,
+  weekendPriceForBase,
+} from "@/lib/subcategories"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
+
+export type BumpLakeViewPricesResult =
+  | {
+      ok: true
+      updated: Array<{
+        roomType: RoomType
+        subcategoryId: string
+        oldPrice: number
+        newPrice: number
+        roomsUpdated: number
+      }>
+    }
+  | { ok: false; error: string }
 
 function revalidate() {
   revalidatePath("/admin")
@@ -466,6 +485,97 @@ export async function updateRoomSubcategory(
       data: parsed.data,
     })
   })
+}
+
+const WEEKEND_DAYS = [5, 6] as const
+
+export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPricesResult> {
+  try {
+    const subcategories = await prisma.roomSubcategory.findMany({
+      where: { name: LAKE_VIEW_NAME },
+    })
+
+    if (subcategories.length === 0) {
+      return { ok: false, error: "No Lake View subcategories found" }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const priceBySubcategoryId = new Map<string, number>()
+      const summary: Extract<
+        BumpLakeViewPricesResult,
+        { ok: true }
+      >["updated"] = []
+
+      for (const sub of subcategories) {
+        const newPrice = applyPricePremium(
+          sub.basePrice,
+          LAKE_VIEW_PRICE_MULTIPLIER,
+        )
+        await tx.roomSubcategory.update({
+          where: { id: sub.id },
+          data: { basePrice: newPrice },
+        })
+        priceBySubcategoryId.set(sub.id, newPrice)
+        summary.push({
+          roomType: sub.roomType,
+          subcategoryId: sub.id,
+          oldPrice: sub.basePrice,
+          newPrice,
+          roomsUpdated: 0,
+        })
+      }
+
+      const lakeViewRooms = await tx.room.findMany({
+        where: {
+          isCatalog: false,
+          subcategory: { name: LAKE_VIEW_NAME },
+        },
+        include: { priceRules: true, subcategory: true },
+      })
+
+      for (const room of lakeViewRooms) {
+        const subcategoryId = room.subcategoryId
+        if (!subcategoryId) continue
+
+        const newSubBase = priceBySubcategoryId.get(subcategoryId)
+        if (newSubBase == null) continue
+
+        await tx.room.update({
+          where: { id: room.id },
+          data: { basePrice: newSubBase },
+        })
+
+        const weekendPrice = weekendPriceForBase(newSubBase)
+
+        for (const dayOfWeek of WEEKEND_DAYS) {
+          const existing = room.priceRules.find((r) => r.dayOfWeek === dayOfWeek)
+          if (existing) {
+            await tx.roomPriceRule.update({
+              where: { id: existing.id },
+              data: { price: weekendPrice },
+            })
+          } else {
+            await tx.roomPriceRule.create({
+              data: { roomId: room.id, dayOfWeek, price: weekendPrice },
+            })
+          }
+        }
+
+        const entry = summary.find((s) => s.subcategoryId === subcategoryId)
+        if (entry) entry.roomsUpdated += 1
+      }
+
+      return summary
+    })
+
+    revalidate()
+    return { ok: true, updated }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to update Lake View prices",
+    }
+  }
 }
 
 export async function deleteRoomSubcategory(id: string): Promise<ActionResult> {
