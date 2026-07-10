@@ -120,7 +120,8 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
     <div className="bg-card space-y-4 rounded-2xl border p-5">
       <div className="flex items-baseline gap-1.5">
         <p className="text-2xl font-black">
-          from {formatPrice(listingPrice, "CAD")}
+          {hasWeekendRates ? "from " : ""}
+          {formatPrice(listingPrice, "CAD")}
         </p>
         <p className="text-muted-foreground text-sm">/ night</p>
       </div>
