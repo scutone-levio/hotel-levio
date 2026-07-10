@@ -24,7 +24,10 @@ export function RoomCard({
   room: RoomWithDetails
   availability?: AvailabilityCount | null
 }) {
-  const listingPrice = room.subcategory?.fromPriceCents ?? room.basePrice
+  const listingPrice =
+    room.subcategory?.fromPriceCents && room.subcategory.fromPriceCents > 0
+      ? room.subcategory.fromPriceCents
+      : room.subcategory?.basePrice ?? room.basePrice
   const hasWeekendRates = room.subcategory?.hasWeekendRates ?? false
 
   return (
