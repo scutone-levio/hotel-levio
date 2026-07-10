@@ -158,7 +158,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
             <span>
               {quote.nights} night{quote.nights !== 1 ? "s" : ""}
             </span>
-            <span>{formatPrice(quote.total)}</span>
+            <span>{formatPrice(quote.total, "CAD")}</span>
           </div>
           <div className="border-t" />
           <div className="flex justify-between font-semibold">
