@@ -218,21 +218,26 @@ export function SubcategoriesManager({
 
   function handleBumpLakeView() {
     startBumpTransition(async () => {
-      const result = await bumpLakeViewSubcategoryPrices()
-      if (!result.ok) {
-        toast.error(result.error)
-        return
+      try {
+        const result = await bumpLakeViewSubcategoryPrices()
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
+        setSubcategories((prev) =>
+          prev.map((s) => {
+            const hit = result.updated.find((u) => u.subcategoryId === s.id)
+            return hit ? { ...s, basePrice: hit.newPrice } : s
+          }),
+        )
+        setBumpOpen(false)
+        toast.success(
+          `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
+        )
+        window.location.reload()
+      } catch {
+        toast.error("Failed to update Lake View prices")
       }
-      setSubcategories((prev) =>
-        prev.map((s) => {
-          const hit = result.updated.find((u) => u.subcategoryId === s.id)
-          return hit ? { ...s, basePrice: hit.newPrice } : s
-        }),
-      )
-      setBumpOpen(false)
-      toast.success(
-        `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
-      )
     })
   }
 

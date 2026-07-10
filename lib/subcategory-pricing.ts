@@ -1,6 +1,6 @@
-import { Prisma } from "@prisma/client"
+import { prisma, type ExtendedPrismaClient, type PrismaTransactionClient } from "@/lib/prisma"
 
-import { prisma } from "@/lib/prisma"
+type PrismaDb = ExtendedPrismaClient | PrismaTransactionClient
 
 export type RoomPricingSnapshot = {
   basePrice: number
@@ -52,7 +52,7 @@ export function pickLowestAvailableRoomNumber<
 
 export async function recomputeSubcategoryPricing(
   subcategoryId: string,
-  tx: Prisma.TransactionClient | typeof prisma = prisma,
+  tx: PrismaDb = prisma,
 ): Promise<void> {
   const rooms = await tx.room.findMany({
     where: { subcategoryId, isCatalog: false },
@@ -95,7 +95,7 @@ export async function recomputeAllSubcategoryPricing(): Promise<void> {
 /** Set each inventory room basePrice to the subcategory default. */
 export async function syncInventoryBasesToSubcategory(
   subcategoryId: string,
-  tx: Prisma.TransactionClient | typeof prisma = prisma,
+  tx: PrismaDb = prisma,
 ): Promise<void> {
   const sub = await tx.roomSubcategory.findUnique({
     where: { id: subcategoryId },

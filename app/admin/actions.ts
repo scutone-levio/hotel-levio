@@ -525,15 +525,15 @@ const WEEKEND_DAYS = [5, 6] as const
 
 export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPricesResult> {
   try {
-    const subcategories = await prisma.roomSubcategory.findMany({
-      where: { name: LAKE_VIEW_NAME },
-    })
-
-    if (subcategories.length === 0) {
-      return { ok: false, error: "No Lake View subcategories found" }
-    }
-
     const updated = await prisma.$transaction(async (tx) => {
+      const subcategories = await tx.roomSubcategory.findMany({
+        where: { name: LAKE_VIEW_NAME },
+      })
+
+      if (subcategories.length === 0) {
+        throw new Error("No Lake View subcategories found")
+      }
+
       const priceBySubcategoryId = new Map<string, number>()
       const summary: Extract<
         BumpLakeViewPricesResult,
@@ -601,16 +601,22 @@ export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPrice
         if (entry) entry.roomsUpdated += 1
       }
 
+      for (const sub of subcategories) {
+        await recomputeSubcategoryPricing(sub.id, tx)
+      }
+
       return summary
     })
-
-    for (const sub of subcategories) {
-      await recomputeSubcategoryPricing(sub.id)
-    }
 
     revalidate()
     return { ok: true, updated }
   } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "No Lake View subcategories found"
+    ) {
+      return { ok: false, error: err.message }
+    }
     return {
       ok: false,
       error:

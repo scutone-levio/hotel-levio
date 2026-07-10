@@ -6,7 +6,10 @@ ALTER TABLE "RoomSubcategory" ADD COLUMN "hasWeekendRates" BOOLEAN NOT NULL DEFA
 ALTER TABLE "Booking" ADD COLUMN "subcategoryId" TEXT;
 
 -- AddForeignKey
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_subcategoryId_fkey" FOREIGN KEY ("subcategoryId") REFERENCES "RoomSubcategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_subcategoryId_fkey" FOREIGN KEY ("subcategoryId") REFERENCES "RoomSubcategory"("id") ON DELETE SET NULL ON UPDATE CASCADE NOT VALID;
+
+-- ValidateForeignKey
+ALTER TABLE "Booking" VALIDATE CONSTRAINT "Booking_subcategoryId_fkey";
 
 -- Backfill fromPriceCents and hasWeekendRates for existing RoomSubcategory rows
 UPDATE "RoomSubcategory" rs SET

@@ -20,6 +20,36 @@ import { listingAvailabilityKey } from "@/lib/rooms"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
+function guestCountError(guests: number, capacity: number): string | null {
+  if (!Number.isInteger(guests) || guests < 1) {
+    return "Guest count must be a positive whole number"
+  }
+  if (guests > capacity) {
+    return `This room sleeps up to ${capacity}`
+  }
+  return null
+}
+
+async function assertPaymentIntentReady(
+  stripePaymentIntentId: string,
+  expectedAmountCents: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const paymentIntent =
+    await stripe.paymentIntents.retrieve(stripePaymentIntentId)
+
+  if (paymentIntent.status !== "succeeded") {
+    return { ok: false, error: "Payment has not completed successfully" }
+  }
+  if (paymentIntent.currency.toLowerCase() !== "cad") {
+    return { ok: false, error: "Payment currency must be CAD" }
+  }
+  if (paymentIntent.amount !== expectedAmountCents) {
+    return { ok: false, error: "Payment amount does not match the booking total" }
+  }
+
+  return { ok: true }
+}
+
 /** Resolve subcategory for a catalog listing; scoped to the catalog room type. */
 async function resolveListingSubcategory(
   catalog: { type: RoomType; subcategory: RoomSubcategory | null },
@@ -81,12 +111,20 @@ async function resolveAndQuoteListing(input: {
     return { ok: false, error: "The room is not available for those dates" }
   }
 
+  const resolvedSubcategoryId = unit.subcategoryId ?? null
+  if (
+    input.subcategoryId &&
+    resolvedSubcategoryId &&
+    input.subcategoryId !== resolvedSubcategoryId
+  ) {
+    return { ok: false, error: "Invalid subcategory for the assigned room" }
+  }
+
   const quote = quoteInventoryUnit(unit, input.checkIn, input.checkOut)
   return {
     ok: true,
     unit,
-    subcategoryId:
-      input.subcategoryId ?? subcategory?.id ?? unit.subcategoryId ?? null,
+    subcategoryId: resolvedSubcategoryId,
     quote,
   }
 }
@@ -125,12 +163,8 @@ export async function quoteListing(input: {
     })
     if (!result.ok) return result
 
-    if (input.guests < 1 || input.guests > result.unit.capacity) {
-      return {
-        ok: false,
-        error: `This room sleeps up to ${result.unit.capacity}`,
-      }
-    }
+    const guestsError = guestCountError(input.guests, result.unit.capacity)
+    if (guestsError) return { ok: false, error: guestsError }
 
     return {
       ok: true,
@@ -274,12 +308,32 @@ export async function finalizeBooking(input: {
     })
     if (!result.ok) return result
 
-    if (input.guests < 1 || input.guests > result.unit.capacity) {
-      return {
-        ok: false,
-        error: `This room sleeps up to ${result.unit.capacity}`,
+    const guestsError = guestCountError(input.guests, result.unit.capacity)
+    if (guestsError) return { ok: false, error: guestsError }
+
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        stripeSessionId: input.stripePaymentIntentId,
+        status: "CONFIRMED",
+      },
+      orderBy: { createdAt: "asc" },
+    })
+    if (existingBookings.length > 0) {
+      const booking = existingBookings[0]
+      if (
+        existingBookings.length === 1 &&
+        booking.totalPrice === result.quote.total
+      ) {
+        return { ok: true, bookingId: booking.id }
       }
+      return { ok: false, error: "Payment intent already used for a booking" }
     }
+
+    const paymentCheck = await assertPaymentIntentReady(
+      input.stripePaymentIntentId,
+      result.quote.total,
+    )
+    if (!paymentCheck.ok) return paymentCheck
 
     const guest = await prisma.user.upsert({
       where: { email: input.guestEmail.toLowerCase() },
@@ -372,12 +426,8 @@ export async function createBooking(input: {
     })
     if (!result.ok) return result
 
-    if (input.guests < 1 || input.guests > result.unit.capacity) {
-      return {
-        ok: false,
-        error: `This room sleeps up to ${result.unit.capacity}`,
-      }
-    }
+    const guestsError = guestCountError(input.guests, result.unit.capacity)
+    if (guestsError) return { ok: false, error: guestsError }
 
     const guest = await prisma.user.upsert({
       where: { email: "guest@hotel.test" },
@@ -452,10 +502,9 @@ export async function createCartPaymentIntent(
         })
         if (!result.ok) throw new Error(result.error)
 
-        if (item.guests < 1 || item.guests > result.unit.capacity) {
-          throw new Error(
-            `${catalog.name} sleeps up to ${result.unit.capacity}`,
-          )
+        const guestsError = guestCountError(item.guests, result.unit.capacity)
+        if (guestsError) {
+          throw new Error(`${catalog.name}: ${guestsError}`)
         }
 
         return {
@@ -531,10 +580,9 @@ export async function finalizeCartBookings(input: {
         })
         if (!result.ok) throw new Error(result.error)
 
-        if (item.guests < 1 || item.guests > result.unit.capacity) {
-          throw new Error(
-            `${catalog.name} sleeps up to ${result.unit.capacity}`,
-          )
+        const guestsError = guestCountError(item.guests, result.unit.capacity)
+        if (guestsError) {
+          throw new Error(`${catalog.name}: ${guestsError}`)
         }
 
         return {
@@ -548,6 +596,35 @@ export async function finalizeCartBookings(input: {
         }
       }),
     )
+
+    const grandTotal = prepared.reduce((sum, p) => sum + p.quote.total, 0)
+
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        stripeSessionId: input.stripePaymentIntentId,
+        status: "CONFIRMED",
+      },
+      orderBy: { createdAt: "asc" },
+    })
+    if (existingBookings.length > 0) {
+      const existingTotal = existingBookings.reduce(
+        (sum, b) => sum + b.totalPrice,
+        0,
+      )
+      if (
+        existingBookings.length === prepared.length &&
+        existingTotal === grandTotal
+      ) {
+        return { ok: true, bookingIds: existingBookings.map((b) => b.id) }
+      }
+      return { ok: false, error: "Payment intent already used for a booking" }
+    }
+
+    const paymentCheck = await assertPaymentIntentReady(
+      input.stripePaymentIntentId,
+      grandTotal,
+    )
+    if (!paymentCheck.ok) return paymentCheck
 
     const guest = await prisma.user.upsert({
       where: { email: input.guestEmail.toLowerCase() },

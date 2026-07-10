@@ -27,6 +27,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
     total: number
     nights: number
   } | null>(null)
+  const [quoteError, setQuoteError] = React.useState<string | null>(null)
   const [quotePending, startQuoteTransition] = React.useTransition()
 
   const listingPrice = room.subcategory
@@ -41,24 +42,33 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   React.useEffect(() => {
     if (!range?.from || !range?.to) {
       setQuote(null)
+      setQuoteError(null)
       return
     }
 
     let isMounted = true
 
     startQuoteTransition(async () => {
-      const result = await quoteListing({
-        roomId: room.id,
-        subcategoryId: room.subcategory?.id,
-        checkIn: range.from!.toISOString(),
-        checkOut: range.to!.toISOString(),
-        guests,
-      })
-      if (isMounted) {
+      try {
+        const result = await quoteListing({
+          roomId: room.id,
+          subcategoryId: room.subcategory?.id,
+          checkIn: range.from!.toISOString(),
+          checkOut: range.to!.toISOString(),
+          guests,
+        })
+        if (!isMounted) return
         if (result.ok) {
           setQuote({ total: result.total, nights: result.nights })
+          setQuoteError(null)
         } else {
           setQuote(null)
+          setQuoteError(result.error)
+        }
+      } catch {
+        if (isMounted) {
+          setQuote(null)
+          setQuoteError("Unable to calculate price. Please try again.")
         }
       }
     })
@@ -110,8 +120,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
     <div className="bg-card space-y-4 rounded-2xl border p-5">
       <div className="flex items-baseline gap-1.5">
         <p className="text-2xl font-black">
-          {hasWeekendRates ? "from " : ""}
-          {formatPrice(listingPrice, "CAD")}
+          from {formatPrice(listingPrice, "CAD")}
         </p>
         <p className="text-muted-foreground text-sm">/ night</p>
       </div>
@@ -152,6 +161,8 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         <p className="text-muted-foreground text-center text-sm">
           Calculating price…
         </p>
+      ) : quoteError ? (
+        <p className="text-destructive text-center text-sm">{quoteError}</p>
       ) : quote && quote.nights > 0 ? (
         <div className="bg-muted/50 space-y-1.5 rounded-xl p-3 text-sm">
           <div className="text-muted-foreground flex justify-between">
@@ -182,7 +193,13 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         className="w-full cursor-pointer"
         size="lg"
         onClick={handleAddToCart}
-        disabled={!quote || quote.nights === 0 || alreadyInCart || quotePending}
+        disabled={
+          !quote ||
+          quote.nights === 0 ||
+          alreadyInCart ||
+          quotePending ||
+          !!quoteError
+        }
       >
         <ShoppingCart className="size-4" />
         {range?.from ? "Add to cart" : "Select dates to book"}

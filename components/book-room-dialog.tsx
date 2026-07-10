@@ -43,6 +43,7 @@ export function BookRoomDialog({
     total: number
     nights: number
   } | null>(null)
+  const [quoteError, setQuoteError] = React.useState<string | null>(null)
   const [quotePending, startQuoteTransition] = React.useTransition()
 
   React.useEffect(() => {
@@ -56,29 +57,39 @@ export function BookRoomDialog({
   React.useEffect(() => {
     if (!open) {
       setQuote(null)
+      setQuoteError(null)
       return
     }
 
     if (!range?.from || !range?.to) {
       setQuote(null)
+      setQuoteError(null)
       return
     }
 
     let isMounted = true
 
     startQuoteTransition(async () => {
-      const result = await quoteListing({
-        roomId: room.id,
-        subcategoryId: room.subcategory?.id,
-        checkIn: range.from!.toISOString(),
-        checkOut: range.to!.toISOString(),
-        guests,
-      })
-      if (isMounted) {
+      try {
+        const result = await quoteListing({
+          roomId: room.id,
+          subcategoryId: room.subcategory?.id,
+          checkIn: range.from!.toISOString(),
+          checkOut: range.to!.toISOString(),
+          guests,
+        })
+        if (!isMounted) return
         if (result.ok) {
           setQuote({ total: result.total, nights: result.nights })
+          setQuoteError(null)
         } else {
           setQuote(null)
+          setQuoteError(result.error)
+        }
+      } catch {
+        if (isMounted) {
+          setQuote(null)
+          setQuoteError("Unable to calculate price. Please try again.")
         }
       }
     })
@@ -166,6 +177,8 @@ export function BookRoomDialog({
             <div className="rounded-lg border p-3 text-sm">
               {quotePending ? (
                 <p className="text-muted-foreground">Calculating price…</p>
+              ) : quoteError ? (
+                <p className="text-destructive">{quoteError}</p>
               ) : quote && quote.nights > 0 ? (
                 <div className="space-y-1">
                   <div className="flex justify-between">
@@ -198,7 +211,11 @@ export function BookRoomDialog({
           <Button
             onClick={handleAddToCart}
             disabled={
-              !quote || quote.nights === 0 || alreadyInCart || quotePending
+              !quote ||
+              quote.nights === 0 ||
+              alreadyInCart ||
+              quotePending ||
+              !!quoteError
             }
             className="cursor-pointer"
           >
