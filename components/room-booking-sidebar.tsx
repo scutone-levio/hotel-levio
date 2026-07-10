@@ -9,7 +9,7 @@ import type { DateRange } from "react-day-picker"
 import type { RoomWithDetails } from "@/lib/queries"
 import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice } from "@/lib/rooms"
+import { formatPrice, listingFromPriceCents } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { Button } from "@/components/ui/button"
@@ -29,10 +29,9 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   } | null>(null)
   const [quotePending, startQuoteTransition] = React.useTransition()
 
-  const listingPrice =
-    room.subcategory?.fromPriceCents && room.subcategory.fromPriceCents > 0
-      ? room.subcategory.fromPriceCents
-      : room.subcategory?.basePrice ?? room.basePrice
+  const listingPrice = room.subcategory
+    ? listingFromPriceCents(room.subcategory)
+    : room.basePrice
   const hasWeekendRates = room.subcategory?.hasWeekendRates ?? false
 
   React.useEffect(() => {

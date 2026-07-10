@@ -10,6 +10,7 @@ import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
 import {
   listingAvailabilityKey,
+  listingFromPriceCents,
   ROOM_TYPE_LABELS,
   ROOM_TYPE_SHORT_LABELS,
 } from "@/lib/rooms"
@@ -152,11 +153,15 @@ export function RoomsBrowser({
     switch (sort) {
       case "price-asc":
         return [...result].sort(
-          (a, b) => a.subcategory.fromPriceCents - b.subcategory.fromPriceCents,
+          (a, b) =>
+            listingFromPriceCents(a.subcategory) -
+            listingFromPriceCents(b.subcategory),
         )
       case "price-desc":
         return [...result].sort(
-          (a, b) => b.subcategory.fromPriceCents - a.subcategory.fromPriceCents,
+          (a, b) =>
+            listingFromPriceCents(b.subcategory) -
+            listingFromPriceCents(a.subcategory),
         )
       case "name-asc":
         return [...result].sort((a, b) => a.name.localeCompare(b.name))
@@ -173,7 +178,10 @@ export function RoomsBrowser({
             subcategorySortIndex(a.subcategory.name) -
             subcategorySortIndex(b.subcategory.name)
           if (subOrder !== 0) return subOrder
-          return b.subcategory.fromPriceCents - a.subcategory.fromPriceCents
+          return (
+            listingFromPriceCents(b.subcategory) -
+            listingFromPriceCents(a.subcategory)
+          )
         })
     }
   }, [rooms, types, amenityIds, sort, availableIds])
