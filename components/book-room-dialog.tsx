@@ -185,11 +185,11 @@ export function BookRoomDialog({
                     <span className="text-muted-foreground">
                       {quote.nights} night{quote.nights > 1 ? "s" : ""}
                     </span>
-                    <span>{formatPrice(quote.total)}</span>
+                    <span>{formatPrice(quote.total, "CAD")}</span>
                   </div>
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
-                    <span>{formatPrice(quote.total)}</span>
+                    <span>{formatPrice(quote.total, "CAD")}</span>
                   </div>
                 </div>
               ) : (

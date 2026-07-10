@@ -19,6 +19,7 @@ import {
 import { listingAvailabilityKey } from "@/lib/rooms"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
+const CART_QUOTE_METADATA_PREFIX = "cart_quote_"
 
 function guestCountError(guests: number, capacity: number): string | null {
   if (!Number.isInteger(guests) || guests < 1) {
@@ -28,6 +29,83 @@ function guestCountError(guests: number, capacity: number): string | null {
     return `This room sleeps up to ${capacity}`
   }
   return null
+}
+
+type PersistedCartQuoteItem = {
+  roomId: string
+  unitId: string
+  subcategoryId: string | null
+  checkIn: string
+  checkOut: string
+  guests: number
+  total: number
+  nights: number
+}
+
+function serializeCartQuoteMetadata(items: PersistedCartQuoteItem[]) {
+  return Object.fromEntries(
+    items.map((item, index) => [
+      `${CART_QUOTE_METADATA_PREFIX}${index}`,
+      JSON.stringify({
+        roomId: item.roomId,
+        unitId: item.unitId,
+        subcategoryId: item.subcategoryId,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        guests: item.guests,
+        total: item.total,
+        nights: item.nights,
+      }),
+    ]),
+  )
+}
+
+function parseCartQuoteMetadata(
+  metadata: Record<string, string>,
+  itemCount: number,
+): PersistedCartQuoteItem[] | null {
+  const items: PersistedCartQuoteItem[] = []
+
+  for (let index = 0; index < itemCount; index += 1) {
+    const raw = metadata[`${CART_QUOTE_METADATA_PREFIX}${index}`]
+    if (!raw) return null
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<PersistedCartQuoteItem>
+      if (
+        typeof parsed.roomId !== "string" ||
+        typeof parsed.unitId !== "string" ||
+        (parsed.subcategoryId !== null &&
+          typeof parsed.subcategoryId !== "string") ||
+        typeof parsed.checkIn !== "string" ||
+        typeof parsed.checkOut !== "string" ||
+        !Number.isInteger(parsed.guests) ||
+        typeof parsed.total !== "number" ||
+        typeof parsed.nights !== "number"
+      ) {
+        return null
+      }
+
+      const guests = parsed.guests as number
+      const total = parsed.total as number
+      const nights = parsed.nights as number
+
+      items.push({
+        roomId: parsed.roomId,
+        unitId: parsed.unitId,
+        subcategoryId: parsed.subcategoryId ?? null,
+        checkIn: parsed.checkIn,
+        checkOut: parsed.checkOut,
+        guests,
+        total,
+        nights,
+      })
+    } catch {
+      return null
+    }
+  }
+
+  return items
 }
 
 async function assertPaymentIntentReady(
@@ -510,6 +588,11 @@ export async function createCartPaymentIntent(
         return {
           roomId: catalog.id,
           roomName: catalog.name,
+          unitId: result.unit.id,
+          subcategoryId: result.subcategoryId,
+          checkIn: checkIn.toISOString(),
+          checkOut: checkOut.toISOString(),
+          guests: item.guests,
           total: result.quote.total,
           nights: result.quote.nights,
         }
@@ -525,6 +608,29 @@ export async function createCartPaymentIntent(
       metadata: {
         roomCount: String(items.length),
         rooms: quoted.map((q) => q.roomName).join(", "),
+        ...serializeCartQuoteMetadata(
+          quoted.map(
+            ({
+              roomId,
+              unitId,
+              subcategoryId,
+              checkIn,
+              checkOut,
+              guests,
+              total,
+              nights,
+            }) => ({
+              roomId,
+              unitId,
+              subcategoryId,
+              checkIn,
+              checkOut,
+              guests,
+              total,
+              nights,
+            }),
+          ),
+        ),
       },
     })
 
@@ -559,45 +665,21 @@ export async function finalizeCartBookings(input: {
   try {
     const today = startOfDay(new Date())
 
-    const prepared = await Promise.all(
-      input.items.map(async (item) => {
-        const checkIn = startOfDay(new Date(item.checkIn))
-        const checkOut = startOfDay(new Date(item.checkOut))
-        if (checkOut <= checkIn) throw new Error("Invalid date range")
-        if (checkIn < today) throw new Error("Check-in cannot be in the past")
-
-        const catalog = await prisma.room.findUnique({
-          where: { id: item.roomId },
-          select: { id: true, name: true },
-        })
-        if (!catalog) throw new Error("Room not found")
-
-        const result = await resolveAndQuoteListing({
-          roomId: item.roomId,
-          checkIn,
-          checkOut,
-          subcategoryId: item.subcategoryId,
-        })
-        if (!result.ok) throw new Error(result.error)
-
-        const guestsError = guestCountError(item.guests, result.unit.capacity)
-        if (guestsError) {
-          throw new Error(`${catalog.name}: ${guestsError}`)
-        }
-
-        return {
-          catalog,
-          unit: result.unit,
-          subcategoryId: result.subcategoryId,
-          checkIn,
-          checkOut,
-          guests: item.guests,
-          quote: result.quote,
-        }
-      }),
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      input.stripePaymentIntentId,
     )
+    const quotedItems = parseCartQuoteMetadata(
+      paymentIntent.metadata,
+      input.items.length,
+    )
+    if (!quotedItems) {
+      return {
+        ok: false,
+        error: "Unable to verify the quoted rooms. Please restart checkout.",
+      }
+    }
 
-    const grandTotal = prepared.reduce((sum, p) => sum + p.quote.total, 0)
+    const grandTotal = quotedItems.reduce((sum, item) => sum + item.total, 0)
 
     const existingBookings = await prisma.booking.findMany({
       where: {
@@ -612,7 +694,7 @@ export async function finalizeCartBookings(input: {
         0,
       )
       if (
-        existingBookings.length === prepared.length &&
+        existingBookings.length === quotedItems.length &&
         existingTotal === grandTotal
       ) {
         return { ok: true, bookingIds: existingBookings.map((b) => b.id) }
@@ -626,6 +708,64 @@ export async function finalizeCartBookings(input: {
     )
     if (!paymentCheck.ok) return paymentCheck
 
+    const prepared = await Promise.all(
+      input.items.map(async (item, index) => {
+        const checkIn = startOfDay(new Date(item.checkIn))
+        const checkOut = startOfDay(new Date(item.checkOut))
+        if (checkOut <= checkIn) throw new Error("Invalid date range")
+        if (checkIn < today) throw new Error("Check-in cannot be in the past")
+
+        const quoted = quotedItems[index]
+        if (
+          quoted.roomId !== item.roomId ||
+          quoted.checkIn !== checkIn.toISOString() ||
+          quoted.checkOut !== checkOut.toISOString() ||
+          quoted.guests !== item.guests ||
+          quoted.subcategoryId !== (item.subcategoryId ?? null)
+        ) {
+          throw new Error("Cart contents changed. Please restart checkout.")
+        }
+
+        const [catalog, unit] = await Promise.all([
+          prisma.room.findUnique({
+            where: { id: item.roomId },
+            select: { id: true, name: true },
+          }),
+          prisma.room.findUnique({
+            where: { id: quoted.unitId },
+            select: {
+              id: true,
+              roomNumber: true,
+              capacity: true,
+              subcategoryId: true,
+            },
+          }),
+        ])
+        if (!catalog || !unit) throw new Error("Room not found")
+        if ((unit.subcategoryId ?? null) !== quoted.subcategoryId) {
+          throw new Error("Quoted room is no longer valid. Please restart checkout.")
+        }
+
+        const guestsError = guestCountError(item.guests, unit.capacity)
+        if (guestsError) {
+          throw new Error(`${catalog.name}: ${guestsError}`)
+        }
+
+        return {
+          catalog,
+          unit,
+          subcategoryId: quoted.subcategoryId,
+          checkIn,
+          checkOut,
+          guests: item.guests,
+          quote: {
+            total: quoted.total,
+            nights: quoted.nights,
+          },
+        }
+      }),
+    )
+
     const guest = await prisma.user.upsert({
       where: { email: input.guestEmail.toLowerCase() },
       update: { name: input.guestName },
@@ -634,7 +774,21 @@ export async function finalizeCartBookings(input: {
 
     const bookingIds = await prisma.$transaction(async (tx) => {
       const ids: string[] = []
-      for (const p of prepared) {
+      for (const [index, p] of prepared.entries()) {
+        const quoted = quotedItems[index]
+        if (
+          quoted.roomId !== p.catalog.id ||
+          quoted.unitId !== p.unit.id ||
+          quoted.subcategoryId !== p.subcategoryId ||
+          quoted.checkIn !== p.checkIn.toISOString() ||
+          quoted.checkOut !== p.checkOut.toISOString() ||
+          quoted.guests !== p.guests ||
+          quoted.total !== p.quote.total ||
+          quoted.nights !== p.quote.nights
+        ) {
+          throw new Error("Cart contents changed. Please restart checkout.")
+        }
+
         const b = await tx.booking.create({
           data: {
             roomId: p.unit.id,

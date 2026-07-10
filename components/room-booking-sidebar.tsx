@@ -175,7 +175,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
           <div className="border-t" />
           <div className="flex justify-between font-semibold">
             <span>Total</span>
-            <span>{formatPrice(quote.total)}</span>
+            <span>{formatPrice(quote.total, "CAD")}</span>
           </div>
         </div>
       ) : (
