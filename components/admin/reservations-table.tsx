@@ -339,7 +339,7 @@ function ExpandedRow({
             </p>
             {booking.specialRequests && (
               <p className="text-muted-foreground text-sm italic">
-                "{booking.specialRequests}"
+                &ldquo;{booking.specialRequests}&rdquo;
               </p>
             )}
           </div>

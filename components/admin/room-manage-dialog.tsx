@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import Image from "next/image"
 
 import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
-import { ROOM_TYPE_LABELS, WEEKDAYS, formatPrice, parseDollarsToCents } from "@/lib/rooms"
+import { ROOM_TYPE_LABELS, WEEKDAYS, parseDollarsToCents } from "@/lib/rooms"
 import { ReservationsTable } from "@/components/admin/reservations-table"
 import {
   setRoomAmenities,

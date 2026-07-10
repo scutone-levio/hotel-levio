@@ -3,6 +3,7 @@ import { startOfDay } from "date-fns"
 
 import { prisma } from "@/lib/prisma"
 import { isRangeAvailable } from "@/lib/availability"
+import { quoteRange, type Quote } from "@/lib/pricing"
 import {
   normalizeRoomNumber,
   parseRoomNumber,
@@ -84,6 +85,7 @@ export async function getAvailableUnits(
   )
 }
 
+/** First available inventory unit by ascending roomNumber within type/subcategory. */
 export async function assignAvailableUnit(
   type: RoomType,
   checkIn: Date,
@@ -92,6 +94,20 @@ export async function assignAvailableUnit(
 ) {
   const available = await getAvailableUnits(type, checkIn, checkOut, subcategoryId)
   return available[0] ?? null
+}
+
+type UnitWithPricing = {
+  basePrice: number
+  priceRules: Array<{ dayOfWeek: number; price: number }>
+}
+
+/** Quote a stay from stored inventory unit base + weekday rules. */
+export function quoteInventoryUnit(
+  unit: UnitWithPricing,
+  checkIn: Date,
+  checkOut: Date,
+): Quote {
+  return quoteRange(unit.basePrice, unit.priceRules, checkIn, checkOut)
 }
 
 export async function resolveBookingRoom(input: {

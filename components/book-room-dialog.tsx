@@ -7,9 +7,9 @@ import { toast } from "sonner"
 import type { DateRange } from "react-day-picker"
 
 import type { RoomWithDetails } from "@/lib/queries"
+import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice, getRoomPrice } from "@/lib/rooms"
-import { quoteRange } from "@/lib/pricing"
+import { formatPrice } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,11 @@ export function BookRoomDialog({
   const [open, setOpen] = React.useState(false)
   const [range, setRange] = React.useState<DateRange | undefined>()
   const [guests, setGuests] = React.useState(1)
+  const [quote, setQuote] = React.useState<{
+    total: number
+    nights: number
+  } | null>(null)
+  const [quotePending, startQuoteTransition] = React.useTransition()
 
   React.useEffect(() => {
     if (isHydrated) setRange(dateRange)
@@ -48,24 +53,48 @@ export function BookRoomDialog({
     if (!open && isHydrated) setRange(dateRange)
   }, [dateRange, open, isHydrated])
 
+  React.useEffect(() => {
+    if (!open) {
+      setQuote(null)
+      return
+    }
+
+    if (!range?.from || !range?.to) {
+      setQuote(null)
+      return
+    }
+
+    let isMounted = true
+
+    startQuoteTransition(async () => {
+      const result = await quoteListing({
+        roomId: room.id,
+        subcategoryId: room.subcategory?.id,
+        checkIn: range.from!.toISOString(),
+        checkOut: range.to!.toISOString(),
+        guests,
+      })
+      if (isMounted) {
+        if (result.ok) {
+          setQuote({ total: result.total, nights: result.nights })
+        } else {
+          setQuote(null)
+        }
+      }
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [open, range, guests, room.id, room.subcategory?.id])
+
   function handleSelect(next: DateRange | undefined) {
     setRange(next)
     setDateRange(next)
   }
 
-  const quote =
-    range?.from && range?.to
-      ? quoteRange(
-          getRoomPrice(room),
-          room.priceRules,
-          range.from,
-          range.to,
-        )
-      : null
-
   const disabled = [{ before: new Date() }, ...blackoutMatchers(room.blackouts)]
 
-  // Check if this room with overlapping dates is already in the cart.
   const alreadyInCart = items.some(
     (i) =>
       i.roomId === room.id &&
@@ -135,7 +164,9 @@ export function BookRoomDialog({
             </div>
 
             <div className="rounded-lg border p-3 text-sm">
-              {quote && quote.nights > 0 ? (
+              {quotePending ? (
+                <p className="text-muted-foreground">Calculating price…</p>
+              ) : quote && quote.nights > 0 ? (
                 <div className="space-y-1">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
@@ -156,7 +187,7 @@ export function BookRoomDialog({
             </div>
 
             {alreadyInCart && (
-              <p className="text-amber-600 text-xs">
+              <p className="text-xs text-amber-600">
                 This room is already in your cart for these dates.
               </p>
             )}
@@ -166,7 +197,9 @@ export function BookRoomDialog({
         <DialogFooter>
           <Button
             onClick={handleAddToCart}
-            disabled={!quote || quote.nights === 0 || alreadyInCart}
+            disabled={
+              !quote || quote.nights === 0 || alreadyInCart || quotePending
+            }
             className="cursor-pointer"
           >
             <ShoppingCart className="size-4" />

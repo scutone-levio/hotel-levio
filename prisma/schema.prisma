@@ -34,8 +34,13 @@ model RoomSubcategory {
   roomType  RoomType
   // Base price per night in cents for rooms with this subcategory.
   basePrice Int
+  // Lowest nightly rate across inventory rooms (for listing cards).
+  fromPriceCents   Int     @default(0)
+  // True when any inventory room has a weekday rule above its base price.
+  hasWeekendRates  Boolean @default(false)
   featured  Boolean  @default(false)
   rooms     Room[]
+  bookings  Booking[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -163,6 +168,8 @@ model Booking {
   userId          String
   room            Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId          String
+  subcategory     RoomSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  subcategoryId   String?
   checkIn         DateTime      @db.Date
   checkOut        DateTime      @db.Date
   guests          Int           @default(1)

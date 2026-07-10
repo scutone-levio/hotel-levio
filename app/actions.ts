@@ -5,16 +5,18 @@ import { startOfDay, differenceInCalendarDays } from "date-fns"
 import type { RoomType, RoomSubcategory } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
-import { quoteRange } from "@/lib/pricing"
-import { getRoomPrice, listingAvailabilityKey } from "@/lib/rooms"
 import {
-  assignAvailableUnit,
   getAvailableUnits,
+  quoteInventoryUnit,
   resolveBookingRoom,
 } from "@/lib/inventory"
 import { stripe } from "@/lib/stripe"
 import { sendMail } from "@/lib/mailer"
-import { guestConfirmationEmail, adminNotificationEmail } from "@/lib/email-templates"
+import {
+  guestConfirmationEmail,
+  adminNotificationEmail,
+} from "@/lib/email-templates"
+import { listingAvailabilityKey } from "@/lib/rooms"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
@@ -29,6 +31,113 @@ async function resolveListingSubcategory(
     })
   }
   return catalog.subcategory
+}
+
+type AssignedUnit = NonNullable<Awaited<ReturnType<typeof resolveBookingRoom>>>
+
+async function resolveAndQuoteListing(input: {
+  roomId: string
+  checkIn: Date
+  checkOut: Date
+  subcategoryId?: string
+}): Promise<
+  | {
+      ok: true
+      unit: AssignedUnit
+      subcategoryId: string | null
+      quote: ReturnType<typeof quoteInventoryUnit>
+    }
+  | { ok: false; error: string }
+> {
+  const catalog = await prisma.room.findUnique({
+    where: { id: input.roomId },
+    select: { id: true, type: true, name: true, isCatalog: true },
+  })
+  if (!catalog) {
+    return { ok: false, error: "Room not found" }
+  }
+
+  const subcategory = await resolveListingSubcategory(
+    { type: catalog.type, subcategory: null },
+    input.subcategoryId,
+  )
+  if (input.subcategoryId && !subcategory) {
+    return { ok: false, error: "Invalid subcategory for this room type" }
+  }
+
+  const unit = await resolveBookingRoom({
+    roomId: input.roomId,
+    checkIn: input.checkIn,
+    checkOut: input.checkOut,
+    subcategoryId: input.subcategoryId ?? subcategory?.id,
+  })
+  if (!unit) {
+    return { ok: false, error: "The room is not available for those dates" }
+  }
+
+  const quote = quoteInventoryUnit(unit, input.checkIn, input.checkOut)
+  return {
+    ok: true,
+    unit,
+    subcategoryId:
+      input.subcategoryId ?? subcategory?.id ?? unit.subcategoryId ?? null,
+    quote,
+  }
+}
+
+export type QuoteListingResult =
+  | { ok: true; total: number; nights: number; roomNumber: string | null }
+  | { ok: false; error: string }
+
+export async function quoteListing(input: {
+  roomId: string
+  subcategoryId?: string
+  checkIn: string | Date
+  checkOut: string | Date
+  guests: number
+}): Promise<QuoteListingResult> {
+  try {
+    const checkIn = startOfDay(new Date(input.checkIn))
+    const checkOut = startOfDay(new Date(input.checkOut))
+    const today = startOfDay(new Date())
+
+    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
+      return { ok: false, error: "Invalid dates" }
+    }
+    if (checkOut <= checkIn) {
+      return { ok: false, error: "Check-out must be after check-in" }
+    }
+    if (checkIn < today) {
+      return { ok: false, error: "Check-in cannot be in the past" }
+    }
+
+    const result = await resolveAndQuoteListing({
+      roomId: input.roomId,
+      checkIn,
+      checkOut,
+      subcategoryId: input.subcategoryId,
+    })
+    if (!result.ok) return result
+
+    if (input.guests < 1 || input.guests > result.unit.capacity) {
+      return {
+        ok: false,
+        error: `This room sleeps up to ${result.unit.capacity}`,
+      }
+    }
+
+    return {
+      ok: true,
+      total: result.quote.total,
+      nights: result.quote.nights,
+      roomNumber: result.unit.roomNumber,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to quote listing",
+    }
+  }
 }
 
 export type AvailabilityCount = { available: number; total: number }
@@ -49,7 +158,11 @@ export async function getAvailableRoomIds(
   checkOut: string,
   listings: ListingAvailabilityInput[],
 ): Promise<string[]> {
-  const counts = await getAvailabilityCountsByListing(checkIn, checkOut, listings)
+  const counts = await getAvailabilityCountsByListing(
+    checkIn,
+    checkOut,
+    listings,
+  )
   return listings
     .filter(
       (listing) =>
@@ -66,7 +179,6 @@ export async function getAvailabilityCountsByListing(
   checkOut: string,
   listings: ListingAvailabilityInput[],
 ): Promise<Record<string, AvailabilityCount>> {
-  // Keys are listing availability keys from listingAvailabilityKey(roomId, subcategoryId).
   const from = startOfDay(new Date(checkIn))
   const to = startOfDay(new Date(checkOut))
 
@@ -119,8 +231,7 @@ export async function getAvailabilityCountsByType(
 }
 
 export type FinalizeResult =
-  | { ok: true; bookingId: string }
-  | { ok: false; error: string }
+  { ok: true; bookingId: string } | { ok: false; error: string }
 
 export async function finalizeBooking(input: {
   roomId: string
@@ -140,42 +251,29 @@ export async function finalizeBooking(input: {
     const today = startOfDay(new Date())
 
     if (checkOut <= checkIn) return { ok: false, error: "Invalid date range" }
-    if (checkIn < today) return { ok: false, error: "Check-in cannot be in the past" }
+    if (checkIn < today)
+      return { ok: false, error: "Check-in cannot be in the past" }
 
     const catalog = await prisma.room.findUnique({
       where: { id: input.roomId },
-      include: { priceRules: true, subcategory: true },
+      select: { id: true, name: true, type: true },
     })
     if (!catalog) return { ok: false, error: "Room not found" }
 
-    const subcategory = await resolveListingSubcategory(
-      catalog,
-      input.subcategoryId,
-    )
-    if (input.subcategoryId && !subcategory) {
-      return { ok: false, error: "Invalid subcategory for this room type" }
-    }
-
-    const room = await resolveBookingRoom({
+    const result = await resolveAndQuoteListing({
       roomId: input.roomId,
       checkIn,
       checkOut,
-      subcategoryId: input.subcategoryId ?? subcategory?.id,
+      subcategoryId: input.subcategoryId,
     })
-    if (!room) {
-      return { ok: false, error: "Those dates are no longer available" }
-    }
+    if (!result.ok) return result
 
-    if (input.guests < 1 || input.guests > room.capacity) {
-      return { ok: false, error: `This room sleeps up to ${room.capacity}` }
+    if (input.guests < 1 || input.guests > result.unit.capacity) {
+      return {
+        ok: false,
+        error: `This room sleeps up to ${result.unit.capacity}`,
+      }
     }
-
-    const quote = quoteRange(
-      getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
-      catalog.priceRules,
-      checkIn,
-      checkOut,
-    )
 
     const guest = await prisma.user.upsert({
       where: { email: input.guestEmail.toLowerCase() },
@@ -185,12 +283,13 @@ export async function finalizeBooking(input: {
 
     const booking = await prisma.booking.create({
       data: {
-        roomId: room.id,
+        roomId: result.unit.id,
+        subcategoryId: result.subcategoryId,
         userId: guest.id,
         checkIn,
         checkOut,
         guests: input.guests,
-        totalPrice: quote.total,
+        totalPrice: result.quote.total,
         status: "CONFIRMED",
         stripeSessionId: input.stripePaymentIntentId,
         guestName: input.guestName,
@@ -205,7 +304,7 @@ export async function finalizeBooking(input: {
     const emailData = {
       bookingId: booking.id,
       roomName: catalog.name,
-      roomNumber: room.roomNumber ?? undefined,
+      roomNumber: result.unit.roomNumber ?? undefined,
       checkIn,
       checkOut,
       nights: differenceInCalendarDays(checkOut, checkIn),
@@ -214,7 +313,7 @@ export async function finalizeBooking(input: {
       guestEmail: input.guestEmail,
       guestPhone: input.guestPhone,
       specialRequests: input.specialRequests,
-      totalPrice: quote.total,
+      totalPrice: result.quote.total,
     }
 
     const guestMail = guestConfirmationEmail(emailData)
@@ -259,42 +358,20 @@ export async function createBooking(input: {
       return { ok: false, error: "Check-in cannot be in the past" }
     }
 
-    const catalog = await prisma.room.findUnique({
-      where: { id: input.roomId },
-      include: { priceRules: true, subcategory: true },
-    })
-    if (!catalog) {
-      return { ok: false, error: "Room not found" }
-    }
-
-    const subcategory = await resolveListingSubcategory(
-      catalog,
-      input.subcategoryId,
-    )
-    if (input.subcategoryId && !subcategory) {
-      return { ok: false, error: "Invalid subcategory for this room type" }
-    }
-
-    const room = await resolveBookingRoom({
+    const result = await resolveAndQuoteListing({
       roomId: input.roomId,
       checkIn,
       checkOut,
-      subcategoryId: input.subcategoryId ?? subcategory?.id,
+      subcategoryId: input.subcategoryId,
     })
-    if (!room) {
-      return { ok: false, error: "The room is not available for those dates" }
-    }
+    if (!result.ok) return result
 
-    if (input.guests < 1 || input.guests > room.capacity) {
-      return { ok: false, error: `This room sleeps up to ${room.capacity}` }
+    if (input.guests < 1 || input.guests > result.unit.capacity) {
+      return {
+        ok: false,
+        error: `This room sleeps up to ${result.unit.capacity}`,
+      }
     }
-
-    const quote = quoteRange(
-      getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
-      catalog.priceRules,
-      checkIn,
-      checkOut,
-    )
 
     const guest = await prisma.user.upsert({
       where: { email: "guest@hotel.test" },
@@ -304,12 +381,13 @@ export async function createBooking(input: {
 
     const booking = await prisma.booking.create({
       data: {
-        roomId: room.id,
+        roomId: result.unit.id,
+        subcategoryId: result.subcategoryId,
         userId: guest.id,
         checkIn,
         checkOut,
         guests: input.guests,
-        totalPrice: quote.total,
+        totalPrice: result.quote.total,
         status: "PENDING",
       },
     })
@@ -318,8 +396,8 @@ export async function createBooking(input: {
     return {
       ok: true,
       bookingId: booking.id,
-      total: quote.total,
-      nights: quote.nights,
+      total: result.quote.total,
+      nights: result.quote.nights,
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Booking failed"
@@ -336,8 +414,14 @@ export type CartCheckoutItem = {
   subcategoryId?: string
 }
 
-export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promise<
-  | { ok: true; clientSecret: string; quotedItems: Array<{ roomId: string; total: number; nights: number }> }
+export async function createCartPaymentIntent(
+  items: CartCheckoutItem[],
+): Promise<
+  | {
+      ok: true
+      clientSecret: string
+      quotedItems: Array<{ roomId: string; total: number; nights: number }>
+    }
   | { ok: false; error: string }
 > {
   try {
@@ -347,35 +431,33 @@ export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promis
       items.map(async (item) => {
         const checkIn = startOfDay(new Date(item.checkIn))
         const checkOut = startOfDay(new Date(item.checkOut))
+
         const catalog = await prisma.room.findUnique({
           where: { id: item.roomId },
-          include: { priceRules: true, subcategory: true },
+          select: { id: true, name: true },
         })
         if (!catalog) throw new Error(`Room not found: ${item.roomId}`)
 
-        const subcategory = await resolveListingSubcategory(
-          catalog,
-          item.subcategoryId,
-        )
-        if (item.subcategoryId && !subcategory) {
-          throw new Error(`Invalid subcategory for ${catalog.name}`)
+        const result = await resolveAndQuoteListing({
+          roomId: item.roomId,
+          checkIn,
+          checkOut,
+          subcategoryId: item.subcategoryId,
+        })
+        if (!result.ok) throw new Error(result.error)
+
+        if (item.guests < 1 || item.guests > result.unit.capacity) {
+          throw new Error(
+            `${catalog.name} sleeps up to ${result.unit.capacity}`,
+          )
         }
 
-        const unit = await assignAvailableUnit(
-          catalog.type,
-          checkIn,
-          checkOut,
-          item.subcategoryId ?? subcategory?.id,
-        )
-        if (!unit) throw new Error(`${catalog.name} is not available for those dates`)
-
-        const quote = quoteRange(
-          getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
-          catalog.priceRules,
-          checkIn,
-          checkOut,
-        )
-        return { roomId: catalog.id, roomName: catalog.name, total: quote.total, nights: quote.nights }
+        return {
+          roomId: catalog.id,
+          roomName: catalog.name,
+          total: result.quote.total,
+          nights: result.quote.nights,
+        }
       }),
     )
 
@@ -394,16 +476,22 @@ export async function createCartPaymentIntent(items: CartCheckoutItem[]): Promis
     return {
       ok: true,
       clientSecret: paymentIntent.client_secret!,
-      quotedItems: quoted.map(({ roomId, total, nights }) => ({ roomId, total, nights })),
+      quotedItems: quoted.map(({ roomId, total, nights }) => ({
+        roomId,
+        total,
+        nights,
+      })),
     }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Failed to create payment" }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to create payment",
+    }
   }
 }
 
 export type CartFinalizeResult =
-  | { ok: true; bookingIds: string[] }
-  | { ok: false; error: string }
+  { ok: true; bookingIds: string[] } | { ok: false; error: string }
 
 export async function finalizeCartBookings(input: {
   items: CartCheckoutItem[]
@@ -425,37 +513,33 @@ export async function finalizeCartBookings(input: {
 
         const catalog = await prisma.room.findUnique({
           where: { id: item.roomId },
-          include: { priceRules: true, subcategory: true },
+          select: { id: true, name: true },
         })
         if (!catalog) throw new Error("Room not found")
 
-        const subcategory = await resolveListingSubcategory(
+        const result = await resolveAndQuoteListing({
+          roomId: item.roomId,
+          checkIn,
+          checkOut,
+          subcategoryId: item.subcategoryId,
+        })
+        if (!result.ok) throw new Error(result.error)
+
+        if (item.guests < 1 || item.guests > result.unit.capacity) {
+          throw new Error(
+            `${catalog.name} sleeps up to ${result.unit.capacity}`,
+          )
+        }
+
+        return {
           catalog,
-          item.subcategoryId,
-        )
-        if (item.subcategoryId && !subcategory) {
-          throw new Error(`Invalid subcategory for ${catalog.name}`)
-        }
-
-        const room = await assignAvailableUnit(
-          catalog.type,
+          unit: result.unit,
+          subcategoryId: result.subcategoryId,
           checkIn,
           checkOut,
-          item.subcategoryId ?? subcategory?.id,
-        )
-        if (!room) throw new Error(`${catalog.name}: those dates are no longer available`)
-
-        if (item.guests < 1 || item.guests > room.capacity) {
-          throw new Error(`${catalog.name} sleeps up to ${room.capacity}`)
+          guests: item.guests,
+          quote: result.quote,
         }
-
-        const quote = quoteRange(
-          getRoomPrice({ basePrice: catalog.basePrice, subcategory }),
-          catalog.priceRules,
-          checkIn,
-          checkOut,
-        )
-        return { catalog, room, checkIn, checkOut, guests: item.guests, quote }
       }),
     )
 
@@ -470,7 +554,8 @@ export async function finalizeCartBookings(input: {
       for (const p of prepared) {
         const b = await tx.booking.create({
           data: {
-            roomId: p.room.id,
+            roomId: p.unit.id,
+            subcategoryId: p.subcategoryId,
             userId: guest.id,
             checkIn: p.checkIn,
             checkOut: p.checkOut,
@@ -497,7 +582,7 @@ export async function finalizeCartBookings(input: {
         const emailData = {
           bookingId: bookingIds[i],
           roomName: p.catalog.name,
-          roomNumber: p.room.roomNumber ?? undefined,
+          roomNumber: p.unit.roomNumber ?? undefined,
           checkIn: p.checkIn,
           checkOut: p.checkOut,
           nights,
@@ -509,7 +594,10 @@ export async function finalizeCartBookings(input: {
           totalPrice: p.quote.total,
         }
         return Promise.all([
-          sendMail({ to: input.guestEmail, ...guestConfirmationEmail(emailData) }),
+          sendMail({
+            to: input.guestEmail,
+            ...guestConfirmationEmail(emailData),
+          }),
           sendMail({ to: ADMIN_EMAIL, ...adminNotificationEmail(emailData) }),
         ])
       }),

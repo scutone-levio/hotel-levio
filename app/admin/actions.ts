@@ -10,6 +10,12 @@ import { UTApi } from "uploadthing/server"
 import { prisma } from "@/lib/prisma"
 import { quoteRange } from "@/lib/pricing"
 import { syncTypeQuantity, updateRoomInventory } from "@/lib/inventory"
+import {
+  recomputeAllSubcategoryPricing,
+  recomputeSubcategoryPricing,
+  recomputeSubcategoryPricingForRoom,
+  syncInventoryBasesToSubcategory,
+} from "@/lib/subcategory-pricing"
 import { sendMail } from "@/lib/mailer"
 import {
   adminBookingModifiedEmail,
@@ -246,6 +252,7 @@ export async function updateBasePrice(
       where: { id: roomId },
       data: { basePrice: Math.round(basePriceCents) },
     })
+    await recomputeSubcategoryPricingForRoom(roomId)
   })
 }
 
@@ -262,13 +269,14 @@ export async function setPriceRule(
   return run(async () => {
     if (priceCents === null) {
       await prisma.roomPriceRule.deleteMany({ where: { roomId, dayOfWeek } })
-      return
+    } else {
+      await prisma.roomPriceRule.upsert({
+        where: { roomId_dayOfWeek: { roomId, dayOfWeek } },
+        create: { roomId, dayOfWeek, price: Math.round(priceCents) },
+        update: { price: Math.round(priceCents) },
+      })
     }
-    await prisma.roomPriceRule.upsert({
-      where: { roomId_dayOfWeek: { roomId, dayOfWeek } },
-      create: { roomId, dayOfWeek, price: Math.round(priceCents) },
-      update: { price: Math.round(priceCents) },
-    })
+    await recomputeSubcategoryPricingForRoom(roomId)
   })
 }
 
@@ -282,6 +290,7 @@ export async function syncTypeQuantityAction(
 ): Promise<ActionResult> {
   return run(async () => {
     await syncTypeQuantity(type, quantity)
+    await recomputeAllSubcategoryPricing()
   })
 }
 
@@ -344,7 +353,9 @@ export async function getBookings(params: {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        room: { select: { id: true, name: true, roomNumber: true, type: true } },
+        room: {
+          select: { id: true, name: true, roomNumber: true, type: true },
+        },
         user: { select: { name: true, email: true } },
       },
     }),
@@ -391,13 +402,22 @@ export async function updateBooking(
   return run(async () => {
     const before = await prisma.booking.findUniqueOrThrow({
       where: { id },
-      include: { room: { select: { id: true, name: true, priceRules: true, basePrice: true } } },
+      include: {
+        room: {
+          select: { id: true, name: true, priceRules: true, basePrice: true },
+        },
+      },
     })
 
     const checkIn = parsed.data.checkIn
     const checkOut = parsed.data.checkOut
     const nights = differenceInCalendarDays(checkOut, checkIn)
-    const quote = quoteRange(before.room.basePrice, before.room.priceRules, checkIn, checkOut)
+    const quote = quoteRange(
+      before.room.basePrice,
+      before.room.priceRules,
+      checkIn,
+      checkOut,
+    )
 
     const after = await prisma.booking.update({
       where: { id },
@@ -414,7 +434,11 @@ export async function updateBooking(
       },
     })
 
-    const mail = adminBookingModifiedEmail({ before, after, roomName: before.room.name })
+    const mail = adminBookingModifiedEmail({
+      before,
+      after,
+      roomName: before.room.name,
+    })
     Promise.resolve(sendMail({ to: ADMIN_EMAIL, ...mail })).catch((e) =>
       console.error("Email failed:", e),
     )
@@ -430,7 +454,10 @@ export async function deleteBooking(id: string): Promise<ActionResult> {
 
     await prisma.booking.delete({ where: { id } })
 
-    const mail = adminBookingDeletedEmail({ booking, roomName: booking.room.name })
+    const mail = adminBookingDeletedEmail({
+      booking,
+      roomName: booking.room.name,
+    })
     Promise.resolve(sendMail({ to: ADMIN_EMAIL, ...mail })).catch((e) =>
       console.error("Email failed:", e),
     )
@@ -459,7 +486,10 @@ export async function createRoomSubcategory(
     }
 
     await prisma.roomSubcategory.create({
-      data: parsed.data,
+      data: {
+        ...parsed.data,
+        fromPriceCents: parsed.data.basePrice,
+      },
     })
   })
 }
@@ -480,9 +510,13 @@ export async function updateRoomSubcategory(
       throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
     }
 
-    await prisma.roomSubcategory.update({
-      where: { id },
-      data: parsed.data,
+    await prisma.$transaction(async (tx) => {
+      await tx.roomSubcategory.update({
+        where: { id },
+        data: parsed.data,
+      })
+      await syncInventoryBasesToSubcategory(id, tx)
+      await recomputeSubcategoryPricing(id, tx)
     })
   })
 }
@@ -548,7 +582,9 @@ export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPrice
         const weekendPrice = weekendPriceForBase(newSubBase)
 
         for (const dayOfWeek of WEEKEND_DAYS) {
-          const existing = room.priceRules.find((r) => r.dayOfWeek === dayOfWeek)
+          const existing = room.priceRules.find(
+            (r) => r.dayOfWeek === dayOfWeek,
+          )
           if (existing) {
             await tx.roomPriceRule.update({
               where: { id: existing.id },
@@ -568,12 +604,19 @@ export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPrice
       return summary
     })
 
+    for (const sub of subcategories) {
+      await recomputeSubcategoryPricing(sub.id)
+    }
+
     revalidate()
     return { ok: true, updated }
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Failed to update Lake View prices",
+      error:
+        err instanceof Error
+          ? err.message
+          : "Failed to update Lake View prices",
     }
   }
 }
@@ -586,7 +629,9 @@ export async function deleteRoomSubcategory(id: string): Promise<ActionResult> {
     })
 
     if (roomCount > 0) {
-      throw new Error(`Cannot delete: ${roomCount} room(s) are assigned to this subcategory`)
+      throw new Error(
+        `Cannot delete: ${roomCount} room(s) are assigned to this subcategory`,
+      )
     }
 
     await prisma.roomSubcategory.delete({
@@ -600,10 +645,22 @@ export async function assignRoomToSubcategory(
   subcategoryId: string | null,
 ): Promise<ActionResult> {
   return run(async () => {
+    const before = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: { subcategoryId: true },
+    })
+
     await prisma.room.update({
       where: { id: roomId },
       data: { subcategoryId },
     })
+
+    if (before?.subcategoryId) {
+      await recomputeSubcategoryPricing(before.subcategoryId)
+    }
+    if (subcategoryId) {
+      await recomputeSubcategoryPricing(subcategoryId)
+    }
   })
 }
 
@@ -612,9 +669,23 @@ export async function assignRoomsToSubcategoryBulk(
   subcategoryId: string | null,
 ): Promise<ActionResult> {
   return run(async () => {
+    const before = await prisma.room.findMany({
+      where: { id: { in: roomIds } },
+      select: { subcategoryId: true },
+    })
+
     await prisma.room.updateMany({
       where: { id: { in: roomIds } },
       data: { subcategoryId },
     })
+
+    const affected = new Set<string>()
+    for (const room of before) {
+      if (room.subcategoryId) affected.add(room.subcategoryId)
+    }
+    if (subcategoryId) affected.add(subcategoryId)
+    for (const id of affected) {
+      await recomputeSubcategoryPricing(id)
+    }
   })
 }

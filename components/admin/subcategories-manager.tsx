@@ -180,7 +180,7 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to create subcategory")
     } finally {
       setIsSubmitting(false)
@@ -209,7 +209,7 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to update subcategory")
     } finally {
       setIsSubmitting(false)
@@ -233,6 +233,7 @@ export function SubcategoriesManager({
       toast.success(
         `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
       )
+      window.location.reload()
     })
   }
 
@@ -253,7 +254,7 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete subcategory")
     } finally {
       setIsSubmitting(false)

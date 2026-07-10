@@ -202,7 +202,7 @@ export default function AboutPage() {
                 <p>
                   Every suite, every corridor, every detail was conceived in
                   collaboration with award-winning Québécois designers, blending
-                  the city's celebrated joie de vivre with understated European
+                  the city&apos;s celebrated joie de vivre with understated European
                   elegance. The result is a sanctuary where business and leisure
                   travellers alike arrive as guests and leave as devotees.
                 </p>

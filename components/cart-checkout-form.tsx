@@ -41,8 +41,6 @@ function PaymentStep({
   items,
   serverTotal,
   guestInfo,
-  publishableKey,
-  clientSecret,
 }: {
   items: CartItem[]
   serverTotal: number

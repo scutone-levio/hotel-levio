@@ -66,23 +66,15 @@ export function centsToDollarsString(cents: number): string {
   return String(cents / 100)
 }
 
-/** Get effective price for a room: subcategory price if assigned, otherwise basePrice. */
+/** Get effective price for a room: subcategory from-price for listings, else basePrice. */
 export function getRoomPrice(room: {
   basePrice: number
-  subcategory?: { basePrice: number } | null
+  subcategory?: { basePrice: number; fromPriceCents?: number } | null
 }): number {
+  if (room.subcategory?.fromPriceCents != null && room.subcategory.fromPriceCents > 0) {
+    return room.subcategory.fromPriceCents
+  }
   return room.subcategory?.basePrice ?? room.basePrice
-}
-
-/** Lowest nightly price across base rate and weekday rules, accounting for subcategory. */
-export function fromPrice(room: {
-  basePrice: number
-  subcategory?: { basePrice: number } | null
-  priceRules: { price: number }[]
-}) {
-  const effectiveBase = getRoomPrice(room)
-  const prices = [effectiveBase, ...room.priceRules.map((r) => r.price)]
-  return Math.min(...prices)
 }
 
 /** Format a price given in cents into a display string, e.g. 24900 -> "$249". */
