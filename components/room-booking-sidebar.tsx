@@ -29,7 +29,10 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   } | null>(null)
   const [quotePending, startQuoteTransition] = React.useTransition()
 
-  const listingPrice = room.subcategory?.fromPriceCents ?? room.basePrice
+  const listingPrice =
+    room.subcategory?.fromPriceCents && room.subcategory.fromPriceCents > 0
+      ? room.subcategory.fromPriceCents
+      : room.subcategory?.basePrice ?? room.basePrice
   const hasWeekendRates = room.subcategory?.hasWeekendRates ?? false
 
   React.useEffect(() => {
