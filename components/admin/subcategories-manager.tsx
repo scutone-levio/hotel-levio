@@ -224,12 +224,6 @@ export function SubcategoriesManager({
           toast.error(result.error)
           return
         }
-        setSubcategories((prev) =>
-          prev.map((s) => {
-            const hit = result.updated.find((u) => u.subcategoryId === s.id)
-            return hit ? { ...s, basePrice: hit.newPrice } : s
-          }),
-        )
         setBumpOpen(false)
         toast.success(
           `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
