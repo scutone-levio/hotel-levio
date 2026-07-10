@@ -3,7 +3,7 @@ import { BedDouble, Users } from "lucide-react"
 
 import type { RoomWithDetails } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
-import { formatPrice, fromPrice, isListingFeatured, roomPath } from "@/lib/rooms"
+import { formatPrice, isListingFeatured, listingFromPriceCents, roomPath } from "@/lib/rooms"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,7 +24,10 @@ export function RoomCard({
   room: RoomWithDetails
   availability?: AvailabilityCount | null
 }) {
-  const hasWeekendRule = room.priceRules.length > 0
+  const listingPrice = room.subcategory
+    ? listingFromPriceCents(room.subcategory)
+    : room.basePrice
+  const hasWeekendRates = room.subcategory?.hasWeekendRates ?? false
 
   return (
     <Card
@@ -47,8 +50,8 @@ export function RoomCard({
           </div>
           <div className="text-right">
             <div className="text-lg font-black text-[#0f2a3d]">
-              {hasWeekendRule ? "from " : ""}
-              {formatPrice(fromPrice(room))}
+              {hasWeekendRates ? "from " : ""}
+              {formatPrice(listingPrice, "CAD")}
             </div>
             <div className="text-xs text-[#0f2a3d]/50">per night</div>
           </div>

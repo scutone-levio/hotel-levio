@@ -25,11 +25,30 @@ export const CATALOG_BASE_PRICES: Record<RoomType, number> = {
   SUITE: 39900,
 }
 
+export const LAKE_VIEW_PRICE_MULTIPLIER = 1.25
+export const WEEKEND_PRICE_MULTIPLIER = 1.25
+
+/** Apply a multiplier and round up to the next whole dollar (cents). */
+export function applyPricePremium(cents: number, multiplier: number): number {
+  return Math.ceil((cents * multiplier) / 100) * 100
+}
+
+/** Fri/Sat override price derived from a subcategory base. */
+export function weekendPriceForBase(baseCents: number): number {
+  return applyPricePremium(baseCents, WEEKEND_PRICE_MULTIPLIER)
+}
+
 export function subcategoryPriceForType(
   type: RoomType,
   name: string,
 ): number {
   if (name === LOWER_LEVEL_NAME) return LOWER_LEVEL_PRICE
+  if (name === LAKE_VIEW_NAME) {
+    return applyPricePremium(
+      CATALOG_BASE_PRICES[type],
+      LAKE_VIEW_PRICE_MULTIPLIER,
+    )
+  }
   return CATALOG_BASE_PRICES[type]
 }
 

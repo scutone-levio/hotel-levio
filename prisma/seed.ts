@@ -9,6 +9,11 @@ import {
   subcategoryPriceForType,
 } from "../lib/subcategories"
 import {
+  deleteOrphanSubcategories,
+  recomputeAllSubcategoryPricing,
+  syncMismatchedInventoryBases,
+} from "../lib/subcategory-pricing"
+import {
   CATALOG_ROOM_NUMBERS,
   DEFAULT_FLOOR_PLAN,
   catalogSlug,
@@ -351,7 +356,7 @@ async function ensureSubcategories() {
 
       await prisma.roomSubcategory.upsert({
         where: { roomType_name: { roomType: type, name } },
-        create: { name, roomType: type, basePrice, featured },
+        create: { name, roomType: type, basePrice, featured, fromPriceCents: basePrice },
         update: { basePrice, featured },
       })
 
@@ -389,7 +394,11 @@ async function ensureSubcategories() {
     assignedByName[subcategoryName] = (assignedByName[subcategoryName] ?? 0) + 1
   }
 
-  return { created, assigned, assignedByName }
+  const basesSynced = await syncMismatchedInventoryBases()
+  const orphansDeleted = await deleteOrphanSubcategories()
+  await recomputeAllSubcategoryPricing()
+
+  return { created, assigned, assignedByName, basesSynced, orphansDeleted }
 }
 
 async function main() {
@@ -420,7 +429,7 @@ async function main() {
   const placesUpserted = await ensureNearbyPlaces()
   console.log(`  • ${placesUpserted} nearby place entries ensured`)
 
-  const { created: subCreated, assigned: subAssigned, assignedByName } =
+  const { created: subCreated, assigned: subAssigned, assignedByName, basesSynced, orphansDeleted } =
     await ensureSubcategories()
   if (subCreated > 0) {
     console.log(`  • ${subCreated} subcategory(ies) created`)
@@ -430,6 +439,12 @@ async function main() {
     for (const [name, count] of Object.entries(assignedByName)) {
       console.log(`    – ${name}: ${count}`)
     }
+  }
+  if (basesSynced > 0) {
+    console.log(`  • ${basesSynced} inventory base price(s) synced to subcategory`)
+  }
+  if (orphansDeleted > 0) {
+    console.log(`  • ${orphansDeleted} orphan subcategory(ies) removed`)
   }
 
   console.log("✅ Seed complete.")

@@ -25,8 +25,8 @@ export default function PrivacyPage() {
             <section className="space-y-3">
               <h2 className="text-xl">1. Introduction</h2>
               <p className="text-muted-foreground">
-                Hôtel Levio ("<strong>we</strong>", "<strong>us</strong>", or
-                "<strong>our</strong>") is committed to protecting the personal
+                Hôtel Levio (&quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;, or
+                &quot;<strong>our</strong>&quot;) is committed to protecting the personal
                 information of our guests, website visitors, and any other
                 individuals whose data we process. This Privacy Policy explains
                 what information we collect, why we collect it, how we use it,
@@ -85,7 +85,7 @@ export default function PrivacyPage() {
             <section className="space-y-3">
               <h2 className="text-xl">4. Legal bases for processing</h2>
               <p className="text-muted-foreground">
-                Where applicable under Québec's Act respecting the protection of
+                Where applicable under Québec&apos;s Act respecting the protection of
                 personal information in the private sector (Law 25) and other
                 applicable legislation, we process your personal information on
                 the following legal bases:
@@ -191,7 +191,7 @@ export default function PrivacyPage() {
                 We may update this Privacy Policy from time to time to reflect
                 changes in our practices or applicable law. We will notify you of
                 material changes by posting the revised policy on our website and
-                updating the "Last updated" date above. Your continued use of our
+                updating the &quot;Last updated&quot; date above. Your continued use of our
                 services after such changes constitutes acceptance of the updated
                 policy.
               </p>

@@ -7,9 +7,9 @@ import { toast } from "sonner"
 import type { DateRange } from "react-day-picker"
 
 import type { RoomWithDetails } from "@/lib/queries"
+import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice, fromPrice, getRoomPrice } from "@/lib/rooms"
-import { quoteRange } from "@/lib/pricing"
+import { formatPrice, listingFromPriceCents } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { Button } from "@/components/ui/button"
@@ -23,20 +23,65 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const { dateRange, setDateRange, isHydrated } = useDateRange()
   const [range, setRange] = React.useState<DateRange | undefined>()
   const [guests, setGuests] = React.useState(1)
+  const [quote, setQuote] = React.useState<{
+    total: number
+    nights: number
+  } | null>(null)
+  const [quoteError, setQuoteError] = React.useState<string | null>(null)
+  const [quotePending, startQuoteTransition] = React.useTransition()
+
+  const listingPrice = room.subcategory
+    ? listingFromPriceCents(room.subcategory)
+    : room.basePrice
+  const hasWeekendRates = room.subcategory?.hasWeekendRates ?? false
 
   React.useEffect(() => {
     if (isHydrated) setRange(dateRange)
   }, [dateRange, isHydrated])
 
+  React.useEffect(() => {
+    if (!range?.from || !range?.to) {
+      setQuote(null)
+      setQuoteError(null)
+      return
+    }
+
+    let isMounted = true
+
+    startQuoteTransition(async () => {
+      try {
+        const result = await quoteListing({
+          roomId: room.id,
+          subcategoryId: room.subcategory?.id,
+          checkIn: range.from!.toISOString(),
+          checkOut: range.to!.toISOString(),
+          guests,
+        })
+        if (!isMounted) return
+        if (result.ok) {
+          setQuote({ total: result.total, nights: result.nights })
+          setQuoteError(null)
+        } else {
+          setQuote(null)
+          setQuoteError(result.error)
+        }
+      } catch {
+        if (isMounted) {
+          setQuote(null)
+          setQuoteError("Unable to calculate price. Please try again.")
+        }
+      }
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [range, guests, room.id, room.subcategory?.id])
+
   function handleSelect(next: DateRange | undefined) {
     setRange(next)
     setDateRange(next)
   }
-
-  const quote =
-    range?.from && range?.to
-      ? quoteRange(getRoomPrice(room), room.priceRules, range.from, range.to)
-      : null
 
   const disabled = [{ before: new Date() }, ...blackoutMatchers(room.blackouts)]
 
@@ -49,9 +94,6 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
       new Date(i.checkIn) < range.to &&
       new Date(i.checkOut) > range.from,
   )
-
-  const effectiveBase = getRoomPrice(room)
-  const weekendRules = room.priceRules.filter((r) => r.price > effectiveBase)
 
   function handleAddToCart() {
     if (!range?.from || !range?.to || !quote || quote.nights === 0) return
@@ -75,19 +117,17 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   }
 
   return (
-    <div className="rounded-2xl border bg-card p-5 space-y-4">
-      {/* Price header */}
+    <div className="bg-card space-y-4 rounded-2xl border p-5">
       <div className="flex items-baseline gap-1.5">
         <p className="text-2xl font-black">
-          {weekendRules.length > 0 ? "from " : ""}
-          {formatPrice(fromPrice(room))}
+          {hasWeekendRates ? "from " : ""}
+          {formatPrice(listingPrice, "CAD")}
         </p>
         <p className="text-muted-foreground text-sm">/ night</p>
       </div>
 
       <div className="border-t" />
 
-      {/* Inline calendar */}
       <Calendar
         mode="range"
         selected={range}
@@ -100,7 +140,6 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
 
       <div className="border-t" />
 
-      {/* Guests */}
       <div className="flex items-center justify-between">
         <Label
           htmlFor="guests-sidebar"
@@ -119,30 +158,34 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         />
       </div>
 
-      {/* Price breakdown */}
-      {quote && quote.nights > 0 ? (
-        <div className="rounded-xl bg-muted/50 p-3 text-sm space-y-1.5">
-          <div className="flex justify-between text-muted-foreground">
+      {quotePending ? (
+        <p className="text-muted-foreground text-center text-sm">
+          Calculating price…
+        </p>
+      ) : quoteError ? (
+        <p className="text-destructive text-center text-sm">{quoteError}</p>
+      ) : quote && quote.nights > 0 ? (
+        <div className="bg-muted/50 space-y-1.5 rounded-xl p-3 text-sm">
+          <div className="text-muted-foreground flex justify-between">
             <span>
-              {formatPrice(fromPrice(room))} × {quote.nights} night
-              {quote.nights !== 1 ? "s" : ""}
+              {quote.nights} night{quote.nights !== 1 ? "s" : ""}
             </span>
-            <span>{formatPrice(quote.total)}</span>
+            <span>{formatPrice(quote.total, "CAD")}</span>
           </div>
           <div className="border-t" />
           <div className="flex justify-between font-semibold">
             <span>Total</span>
-            <span>{formatPrice(quote.total)}</span>
+            <span>{formatPrice(quote.total, "CAD")}</span>
           </div>
         </div>
       ) : (
-        <p className="text-muted-foreground text-sm text-center">
+        <p className="text-muted-foreground text-center text-sm">
           Select dates to see the total.
         </p>
       )}
 
       {alreadyInCart && (
-        <p className="text-amber-600 text-xs">
+        <p className="text-xs text-amber-600">
           This room is already in your cart for overlapping dates.
         </p>
       )}
@@ -151,7 +194,13 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         className="w-full cursor-pointer"
         size="lg"
         onClick={handleAddToCart}
-        disabled={!quote || quote.nights === 0 || alreadyInCart}
+        disabled={
+          !quote ||
+          quote.nights === 0 ||
+          alreadyInCart ||
+          quotePending ||
+          !!quoteError
+        }
       >
         <ShoppingCart className="size-4" />
         {range?.from ? "Add to cart" : "Select dates to book"}
@@ -167,10 +216,9 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         </button>
       )}
 
-      {weekendRules.length > 0 && (
-        <p className="text-muted-foreground text-xs text-center">
-          Weekend rate:{" "}
-          {formatPrice(Math.max(...weekendRules.map((r) => r.price)))} / night
+      {hasWeekendRates && (
+        <p className="text-muted-foreground text-center text-xs">
+          Weekend nights may cost more than the rate shown above.
         </p>
       )}
     </div>

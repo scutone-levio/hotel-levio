@@ -8,11 +8,18 @@ import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
 import type { RoomSubcategoryWithCount } from "@/lib/queries"
 import { ROOM_TYPES, ROOM_TYPE_LABELS, centsToDollarsString, formatPrice, parseDollarsToCents } from "@/lib/rooms"
 import {
+  bumpLakeViewSubcategoryPrices,
   createRoomSubcategory,
   updateRoomSubcategory,
   deleteRoomSubcategory,
   setSubcategoryFeatured,
 } from "@/app/admin/actions"
+import {
+  LAKE_VIEW_NAME,
+  applyPricePremium,
+  LAKE_VIEW_PRICE_MULTIPLIER,
+  weekendPriceForBase,
+} from "@/lib/subcategories"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,6 +39,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 function FeaturedToggle({
   subcategoryId,
@@ -78,6 +93,22 @@ function FeaturedToggle({
   )
 }
 
+function lakeViewPreviewRows(
+  subcategories: RoomSubcategoryWithCount[],
+) {
+  return subcategories
+    .filter((s) => s.name === LAKE_VIEW_NAME)
+    .sort((a, b) => ROOM_TYPES.indexOf(a.roomType) - ROOM_TYPES.indexOf(b.roomType))
+    .map((sub) => {
+      const newBase = applyPricePremium(sub.basePrice, LAKE_VIEW_PRICE_MULTIPLIER)
+      return {
+        sub,
+        newBase,
+        newWeekend: weekendPriceForBase(newBase),
+      }
+    })
+}
+
 interface SubcategoriesManagerProps {
   initialSubcategories: RoomSubcategoryWithCount[]
 }
@@ -96,6 +127,17 @@ export function SubcategoriesManager({
   const [newName, setNewName] = React.useState("")
   const [newPrice, setNewPrice] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [bumpOpen, setBumpOpen] = React.useState(false)
+  const [bumpPending, startBumpTransition] = React.useTransition()
+
+  const lakeViewSubs = React.useMemo(
+    () => subcategories.filter((s) => s.name === LAKE_VIEW_NAME),
+    [subcategories],
+  )
+  const bumpPreview = React.useMemo(
+    () => lakeViewPreviewRows(subcategories),
+    [subcategories],
+  )
 
   const filteredSubs = React.useMemo(
     () =>
@@ -138,7 +180,7 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to create subcategory")
     } finally {
       setIsSubmitting(false)
@@ -167,11 +209,30 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to update subcategory")
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  function handleBumpLakeView() {
+    startBumpTransition(async () => {
+      try {
+        const result = await bumpLakeViewSubcategoryPrices()
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
+        setBumpOpen(false)
+        toast.success(
+          `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
+        )
+        window.location.reload()
+      } catch {
+        toast.error("Failed to update Lake View prices")
+      }
+    })
   }
 
   const handleDelete = async (id: string, name: string, count: number) => {
@@ -191,7 +252,7 @@ export function SubcategoriesManager({
       } else {
         toast.error(result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete subcategory")
     } finally {
       setIsSubmitting(false)
@@ -219,17 +280,66 @@ export function SubcategoriesManager({
           </Select>
         </div>
 
-        {!isCreating ? (
-          <Button
-            onClick={() => setIsCreating(true)}
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-auto"
-          >
-            <Plus className="size-4 mr-1" /> New Subcategory
-          </Button>
-        ) : null}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {lakeViewSubs.length > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBumpOpen(true)}
+              data-testid="bump-lake-view-prices"
+              className="w-full sm:w-auto"
+            >
+              Increase Lake View prices by 25%
+            </Button>
+          ) : null}
+          {!isCreating ? (
+            <Button
+              onClick={() => setIsCreating(true)}
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              <Plus className="size-4 mr-1" /> New Subcategory
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      <Dialog open={bumpOpen} onOpenChange={setBumpOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Increase Lake View prices by 25%?</DialogTitle>
+            <DialogDescription>
+              Updates all Lake View subcategory base prices, syncs inventory room
+              base prices, and recalculates Friday/Saturday rules from the new
+              base. Rounds up to the next whole dollar. Existing bookings are not
+              affected. Running this again will apply another 25% increase.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            {bumpPreview.map(({ sub, newBase, newWeekend }) => (
+              <div key={sub.id} className="flex justify-between gap-4 border-b py-2">
+                <span>{ROOM_TYPE_LABELS[sub.roomType]}</span>
+                <span className="text-muted-foreground text-right">
+                  {formatPrice(sub.basePrice, "CAD")} → {formatPrice(newBase, "CAD")}
+                  <br />
+                  Fri/Sat: {formatPrice(newWeekend, "CAD")}
+                  <br />
+                  {sub._count.rooms} room{sub._count.rooms === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBumpOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBumpLakeView} disabled={bumpPending}>
+              {bumpPending ? "Updating…" : "Confirm increase"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create form */}
       {isCreating && (

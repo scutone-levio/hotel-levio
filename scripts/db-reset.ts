@@ -4,7 +4,6 @@ import { PrismaClient } from "@prisma/client"
 
 import {
   ALLOW_DESTRUCTIVE_DB_OPS_ENV,
-  CONFIRM_DB_RESET_ENV,
   resetConfirmed,
 } from "../lib/db-safeguards"
 
