@@ -46,19 +46,24 @@ export default async function ReservePage({
   // loads/refreshes must not spawn Stripe intents.
   const session = await auth()
   const paymentIntent = session?.user?.id
-    ? await stripe.paymentIntents.create({
-        amount: quote.total,
-        currency: "cad",
-        automatic_payment_methods: { enabled: true },
-        metadata: {
-          roomId: room.id,
-          roomName: room.name,
-          checkIn: checkInDate.toISOString(),
-          checkOut: checkOutDate.toISOString(),
-          guests: String(guestCount),
-          nights: String(quote.nights),
+    ? await stripe.paymentIntents.create(
+        {
+          amount: quote.total,
+          currency: "cad",
+          automatic_payment_methods: { enabled: true },
+          metadata: {
+            roomId: room.id,
+            roomName: room.name,
+            checkIn: checkInDate.toISOString(),
+            checkOut: checkOutDate.toISOString(),
+            guests: String(guestCount),
+            nights: String(quote.nights),
+          },
         },
-      })
+        {
+          idempotencyKey: `reserve_${session.user.id}_${roomId}_${checkIn}_${checkOut}`,
+        },
+      )
     : null
 
   const callbackUrl = `/reserve?roomId=${roomId}&checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guestCount}`

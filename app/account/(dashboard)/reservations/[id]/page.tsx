@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation"
-import { startOfDay } from "date-fns"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { isUpcomingBooking, getDisplayRoomName } from "@/lib/account-bookings"
 import { ReservationDetail } from "@/components/account/reservation-detail"
 import { PageHeader } from "@/components/page-header"
 
@@ -23,9 +23,7 @@ export default async function ReservationDetailPage({
   })
   if (!booking) notFound()
 
-  const today = startOfDay(new Date())
-  const canModify =
-    booking.status === "CONFIRMED" && startOfDay(booking.checkOut) >= today
+  const canModify = isUpcomingBooking(booking)
 
   return (
     <>
@@ -39,7 +37,7 @@ export default async function ReservationDetailPage({
           totalPrice: booking.totalPrice,
           status: booking.status,
           specialRequests: booking.specialRequests,
-          roomName: booking.room.name.split(" · ")[0],
+          roomName: getDisplayRoomName(booking.room.name),
           roomNumber: booking.room.roomNumber,
           canModify,
         }}

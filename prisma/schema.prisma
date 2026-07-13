@@ -183,8 +183,9 @@ model Booking {
   // Total price in the smallest currency unit (e.g. cents).
   totalPrice      Int
   status          BookingStatus    @default(PENDING)
-  stripeSessionId String?
-  guestName       String?
+  stripeSessionId           String?
+  dateChangeStripePaymentId String?
+  guestName                 String?
   guestEmail      String?
   guestPhone      String?
   specialRequests String?

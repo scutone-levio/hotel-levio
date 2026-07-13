@@ -1,9 +1,12 @@
 import { z } from "zod"
+import { MIN_PASSWORD_LENGTH } from "@/lib/password"
 
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  email: z.string().trim().toLowerCase().pipe(z.email("Enter a valid email")),
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`),
 })
 
 export const profileSchema = z.object({

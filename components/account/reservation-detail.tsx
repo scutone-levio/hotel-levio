@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { loadStripe } from "@stripe/stripe-js"
 import {
@@ -90,6 +91,7 @@ export function ReservationDetail({
   const [paymentClientSecret, setPaymentClientSecret] = React.useState<
     string | null
   >(null)
+  const router = useRouter()
   const [pending, startTransition] = React.useTransition()
   const stripePromise = React.useMemo(
     () => loadStripe(publishableKey),
@@ -104,7 +106,7 @@ export function ReservationDetail({
       const result = await cancelReservation(booking.id)
       if (result.ok) {
         toast.success("Reservation cancelled")
-        window.location.reload()
+        router.refresh()
       } else {
         toast.error(result.error)
       }
@@ -152,7 +154,7 @@ export function ReservationDetail({
           toast.success("Dates updated")
         }
         setPaymentClientSecret(null)
-        window.location.reload()
+        router.refresh()
       }
     })
   }

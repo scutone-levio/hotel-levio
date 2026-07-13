@@ -8,8 +8,8 @@ export function validateDateChangePaymentIntentUsage(
 }
 
 export function buildDateChangeBookingUpdateData(
-  booking: { stripeSessionId: string | null },
-  inputStripePaymentIntentId: string | undefined,
+  _booking: { stripeSessionId: string | null },
+  dateChangeStripePaymentId: string | undefined,
   checkIn: Date,
   checkOut: Date,
   totalPrice: number,
@@ -18,6 +18,7 @@ export function buildDateChangeBookingUpdateData(
     checkIn,
     checkOut,
     totalPrice,
-    stripeSessionId: inputStripePaymentIntentId || booking.stripeSessionId,
+    // stripeSessionId is intentionally not updated — original checkout reference preserved.
+    dateChangeStripePaymentId: dateChangeStripePaymentId ?? null,
   }
 }

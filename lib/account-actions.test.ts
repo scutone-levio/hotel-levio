@@ -20,28 +20,30 @@ describe("account action helpers", () => {
     assert.deepEqual(result, { ok: true })
   })
 
-  it("prefers the provided Stripe intent when updating booking data", () => {
+  it("records the date-change payment intent id without touching stripeSessionId", () => {
     const data = buildDateChangeBookingUpdateData(
-      { stripeSessionId: "old_intent" },
+      { stripeSessionId: "original_session" },
       "new_intent",
       new Date("2026-08-01"),
       new Date("2026-08-05"),
       25000,
     )
 
-    assert.equal(data.stripeSessionId, "new_intent")
+    assert.equal(data.dateChangeStripePaymentId, "new_intent")
     assert.equal(data.totalPrice, 25000)
+    assert.ok(!("stripeSessionId" in data), "stripeSessionId must not be overwritten")
   })
 
-  it("keeps the existing Stripe intent when no new intent is provided", () => {
+  it("sets dateChangeStripePaymentId to null when no payment intent is provided", () => {
     const data = buildDateChangeBookingUpdateData(
-      { stripeSessionId: "existing_intent" },
+      { stripeSessionId: "original_session" },
       undefined,
       new Date("2026-08-01"),
       new Date("2026-08-05"),
       25000,
     )
 
-    assert.equal(data.stripeSessionId, "existing_intent")
+    assert.equal(data.dateChangeStripePaymentId, null)
+    assert.ok(!("stripeSessionId" in data), "stripeSessionId must not be overwritten")
   })
 })

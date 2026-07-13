@@ -1,6 +1,10 @@
 import { startOfDay } from "date-fns"
 import type { BookingStatus } from "@prisma/client"
 
+export function getDisplayRoomName(fullName: string): string {
+  return fullName.split(" · ")[0]
+}
+
 export type BookingListRow = {
   id: string
   checkIn: Date

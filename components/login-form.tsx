@@ -86,10 +86,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           </Button>
         </form>
 
-        <p className="text-muted-foreground mt-4 text-center text-xs">
-          Demo admin: <span className="font-medium">admin@hotel.test</span> ·
-          password <span className="font-medium">password123</span>
-        </p>
+        {process.env.NODE_ENV !== "production" && (
+          <p className="text-muted-foreground mt-4 text-center text-xs">
+            Demo admin: <span className="font-medium">admin@hotel.test</span> ·
+            password <span className="font-medium">password123</span>
+          </p>
+        )}
       </CardContent>
     </Card>
   )

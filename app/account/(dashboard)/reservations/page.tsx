@@ -3,7 +3,7 @@ import { startOfDay } from "date-fns"
 
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-import { partitionBookings } from "@/lib/account-bookings"
+import { partitionBookings, getDisplayRoomName } from "@/lib/account-bookings"
 import { ReservationsList } from "@/components/account/reservations-list"
 import { PageHeader } from "@/components/page-header"
 
@@ -27,7 +27,7 @@ export default async function AccountReservationsPage() {
     checkOut: b.checkOut,
     status: b.status,
     totalPrice: b.totalPrice,
-    roomName: b.room.name.split(" · ")[0],
+    roomName: getDisplayRoomName(b.room.name),
   }))
 
   const { upcoming, past } = partitionBookings(rows, startOfDay(new Date()))

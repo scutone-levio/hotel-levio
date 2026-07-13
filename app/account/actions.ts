@@ -44,7 +44,7 @@ export async function registerCustomer(input: {
     const passwordError = validatePassword(parsed.data.password)
     if (passwordError) return { ok: false, error: passwordError }
 
-    const email = parsed.data.email.toLowerCase()
+    const email = parsed.data.email
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return { ok: false, error: "An account with this email already exists" }
@@ -61,10 +61,8 @@ export async function registerCustomer(input: {
 
     return { ok: true }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Registration failed",
-    }
+    console.error("registerCustomer error:", err)
+    return { ok: false, error: "Registration failed" }
   }
 }
 
@@ -107,10 +105,8 @@ export async function updateProfile(input: {
     revalidatePath("/account")
     return { ok: true }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Failed to update profile",
-    }
+    console.error("updateProfile error:", err)
+    return { ok: false, error: "Failed to update profile" }
   }
 }
 
@@ -144,10 +140,8 @@ export async function changePassword(input: {
 
     return { ok: true }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Failed to change password",
-    }
+    console.error("changePassword error:", err)
+    return { ok: false, error: "Failed to change password" }
   }
 }
 
@@ -183,11 +177,8 @@ export async function cancelReservation(
     revalidatePath("/admin")
     return { ok: true }
   } catch (err) {
-    return {
-      ok: false,
-      error:
-        err instanceof Error ? err.message : "Failed to cancel reservation",
-    }
+    console.error("cancelReservation error:", err)
+    return { ok: false, error: "Failed to cancel reservation" }
   }
 }
 
@@ -219,13 +210,8 @@ export async function updateReservationSpecialRequests(
     revalidatePath(`/account/reservations/${bookingId}`)
     return { ok: true }
   } catch (err) {
-    return {
-      ok: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to update special requests",
-    }
+    console.error("updateReservationSpecialRequests error:", err)
+    return { ok: false, error: "Failed to update special requests" }
   }
 }
 
@@ -316,7 +302,7 @@ export async function changeReservationDates(input: {
 
     if (priceDiff > 0 && input.stripePaymentIntentId) {
       const existingBooking = await prisma.booking.findFirst({
-        where: { stripeSessionId: input.stripePaymentIntentId },
+        where: { dateChangeStripePaymentId: input.stripePaymentIntentId },
       })
       const usageCheck = validateDateChangePaymentIntentUsage(existingBooking)
       if (!usageCheck.ok) return usageCheck
@@ -374,7 +360,7 @@ export async function changeReservationDates(input: {
         where: { id: bookingForUpdate.id },
         data: buildDateChangeBookingUpdateData(
           bookingForUpdate,
-          input.stripePaymentIntentId,
+          priceDiff > 0 ? input.stripePaymentIntentId : undefined,
           checkIn,
           checkOut,
           quote.total,
@@ -398,9 +384,9 @@ export async function changeReservationDates(input: {
       refundPending: priceDiff < 0,
     }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Failed to change dates",
-    }
+    console.error("changeReservationDates error:", err)
+    const safe = new Set(["Reservation not found", "Room not available for those dates"])
+    const msg = err instanceof Error ? err.message : ""
+    return { ok: false, error: safe.has(msg) ? msg : "Failed to change dates" }
   }
 }

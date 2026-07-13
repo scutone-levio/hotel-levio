@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import { NextResponse } from "next/server"
 
 import { authConfig } from "@/auth.config"
+import { sanitizeCallbackUrl } from "@/lib/oauth"
 
 const { auth } = NextAuth({
   ...authConfig,
@@ -20,9 +21,8 @@ export default auth((req) => {
     if (req.auth?.user?.role !== "ADMIN") {
       const url = req.nextUrl.clone()
       url.pathname = "/login"
-      if (!url.searchParams.has("callbackUrl")) {
-        url.searchParams.set("callbackUrl", pathname)
-      }
+      const raw = url.searchParams.get("callbackUrl")
+      url.searchParams.set("callbackUrl", raw ? sanitizeCallbackUrl(raw) : pathname)
       return NextResponse.redirect(url)
     }
     return
@@ -35,9 +35,8 @@ export default auth((req) => {
     if (!req.auth?.user) {
       const url = req.nextUrl.clone()
       url.pathname = "/account/login"
-      if (!url.searchParams.has("callbackUrl")) {
-        url.searchParams.set("callbackUrl", pathname)
-      }
+      const raw = url.searchParams.get("callbackUrl")
+      url.searchParams.set("callbackUrl", raw ? sanitizeCallbackUrl(raw) : pathname)
       return NextResponse.redirect(url)
     }
   }

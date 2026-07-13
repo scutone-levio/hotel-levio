@@ -36,5 +36,6 @@ export async function fillStripePaymentElement(page: Page) {
     await postalField.fill("K1A 0B1")
   }
 
+  // Clicking the section heading blurs the card iframe and triggers Stripe's field validation before submission.
   await page.getByRole("heading", { name: "Payment" }).click()
 }
