@@ -40,7 +40,7 @@ Require a logged-in account before payment while keeping browse-and-date-selecti
 
 Extend the existing NextAuth v5 (Auth.js) setup in `auth.ts`. Keep JWT sessions. Replace mock credentials with Prisma + bcrypt. Add Google and Facebook OAuth providers. Introduce a customer account route group under `/account/*` protected by middleware.
 
-```
+```text
 Browse (public) → Cart → Inline auth → Stripe payment → Confirmation
                               ↓
                     /account (profile + reservations)
@@ -116,7 +116,7 @@ Cart → guest info form (name, email, phone) → Stripe → `finalizeCartBookin
 
 ### New
 
-```
+```text
 Step 1: Review cart items
 Step 2: Account (inline AuthPanel) — required before payment
 Step 3: Stripe PaymentElement — enabled only when session exists

@@ -1,11 +1,15 @@
 import Image from "next/image"
 import Link from "next/link"
 
+import { auth } from "@/auth"
 import { CartIcon } from "@/components/cart-icon"
+import { AccountNav } from "@/components/account-nav"
 import { SiteNavLink } from "@/components/site-nav-link"
 import { cartIconTheme, siteHeaderClassName } from "@/lib/site-chrome"
 
-export function Header() {
+export async function Header() {
+  const session = await auth()
+
   return (
     <header className={siteHeaderClassName}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-[10px]">
@@ -25,6 +29,7 @@ export function Header() {
         <nav className="flex items-center gap-6">
           <SiteNavLink href="/about">About Us</SiteNavLink>
           <SiteNavLink href="/contact">Contact Us</SiteNavLink>
+          <AccountNav user={session?.user ?? null} />
           <span className="text-[#f3ecda]" style={cartIconTheme}>
             <CartIcon />
           </span>

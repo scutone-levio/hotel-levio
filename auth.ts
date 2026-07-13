@@ -1,69 +1,126 @@
 import NextAuth from "next-auth"
+import type { NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
+import Google from "next-auth/providers/google"
+import Facebook from "next-auth/providers/facebook"
 
-// NextAuth v5 (Auth.js) configuration.
-//
-// This uses a Credentials provider with a mock/demo login so the app works
-// out-of-the-box without an external identity provider. Swap in a database
-// lookup (see the commented Prisma example) and password hashing for real use.
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
-  providers: [
-    Credentials({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      authorize: async (credentials) => {
-        const email = String(credentials?.email ?? "")
-        const password = String(credentials?.password ?? "")
+import { authConfig } from "@/auth.config"
+import { prisma } from "@/lib/prisma"
+import { verifyPassword } from "@/lib/password"
 
-        // --- MOCK AUTH (demo only) -----------------------------------------
-        // Any password works for these two demo accounts.
-        if (email === "admin@hotel.test" && password.length > 0) {
-          return { id: "demo-admin", name: "Hotel Admin", email, role: "ADMIN" }
-        }
-        if (email === "guest@hotel.test" && password.length > 0) {
-          return {
-            id: "demo-guest",
-            name: "Demo Guest",
-            email,
-            role: "CUSTOMER",
-          }
-        }
+/**
+ * Providers whose returned email we trust as verified, so it's safe to link
+ * to an existing account by email match. Google exposes `email_verified` on
+ * the profile; Facebook's Graph API only ever returns confirmed emails.
+ * Without this check, anyone who can create an OAuth account under an
+ * unverified/attacker-controlled email would silently take over an existing
+ * credentials account with the same address (OAuthAccountNotLinked-style
+ * account takeover).
+ */
+function isEmailVerifiedForLinking(
+  provider: string | undefined,
+  profile: { email_verified?: boolean | null } | undefined,
+): boolean {
+  if (provider === "facebook") return true
+  if (provider === "google") return profile?.email_verified === true
+  return false
+}
 
-        // --- REAL AUTH (uncomment and add bcrypt) --------------------------
-        // const user = await prisma.user.findUnique({ where: { email } })
-        // if (user?.password && (await bcrypt.compare(password, user.password))) {
-        //   return { id: user.id, name: user.name, email: user.email, role: user.role }
-        // }
+async function ensureOAuthUser(input: {
+  email: string
+  name?: string | null
+  image?: string | null
+  emailVerified: boolean
+}) {
+  const email = input.email.toLowerCase()
+  const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing) {
+    if (!input.emailVerified) {
+      throw new Error(
+        "An account with this email already exists. Sign in with your password instead.",
+      )
+    }
+    return existing
+  }
 
-        return null
-      },
-    }),
-  ],
-  callbacks: {
-    // Used by the middleware to gate protected routes. Only ADMIN users may
-    // access anything under /admin.
-    authorized({ auth, request }) {
-      const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
-      if (isAdminRoute) return auth?.user?.role === "ADMIN"
-      return true
+  return prisma.user.create({
+    data: {
+      email,
+      name: input.name,
+      image: input.image,
+      role: "CUSTOMER",
+      emailVerified: input.emailVerified ? new Date() : null,
     },
-    // Persist the user's role onto the JWT and expose it on the session.
-    jwt({ token, user }) {
-      if (user) token.role = (user as { role?: string }).role ?? "CUSTOMER"
-      return token
+  })
+}
+
+const providers: NextAuthConfig["providers"] = [
+  Credentials({
+    name: "Credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
     },
-    session({ session, token }) {
-      if (session.user) {
-        session.user.role = (token.role as string) ?? "CUSTOMER"
+    authorize: async (credentials) => {
+      const email = String(credentials?.email ?? "").toLowerCase().trim()
+      const password = String(credentials?.password ?? "")
+      if (!email || !password) return null
+
+      const user = await prisma.user.findUnique({ where: { email } })
+      if (!user?.password) return null
+      if (!(await verifyPassword(password, user.password))) return null
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       }
-      return session
+    },
+  }),
+]
+
+if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
+  providers.push(
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    }),
+  )
+}
+
+if (process.env.AUTH_FACEBOOK_ID && process.env.AUTH_FACEBOOK_SECRET) {
+  providers.push(
+    Facebook({
+      clientId: process.env.AUTH_FACEBOOK_ID,
+      clientSecret: process.env.AUTH_FACEBOOK_SECRET,
+    }),
+  )
+}
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
+  providers,
+  callbacks: {
+    ...authConfig.callbacks,
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "credentials") return true
+      if (!user.email) return false
+
+      let dbUser
+      try {
+        dbUser = await ensureOAuthUser({
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          emailVerified: isEmailVerifiedForLinking(account?.provider, profile),
+        })
+      } catch {
+        return false
+      }
+      user.id = dbUser.id
+      user.role = dbUser.role
+      return true
     },
   },
 })

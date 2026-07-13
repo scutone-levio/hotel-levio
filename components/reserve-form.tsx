@@ -11,15 +11,15 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
+import { useSession } from "next-auth/react"
 import { CalendarDays, Users } from "lucide-react"
 
 import { finalizeBooking } from "@/app/actions"
+import { AuthPanel } from "@/components/auth-panel"
+import type { OAuthProvider } from "@/lib/oauth"
 import { formatPrice } from "@/lib/rooms"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-/* ---------- Types ---------- */
 
 type RoomSummary = { id: string; name: string; imageUrl: string | null }
 type Quote = { nights: number; total: number }
@@ -30,11 +30,13 @@ type FormProps = {
   checkOut: string
   guests: number
   quote: Quote
-  clientSecret: string
+  clientSecret: string | null
   publishableKey: string
+  callbackUrl: string
+  oauthEnabled?: boolean
+  oauthProviders?: OAuthProvider[]
+  subcategoryId?: string
 }
-
-/* ---------- Inner form (needs Stripe context) ---------- */
 
 function PaymentForm({
   room,
@@ -42,50 +44,28 @@ function PaymentForm({
   checkOut,
   guests,
   quote,
-}: Omit<FormProps, "clientSecret" | "publishableKey">) {
+  subcategoryId,
+}: Omit<FormProps, "clientSecret" | "publishableKey" | "callbackUrl">) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
 
-  const [firstName, setFirstName] = React.useState("")
-  const [lastName, setLastName] = React.useState("")
-  const [email, setEmail] = React.useState("")
-  const [phone, setPhone] = React.useState("")
   const [specialRequests, setSpecialRequests] = React.useState("")
-  const [errors, setErrors] = React.useState<Record<string, string>>({})
-  const [status, setStatus] = React.useState<"idle" | "processing" | "error">("idle")
+  const [status, setStatus] = React.useState<"idle" | "processing" | "error">(
+    "idle",
+  )
   const [stripeError, setStripeError] = React.useState<string | null>(null)
 
   const checkInDate = new Date(checkIn)
   const checkOutDate = new Date(checkOut)
 
-  function validate() {
-    const e: Record<string, string> = {}
-    if (!firstName.trim()) e.firstName = "First name is required."
-    if (!lastName.trim()) e.lastName = "Last name is required."
-    if (!email.trim()) {
-      e.email = "Email is required."
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      e.email = "Enter a valid email address."
-    }
-    return e
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!stripe || !elements) return
 
-    const errs = validate()
-    if (Object.keys(errs).length) {
-      setErrors(errs)
-      return
-    }
-
-    setErrors({})
     setStripeError(null)
     setStatus("processing")
 
-    // Confirm the PaymentIntent — stays on page (no redirect for card payments).
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
@@ -103,11 +83,9 @@ function PaymentForm({
         checkIn,
         checkOut,
         guests,
-        guestName: `${firstName.trim()} ${lastName.trim()}`,
-        guestEmail: email.trim(),
-        guestPhone: phone.trim() || undefined,
         specialRequests: specialRequests.trim() || undefined,
         stripePaymentIntentId: paymentIntent.id,
+        subcategoryId,
       })
 
       if (result.ok) {
@@ -125,85 +103,11 @@ function PaymentForm({
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="grid gap-8 lg:grid-cols-5">
-        {/* Left — guest details + payment */}
         <div className="space-y-8 lg:col-span-3">
-          {/* Guest info */}
           <section className="space-y-4">
-            <h2 className="text-lg">Guest information</h2>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="firstName">
-                  First name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="firstName"
-                  placeholder="Marie"
-                  value={firstName}
-                  onChange={(e) => {
-                    setFirstName(e.target.value)
-                    setErrors((p) => ({ ...p, firstName: "" }))
-                  }}
-                  aria-invalid={!!errors.firstName}
-                />
-                {errors.firstName && (
-                  <p className="text-destructive text-xs">{errors.firstName}</p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="lastName">
-                  Last name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="lastName"
-                  placeholder="Dupont"
-                  value={lastName}
-                  onChange={(e) => {
-                    setLastName(e.target.value)
-                    setErrors((p) => ({ ...p, lastName: "" }))
-                  }}
-                  aria-invalid={!!errors.lastName}
-                />
-                {errors.lastName && (
-                  <p className="text-destructive text-xs">{errors.lastName}</p>
-                )}
-              </div>
-            </div>
-
+            <h2 className="text-lg">Special requests</h2>
             <div className="space-y-1.5">
-              <Label htmlFor="email">
-                Email address <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="marie@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  setErrors((p) => ({ ...p, email: "" }))
-                }}
-                aria-invalid={!!errors.email}
-              />
-              {errors.email && (
-                <p className="text-destructive text-xs">{errors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Telephone number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1 (514) 555-0100"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="specialRequests">Special requests</Label>
+              <Label htmlFor="specialRequests">Optional notes for the hotel</Label>
               <textarea
                 id="specialRequests"
                 rows={3}
@@ -213,13 +117,8 @@ function PaymentForm({
                 className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors focus-visible:ring-3"
               />
             </div>
-
-            <p className="text-muted-foreground text-xs">
-              Fields marked <span className="text-destructive">*</span> are required.
-            </p>
           </section>
 
-          {/* Payment */}
           <section className="space-y-4">
             <h2 className="text-lg">Payment</h2>
             <p className="text-muted-foreground text-sm">
@@ -235,7 +134,7 @@ function PaymentForm({
           </section>
 
           {stripeError && (
-            <p className="text-destructive text-sm rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <p className="text-destructive rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
               {stripeError}
             </p>
           )}
@@ -243,18 +142,17 @@ function PaymentForm({
           <Button
             type="submit"
             size="lg"
-            className="w-full"
+            className="w-full cursor-pointer"
             disabled={!stripe || status === "processing"}
           >
             {status === "processing"
               ? "Processing payment…"
-              : `Pay ${formatPrice(quote.total)}`}
+              : `Pay ${formatPrice(quote.total, "CAD")}`}
           </Button>
         </div>
 
-        {/* Right — booking summary */}
         <aside className="lg:col-span-2">
-          <div className="sticky top-24 rounded-xl border bg-card p-6 space-y-5">
+          <div className="bg-card sticky top-24 space-y-5 rounded-xl border p-6">
             {room.imageUrl && (
               <div className="relative aspect-[4/3] overflow-hidden rounded-lg">
                 <Image
@@ -268,7 +166,7 @@ function PaymentForm({
             )}
 
             <div>
-              <p className="font-semibold text-lg">{room.name}</p>
+              <p className="text-lg font-semibold">{room.name}</p>
               <p className="text-muted-foreground text-sm">Hôtel Levio · Montréal</p>
             </div>
 
@@ -288,16 +186,16 @@ function PaymentForm({
               </div>
             </div>
 
-            <div className="border-t pt-4 space-y-2 text-sm">
+            <div className="space-y-2 border-t pt-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   {quote.nights} night{quote.nights > 1 ? "s" : ""}
                 </span>
-                <span>{formatPrice(quote.total)}</span>
+                <span>{formatPrice(quote.total, "CAD")}</span>
               </div>
-              <div className="flex justify-between font-semibold text-base">
+              <div className="flex justify-between text-base font-semibold">
                 <span>Total (CAD)</span>
-                <span>{formatPrice(quote.total)}</span>
+                <span>{formatPrice(quote.total, "CAD")}</span>
               </div>
             </div>
           </div>
@@ -307,19 +205,48 @@ function PaymentForm({
   )
 }
 
-/* ---------- Outer wrapper — provides Stripe context ---------- */
-
 export function ReserveForm(props: FormProps) {
+  const { status } = useSession()
   const stripePromise = React.useMemo(
     () => loadStripe(props.publishableKey),
     [props.publishableKey],
   )
 
+  if (status === "loading") {
+    return (
+      <p className="text-muted-foreground text-center text-sm">Loading account…</p>
+    )
+  }
+
+  if (status !== "authenticated") {
+    return (
+      <div className="mx-auto max-w-md space-y-4">
+        <p className="text-muted-foreground text-sm">
+          Sign in or create an account to complete payment.
+        </p>
+        <AuthPanel
+          callbackUrl={props.callbackUrl}
+          oauthEnabled={props.oauthEnabled}
+          oauthProviders={props.oauthProviders}
+        />
+      </div>
+    )
+  }
+
+  const { clientSecret } = props
+  if (!clientSecret) {
+    return (
+      <p className="text-muted-foreground text-center text-sm">
+        Unable to prepare payment. Please refresh the page and try again.
+      </p>
+    )
+  }
+
   return (
     <Elements
       stripe={stripePromise}
       options={{
-        clientSecret: props.clientSecret,
+        clientSecret,
         appearance: { theme: "stripe" },
       }}
     >

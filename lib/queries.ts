@@ -106,7 +106,8 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     .flatMap((sub) => {
       const catalog = catalogByType[sub.roomType]
       if (!catalog) return []
-      const { _count: _, ...subcategory } = sub
+      const { _count, ...subcategory } = sub
+      void _count
       return [
         {
           ...catalog,

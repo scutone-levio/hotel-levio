@@ -5,55 +5,43 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { loadStripe } from "@stripe/stripe-js"
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js"
+import { useSession } from "next-auth/react"
 import { CalendarDays, Loader2, Trash2, Users } from "lucide-react"
 
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"
 import { formatPrice } from "@/lib/rooms"
 import { createCartPaymentIntent, finalizeCartBookings } from "@/app/actions"
+import { AuthPanel } from "@/components/auth-panel"
+import type { OAuthProvider } from "@/lib/oauth"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-/* ---------- Guest info form (step 1) ---------- */
-
-type GuestInfo = {
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  specialRequests: string
-}
-
-function validate(g: GuestInfo) {
-  const e: Partial<Record<keyof GuestInfo, string>> = {}
-  if (!g.firstName.trim()) e.firstName = "Required"
-  if (!g.lastName.trim()) e.lastName = "Required"
-  if (!g.email.trim()) e.email = "Required"
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g.email)) e.email = "Invalid email"
-  return e
-}
-
-/* ---------- Payment step (step 2, needs Stripe context) ---------- */
+type Step = "review" | "account" | "payment"
 
 function PaymentStep({
   items,
   serverTotal,
-  guestInfo,
+  specialRequests,
 }: {
   items: CartItem[]
   serverTotal: number
-  guestInfo: GuestInfo
-  publishableKey: string
-  clientSecret: string
+  specialRequests: string
 }) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
   const { clearCart } = useCart()
 
-  const [status, setStatus] = React.useState<"idle" | "processing" | "error">("idle")
+  const [status, setStatus] = React.useState<"idle" | "processing" | "error">(
+    "idle",
+  )
   const [stripeError, setStripeError] = React.useState<string | null>(null)
 
   async function handlePay(e: React.FormEvent) {
@@ -61,6 +49,13 @@ function PaymentStep({
     if (!stripe || !elements) return
     setStatus("processing")
     setStripeError(null)
+
+    const { error: submitError } = await elements.submit()
+    if (submitError) {
+      setStripeError(submitError.message ?? "Payment failed")
+      setStatus("error")
+      return
+    }
 
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
@@ -82,10 +77,7 @@ function PaymentStep({
           guests: i.guests,
           subcategoryId: i.subcategoryId,
         })),
-        guestName: `${guestInfo.firstName.trim()} ${guestInfo.lastName.trim()}`,
-        guestEmail: guestInfo.email.trim(),
-        guestPhone: guestInfo.phone.trim() || undefined,
-        specialRequests: guestInfo.specialRequests.trim() || undefined,
+        specialRequests: specialRequests.trim() || undefined,
         stripePaymentIntentId: paymentIntent.id,
       })
 
@@ -109,7 +101,9 @@ function PaymentStep({
       </div>
       <p className="text-muted-foreground text-sm">
         Test card:{" "}
-        <code className="bg-muted rounded px-1 py-0.5 text-xs">4242 4242 4242 4242</code>{" "}
+        <code className="bg-muted rounded px-1 py-0.5 text-xs">
+          4242 4242 4242 4242
+        </code>{" "}
         · any future date · any CVC
       </p>
 
@@ -119,9 +113,16 @@ function PaymentStep({
         </p>
       )}
 
-      <Button type="submit" size="lg" className="w-full cursor-pointer" disabled={!stripe || status === "processing"}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full cursor-pointer"
+        disabled={!stripe || !elements || status === "processing"}
+      >
         {status === "processing" ? (
-          <><Loader2 className="size-4 animate-spin" /> Processing…</>
+          <>
+            <Loader2 className="size-4 animate-spin" /> Processing…
+          </>
         ) : (
           `Pay ${formatPrice(serverTotal, "CAD")}`
         )}
@@ -130,44 +131,38 @@ function PaymentStep({
   )
 }
 
-/* ---------- Main form component ---------- */
-
-export function CartCheckoutForm({ publishableKey }: { publishableKey: string }) {
+export function CartCheckoutForm({
+  publishableKey,
+  isAuthenticated: initialAuthenticated = false,
+  oauthEnabled = false,
+  oauthProviders = [],
+}: {
+  publishableKey: string
+  isAuthenticated?: boolean
+  oauthEnabled?: boolean
+  oauthProviders?: OAuthProvider[]
+}) {
   const { items, removeItem } = useCart()
   const router = useRouter()
+  const { status: sessionStatus } = useSession()
 
-  const [guest, setGuest] = React.useState<GuestInfo>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    specialRequests: "",
-  })
-  const [errors, setErrors] = React.useState<Partial<Record<keyof GuestInfo, string>>>({})
-  const [step, setStep] = React.useState<"review" | "payment">("review")
+  const isAuthenticated =
+    sessionStatus === "authenticated" ||
+    (sessionStatus === "loading" && initialAuthenticated)
+
+  const [specialRequests, setSpecialRequests] = React.useState("")
+  const [step, setStep] = React.useState<Step>("review")
   const [clientSecret, setClientSecret] = React.useState<string | null>(null)
   const [serverTotal, setServerTotal] = React.useState(0)
   const [isPending, startTransition] = React.useTransition()
 
   const clientTotal = items.reduce((s, i) => s + i.totalPrice, 0)
+  const stripePromise = React.useMemo(
+    () => loadStripe(publishableKey),
+    [publishableKey],
+  )
 
-  const stripePromise = React.useMemo(() => loadStripe(publishableKey), [publishableKey])
-
-  function field(key: keyof GuestInfo) {
-    return {
-      value: guest[key],
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setGuest((g) => ({ ...g, [key]: e.target.value }))
-        setErrors((err) => ({ ...err, [key]: undefined }))
-      },
-      "aria-invalid": !!errors[key],
-    }
-  }
-
-  function handleProceed() {
-    const errs = validate(guest)
-    if (Object.keys(errs).length) { setErrors(errs); return }
-
+  const startPayment = React.useCallback(() => {
     startTransition(async () => {
       const result = await createCartPaymentIntent(
         items.map((i) => ({
@@ -186,7 +181,7 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
         alert(result.error)
       }
     })
-  }
+  }, [items])
 
   if (items.length === 0) {
     return (
@@ -201,106 +196,129 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
 
   return (
     <div className="grid gap-10 lg:grid-cols-5">
-      {/* Left column */}
       <div className="space-y-8 lg:col-span-3">
         {step === "review" ? (
           <>
             <section className="space-y-4">
-              <h2 className="text-lg">Guest information</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {(["firstName", "lastName"] as const).map((k) => (
-                  <div key={k} className="space-y-1.5">
-                    <Label htmlFor={k}>
-                      {k === "firstName" ? "First name" : "Last name"}{" "}
-                      <span className="text-destructive">*</span>
-                    </Label>
-                    <Input id={k} placeholder={k === "firstName" ? "Marie" : "Dupont"} {...field(k)} />
-                    {errors[k] && <p className="text-destructive text-xs">{errors[k]}</p>}
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">
-                  Email <span className="text-destructive">*</span>
-                </Label>
-                <Input id="email" type="email" placeholder="marie@example.com" {...field("email")} />
-                {errors.email && <p className="text-destructive text-xs">{errors.email}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" placeholder="+1 (514) 555-0100" {...field("phone")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="specialRequests">Special requests</Label>
-                <textarea
-                  id="specialRequests"
-                  rows={3}
-                  placeholder="Early check-in, dietary needs…"
-                  className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors focus-visible:ring-3"
-                  {...field("specialRequests")}
-                />
-              </div>
-              <p className="text-muted-foreground text-xs">
-                <span className="text-destructive">*</span> Required. Guest info applies to all rooms in this order.
+              <h2 className="text-lg">Review your stay</h2>
+              <p className="text-muted-foreground text-sm">
+                {isAuthenticated
+                  ? "Add any special requests, then continue to payment."
+                  : "Sign in or create an account before payment to complete your reservation."}
               </p>
             </section>
-
             <Button
               size="lg"
               className="w-full cursor-pointer"
-              onClick={handleProceed}
-              disabled={isPending}
+              onClick={() => setStep("account")}
             >
-              {isPending ? <><Loader2 className="size-4 animate-spin" /> Preparing payment…</> : "Proceed to payment →"}
+              {isAuthenticated ? "Continue →" : "Continue to sign in →"}
             </Button>
           </>
-        ) : (
+        ) : null}
+
+        {step === "account" ? (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg">Payment</h2>
+              <h2 className="text-lg">Your account</h2>
               <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
                 ← Back
               </Button>
             </div>
+            <AuthPanel
+              callbackUrl="/cart"
+              compact
+              oauthEnabled={oauthEnabled}
+              oauthProviders={oauthProviders}
+            />
+            {isAuthenticated ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="specialRequests">Special requests (optional)</Label>
+                  <textarea
+                    id="specialRequests"
+                    rows={3}
+                    placeholder="Early check-in, dietary needs…"
+                    value={specialRequests}
+                    onChange={(e) => setSpecialRequests(e.target.value)}
+                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors focus-visible:ring-3"
+                  />
+                </div>
+                <Button
+                  size="lg"
+                  className="w-full cursor-pointer"
+                  onClick={startPayment}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Preparing payment…
+                    </>
+                  ) : (
+                    "Continue to payment →"
+                  )}
+                </Button>
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {step === "payment" ? (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg">Payment</h2>
+              <Button variant="ghost" size="sm" onClick={() => setStep("account")}>
+                ← Back
+              </Button>
+            </div>
             {clientSecret && (
-              <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret, appearance: { theme: "stripe" } }}
+              >
                 <PaymentStep
                   items={items}
                   serverTotal={serverTotal}
-                  guestInfo={guest}
-                  publishableKey={publishableKey}
-                  clientSecret={clientSecret}
+                  specialRequests={specialRequests}
                 />
               </Elements>
             )}
           </>
-        )}
+        ) : null}
       </div>
 
-      {/* Right column — order summary */}
       <aside className="lg:col-span-2">
-        <div className="sticky top-24 space-y-4 rounded-xl border bg-card p-6">
+        <div className="bg-card sticky top-24 space-y-4 rounded-xl border p-6">
           <h2 className="text-lg">Order summary</h2>
-
           <div className="space-y-4">
             {items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 {item.imageUrl && (
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-lg">
-                    <Image src={item.imageUrl} alt={item.roomName} fill sizes="64px" className="object-cover" />
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.roomName}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
                   </div>
                 )}
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="text-sm font-medium leading-none">{item.roomName}</p>
+                  <p className="text-sm leading-none font-medium">{item.roomName}</p>
                   <p className="text-muted-foreground flex items-center gap-1 text-xs">
                     <CalendarDays className="size-3" />
-                    {format(new Date(item.checkIn), "MMM d")} – {format(new Date(item.checkOut), "MMM d, yyyy")}
+                    {format(new Date(item.checkIn), "MMM d")} –{" "}
+                    {format(new Date(item.checkOut), "MMM d, yyyy")}
                   </p>
                   <p className="text-muted-foreground flex items-center gap-1 text-xs">
                     <Users className="size-3" />
-                    {item.guests} guest{item.guests !== 1 ? "s" : ""} · {item.nights} night{item.nights !== 1 ? "s" : ""}
+                    {item.guests} guest{item.guests !== 1 ? "s" : ""} · {item.nights}{" "}
+                    night{item.nights !== 1 ? "s" : ""}
                   </p>
-                  <p className="text-sm font-semibold">{formatPrice(item.totalPrice, "CAD")}</p>
+                  <p className="text-sm font-semibold">
+                    {formatPrice(item.totalPrice, "CAD")}
+                  </p>
                 </div>
                 {step === "review" && (
                   <button
@@ -314,15 +332,18 @@ export function CartCheckoutForm({ publishableKey }: { publishableKey: string })
               </div>
             ))}
           </div>
-
-          <div className="border-t pt-4 space-y-2 text-sm">
+          <div className="space-y-2 border-t pt-4 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">{items.length} room{items.length !== 1 ? "s" : ""}</span>
+              <span className="text-muted-foreground">
+                {items.length} room{items.length !== 1 ? "s" : ""}
+              </span>
               <span>{formatPrice(clientTotal, "CAD")}</span>
             </div>
-            <div className="flex justify-between font-semibold text-base">
+            <div className="flex justify-between text-base font-semibold">
               <span>Total (CAD)</span>
-              <span>{formatPrice(step === "payment" ? serverTotal : clientTotal, "CAD")}</span>
+              <span>
+                {formatPrice(step === "payment" ? serverTotal : clientTotal, "CAD")}
+              </span>
             </div>
           </div>
         </div>

@@ -29,20 +29,20 @@ enum RoomType {
 }
 
 model RoomSubcategory {
-  id        String   @id @default(cuid())
-  name      String   // e.g., "Lower Level", "City View", "Garden View"
-  roomType  RoomType
+  id              String    @id @default(cuid())
+  name            String // e.g., "Lower Level", "City View", "Garden View"
+  roomType        RoomType
   // Base price per night in cents for rooms with this subcategory.
-  basePrice Int
+  basePrice       Int
   // Lowest nightly rate across inventory rooms (for listing cards).
-  fromPriceCents   Int     @default(0)
+  fromPriceCents  Int       @default(0)
   // True when any inventory room has a price rule above its base price.
-  hasWeekendRates  Boolean @default(false)
-  featured  Boolean  @default(false)
-  rooms     Room[]
-  bookings  Booking[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  hasWeekendRates Boolean   @default(false)
+  featured        Boolean   @default(false)
+  rooms           Room[]
+  bookings        Booking[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([roomType, name])
   @@index([roomType])
@@ -56,6 +56,13 @@ model User {
   image         String?
   // Hashed password for the Credentials provider (nullable for OAuth users).
   password      String?
+  phone         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  province      String?
+  postalCode    String?
+  country       String?   @default("CA")
   role          Role      @default(CUSTOMER)
   bookings      Booking[]
   createdAt     DateTime  @default(now())
@@ -77,9 +84,9 @@ model Room {
   floor       Int?
   roomNumber  String   @unique
 
-  subcategory    RoomSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
-  subcategoryId  String?
-  isCatalog      Boolean          @default(false)
+  subcategory   RoomSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  subcategoryId String?
+  isCatalog     Boolean          @default(false)
 
   amenities    Amenity[]       @relation("RoomAmenities")
   images       RoomImage[]
@@ -163,26 +170,26 @@ model NearbyPlace {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId          String
-  room            Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room            Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId          String
   subcategory     RoomSubcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   subcategoryId   String?
-  checkIn         DateTime      @db.Date
-  checkOut        DateTime      @db.Date
-  guests          Int           @default(1)
+  checkIn         DateTime         @db.Date
+  checkOut        DateTime         @db.Date
+  guests          Int              @default(1)
   // Total price in the smallest currency unit (e.g. cents).
   totalPrice      Int
-  status          BookingStatus @default(PENDING)
+  status          BookingStatus    @default(PENDING)
   stripeSessionId String?
   guestName       String?
   guestEmail      String?
   guestPhone      String?
   specialRequests String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([roomId])
   @@index([userId])

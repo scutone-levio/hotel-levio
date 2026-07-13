@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process"
 
-import { verifySeedFileSafe } from "../lib/db-safeguards"
+import { verifySeedFileSafe } from "../lib/db-safeguards-seed"
 
 try {
   verifySeedFileSafe()

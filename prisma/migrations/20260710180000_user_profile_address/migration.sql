@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "phone" TEXT;
+ALTER TABLE "User" ADD COLUMN "addressLine1" TEXT;
+ALTER TABLE "User" ADD COLUMN "addressLine2" TEXT;
+ALTER TABLE "User" ADD COLUMN "city" TEXT;
+ALTER TABLE "User" ADD COLUMN "province" TEXT;
+ALTER TABLE "User" ADD COLUMN "postalCode" TEXT;
+ALTER TABLE "User" ADD COLUMN "country" TEXT DEFAULT 'CA';

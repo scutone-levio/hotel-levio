@@ -1,25 +1,6 @@
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect } from "@playwright/test"
 
-async function selectAndApplyDateRange(page: Page) {
-  const trigger = page.getByTestId("booking-date-trigger")
-  await expect(trigger).toBeVisible()
-  await trigger.click()
-
-  const calendar = page.getByTestId("booking-calendar")
-  await expect(calendar).toBeVisible()
-
-  const enabledDays = calendar.locator("button[data-day]:not([disabled])")
-  await expect(enabledDays.first()).toBeVisible()
-
-  await enabledDays.nth(1).click()
-  await enabledDays.nth(5).click()
-
-  await expect(page.getByTestId("booking-nights")).toContainText(/night/i)
-  await page.getByTestId("booking-apply").click()
-  await expect(calendar).toBeHidden()
-
-  return trigger
-}
+import { selectAndApplyDateRange } from "./helpers/dates"
 
 test.describe("Booking flow", () => {
   test("a user can open the calendar and select a date range", async ({

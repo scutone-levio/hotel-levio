@@ -8,6 +8,8 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ReserveForm } from "@/components/reserve-form"
 import { PageHeader } from "@/components/page-header"
+import { getOAuthProviders, isOAuthEnabled } from "@/lib/oauth"
+import { auth } from "@/auth"
 
 export const metadata = { title: "Reserve — Hôtel Levio" }
 
@@ -40,20 +42,28 @@ export default async function ReservePage({
 
   const quote = quoteRange(room.basePrice, room.priceRules, checkInDate, checkOutDate)
 
-  // Create a PaymentIntent so the client can render Stripe Elements immediately.
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: quote.total,
-    currency: "cad",
-    automatic_payment_methods: { enabled: true },
-    metadata: {
-      roomId: room.id,
-      roomName: room.name,
-      checkIn: checkInDate.toISOString(),
-      checkOut: checkOutDate.toISOString(),
-      guests: String(guestCount),
-      nights: String(quote.nights),
-    },
-  })
+  // Only create a PaymentIntent once the user is signed in — anonymous page
+  // loads/refreshes must not spawn Stripe intents.
+  const session = await auth()
+  const paymentIntent = session?.user?.id
+    ? await stripe.paymentIntents.create({
+        amount: quote.total,
+        currency: "cad",
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          roomId: room.id,
+          roomName: room.name,
+          checkIn: checkInDate.toISOString(),
+          checkOut: checkOutDate.toISOString(),
+          guests: String(guestCount),
+          nights: String(quote.nights),
+        },
+      })
+    : null
+
+  const callbackUrl = `/reserve?roomId=${roomId}&checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guestCount}`
+  const oauthProviders = getOAuthProviders()
+  const oauthEnabled = isOAuthEnabled()
 
   return (
     <div className="bg-background min-h-screen flex flex-col">
@@ -63,7 +73,7 @@ export default async function ReservePage({
           <PageHeader
             eyebrow="One more step"
             title="Complete your reservation"
-            subtitle="Review your stay and enter your details to confirm."
+            subtitle="Sign in to your account, then confirm payment."
           />
 
           <ReserveForm
@@ -76,8 +86,11 @@ export default async function ReservePage({
             checkOut={checkOutDate.toISOString()}
             guests={guestCount}
             quote={{ nights: quote.nights, total: quote.total }}
-            clientSecret={paymentIntent.client_secret!}
+            clientSecret={paymentIntent?.client_secret ?? null}
             publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!}
+            callbackUrl={callbackUrl}
+            oauthEnabled={oauthEnabled}
+            oauthProviders={oauthProviders}
           />
         </div>
       </main>

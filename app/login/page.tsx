@@ -12,7 +12,9 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string }>
 }) {
   const session = await auth()
-  if (session?.user) redirect("/admin")
+  if (session?.user) {
+    redirect(session.user.role === "ADMIN" ? "/admin" : "/account")
+  }
 
   const { callbackUrl } = await searchParams
   return (

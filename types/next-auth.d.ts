@@ -1,6 +1,5 @@
 import type { DefaultSession } from "next-auth"
 
-// Augment NextAuth types to carry the user's `role`.
 declare module "next-auth" {
   interface User {
     role?: string
@@ -8,6 +7,7 @@ declare module "next-auth" {
 
   interface Session {
     user: {
+      id: string
       role?: string
     } & DefaultSession["user"]
   }
