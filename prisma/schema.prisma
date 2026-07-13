@@ -184,7 +184,7 @@ model Booking {
   totalPrice      Int
   status          BookingStatus    @default(PENDING)
   stripeSessionId           String?
-  dateChangeStripePaymentId String?
+  dateChangeStripePaymentId String?  @unique
   guestName                 String?
   guestEmail      String?
   guestPhone      String?
