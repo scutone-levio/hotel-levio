@@ -13,10 +13,9 @@ export default async function ReservationDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/account/login")
-
   const { id } = await params
+  const session = await auth()
+  if (!session?.user?.id) redirect(`/account/login?callbackUrl=/account/reservations/${id}`)
   const booking = await prisma.booking.findFirst({
     where: { id, userId: session.user.id },
     include: { room: { select: { name: true, roomNumber: true } } },
