@@ -3,8 +3,6 @@
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { MapPin } from "lucide-react"
-import type { DateRange } from "react-day-picker"
-
 import type { PublicRoomListing } from "@/lib/queries"
 import {
   getAvailableRoomIds,
@@ -13,25 +11,13 @@ import {
 } from "@/app/actions"
 import type { AvailabilityCount } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { BookingPicker } from "@/components/booking-picker"
+import { HeroSearchBar } from "@/components/hero-search-bar"
 import { RoomsBrowser } from "@/components/rooms-browser"
-
-// Re-themes the BookingPicker trigger (and its calendar-icon/placeholder
-// text) to sit on the hero's navy gradient — the popover panel itself is
-// intentionally left in the app's default theme for calendar legibility.
-const bookingPickerTheme = {
-  "--background": "#12324a",
-  "--foreground": "#f3ecda",
-  "--border": "rgba(198, 148, 86, 0.45)",
-  "--muted": "rgba(198, 148, 86, 0.16)",
-  "--muted-foreground": "#dcae70",
-  "--ring": "#c69456",
-} as React.CSSProperties
 
 export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { dateRange, setDateRange, isHydrated } = useDateRange()
+  const { dateRange, isHydrated, guests } = useDateRange()
 
   const listingInputs = React.useMemo<ListingAvailabilityInput[]>(
     () =>
@@ -86,10 +72,6 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
     })
   }, [dateRange, isHydrated, listingInputs])
 
-  function handleRangeChange(range: DateRange | undefined) {
-    setDateRange(range)
-  }
-
   return (
     <>
       {/* Hero */}
@@ -121,12 +103,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-6">
-            <div style={bookingPickerTheme} className="text-[#f3ecda]">
-              <BookingPicker
-                initialRange={dateRange}
-                onRangeChange={handleRangeChange}
-              />
-            </div>
+            <HeroSearchBar />
             <p className="flex items-center gap-1.5 text-sm tracking-wide text-[#f8f3e6]/60 uppercase">
               <MapPin className="size-3.5 text-[#dcae70]" /> 1 Harbour Road,
               Levio
@@ -150,6 +127,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
             availableIds={availableListingKeys}
             availabilityCounts={availabilityCounts}
             isCheckingAvailability={isPending}
+            minGuests={guests}
           />
         </div>
       </section>

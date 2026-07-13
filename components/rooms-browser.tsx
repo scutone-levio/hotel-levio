@@ -7,7 +7,7 @@ import { format } from "date-fns"
 
 import type { PublicRoomListing } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
-import { useDateRange } from "@/lib/date-range"
+import { MIN_GUESTS, useDateRange } from "@/lib/date-range"
 import {
   listingAvailabilityKey,
   listingFromPriceCents,
@@ -104,6 +104,8 @@ type Props = {
   availableIds?: Set<string> | null
   availabilityCounts?: Record<string, AvailabilityCount> | null
   isCheckingAvailability?: boolean
+  /** Hide rooms whose capacity is below this number. */
+  minGuests?: number
 }
 
 export function RoomsBrowser({
@@ -111,6 +113,7 @@ export function RoomsBrowser({
   availableIds = null,
   availabilityCounts = null,
   isCheckingAvailability = false,
+  minGuests = MIN_GUESTS,
 }: Readonly<Props>) {
   const { dateRange } = useDateRange()
   const [open, setOpen] = React.useState(false)
@@ -142,6 +145,7 @@ export function RoomsBrowser({
           return false
         }
       }
+      if (r.capacity < minGuests) return false
       const typeOk = types.size === 0 || types.has(r.type)
       const roomAmenities = new Set(r.amenities.map((a) => a.id))
       const amenityOk =
@@ -184,7 +188,7 @@ export function RoomsBrowser({
           )
         })
     }
-  }, [rooms, types, amenityIds, sort, availableIds])
+  }, [rooms, types, amenityIds, sort, availableIds, minGuests])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -209,7 +213,7 @@ export function RoomsBrowser({
 
   React.useEffect(() => {
     setPage(1)
-  }, [types, amenityIds, sort, availableIds, pageSize])
+  }, [types, amenityIds, sort, availableIds, pageSize, minGuests])
 
   React.useEffect(() => {
     if (page > totalPages) setPage(totalPages)
@@ -226,9 +230,10 @@ export function RoomsBrowser({
     if (isCheckingAvailability) return "Checking availability…"
     if (hasDates && availableIds !== null) {
       const dateLabel = `${format(dateRange.from!, "MMM d")} – ${format(dateRange.to!, "MMM d, yyyy")}`
-      return `${filtered.length} room${filtered.length === 1 ? "" : "s"} available · ${dateLabel}`
+      const guestLabel = minGuests > 1 ? ` · ${minGuests} guests` : ""
+      return `${filtered.length} room${filtered.length === 1 ? "" : "s"} available · ${dateLabel}${guestLabel}`
     }
-    if (activeCount > 0)
+    if (activeCount > 0 || minGuests > 1)
       return `Showing ${filtered.length} of ${rooms.length} rooms`
     return "Handpicked stays for every kind of traveller."
   }

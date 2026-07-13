@@ -18,6 +18,10 @@ export const ROOM_TYPE_SHORT_LABELS: Record<RoomType, string> = {
   SUITE: "Suite",
 }
 
+/** Navy/gold styling shared by primary booking CTAs (add to cart, book now, continue to payment). */
+export const BOOKING_ACTION_BUTTON_CLASS =
+  "!bg-[#0f2a3d] !text-[#f3ecda] hover:!bg-[#c69456] hover:!text-[#0f2a3d]"
+
 /** Display name for a catalog room + subcategory listing, e.g. "Twin Room - Lower Level". */
 export function formatListingName(catalogName: string, subcategoryName: string) {
   return `${catalogName} - ${subcategoryName}`
