@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { verifySeedFileSafe } from "../lib/db-safeguards"
+import { verifySeedFileSafe } from "../lib/db-safeguards-seed"
 
 const root = process.cwd()
 

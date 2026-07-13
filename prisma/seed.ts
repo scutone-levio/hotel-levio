@@ -1,6 +1,8 @@
-import { RoomType } from "@prisma/client"
+import { Role, RoomType } from "@prisma/client"
+import { addDays, startOfDay } from "date-fns"
 
 import { prisma } from "../lib/prisma"
+import { hashPassword } from "../lib/password"
 import {
   assignSubcategoryNamesForRooms,
   CATALOG_BASE_PRICES,
@@ -19,42 +21,87 @@ import {
   catalogSlug,
   isCatalogRoomNumber,
 } from "../lib/floor-plan"
-import {
-  catalogImagesByType,
-  coverImageForType,
-} from "../lib/room-type-images"
+import { catalogImagesByType, coverImageForType } from "../lib/room-type-images"
 
 const nearbyPlacesByType: Record<
   RoomType,
   { name: string; category: string; distance: string }[]
 > = {
   TWIN: [
-    { name: "Old Port Montréal", category: "attraction", distance: "5 min walk" },
+    {
+      name: "Old Port Montréal",
+      category: "attraction",
+      distance: "5 min walk",
+    },
     { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    { name: "STM Champ-de-Mars", category: "transport", distance: "3 min walk" },
-    { name: "Marché Bonsecours", category: "attraction", distance: "8 min walk" },
+    {
+      name: "STM Champ-de-Mars",
+      category: "transport",
+      distance: "3 min walk",
+    },
+    {
+      name: "Marché Bonsecours",
+      category: "attraction",
+      distance: "8 min walk",
+    },
   ],
   QUEEN: [
-    { name: "Old Port Montréal", category: "attraction", distance: "5 min walk" },
+    {
+      name: "Old Port Montréal",
+      category: "attraction",
+      distance: "5 min walk",
+    },
     { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    { name: "STM Champ-de-Mars", category: "transport", distance: "3 min walk" },
-    { name: "Marché Bonsecours", category: "attraction", distance: "8 min walk" },
+    {
+      name: "STM Champ-de-Mars",
+      category: "transport",
+      distance: "3 min walk",
+    },
+    {
+      name: "Marché Bonsecours",
+      category: "attraction",
+      distance: "8 min walk",
+    },
     { name: "L'Avenue Bistro", category: "restaurant", distance: "2 min walk" },
   ],
   KING: [
-    { name: "Old Port Montréal", category: "attraction", distance: "5 min walk" },
+    {
+      name: "Old Port Montréal",
+      category: "attraction",
+      distance: "5 min walk",
+    },
     { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    { name: "STM Champ-de-Mars", category: "transport", distance: "3 min walk" },
+    {
+      name: "STM Champ-de-Mars",
+      category: "transport",
+      distance: "3 min walk",
+    },
     { name: "Spa & Fitness Centre", category: "wellness", distance: "Floor 2" },
-    { name: "Marché Bonsecours", category: "attraction", distance: "8 min walk" },
+    {
+      name: "Marché Bonsecours",
+      category: "attraction",
+      distance: "8 min walk",
+    },
   ],
   SUITE: [
-    { name: "Old Port Montréal", category: "attraction", distance: "5 min walk" },
+    {
+      name: "Old Port Montréal",
+      category: "attraction",
+      distance: "5 min walk",
+    },
     { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    { name: "STM Champ-de-Mars", category: "transport", distance: "3 min walk" },
+    {
+      name: "STM Champ-de-Mars",
+      category: "transport",
+      distance: "3 min walk",
+    },
     { name: "Spa & Fitness Centre", category: "wellness", distance: "Floor 2" },
     { name: "Rooftop Lounge", category: "bar", distance: "Floor 12" },
-    { name: "Marché Bonsecours", category: "attraction", distance: "8 min walk" },
+    {
+      name: "Marché Bonsecours",
+      category: "attraction",
+      distance: "8 min walk",
+    },
   ],
 }
 
@@ -253,7 +300,11 @@ async function ensureInventory(amenityIdByName: Map<string, string>) {
     })
     await prisma.room.updateMany({
       where: { roomNumber: catalogNumber },
-      data: { isCatalog: true, slug: catalogSlug(type), name: roomTypeMeta[type].label },
+      data: {
+        isCatalog: true,
+        slug: catalogSlug(type),
+        name: roomTypeMeta[type].label,
+      },
     })
   }
 
@@ -356,7 +407,13 @@ async function ensureSubcategories() {
 
       await prisma.roomSubcategory.upsert({
         where: { roomType_name: { roomType: type, name } },
-        create: { name, roomType: type, basePrice, featured, fromPriceCents: basePrice },
+        create: {
+          name,
+          roomType: type,
+          basePrice,
+          featured,
+          fromPriceCents: basePrice,
+        },
         update: { basePrice, featured },
       })
 
@@ -401,6 +458,93 @@ async function ensureSubcategories() {
   return { created, assigned, assignedByName, basesSynced, orphansDeleted }
 }
 
+async function ensureUsers() {
+  const passwordHash = await hashPassword("password123")
+
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@hotel.test" },
+    update: {
+      name: "Hotel Admin",
+    },
+    create: {
+      email: "admin@hotel.test",
+      name: "Hotel Admin",
+      password: passwordHash,
+      role: Role.ADMIN,
+    },
+  })
+
+  const customer = await prisma.user.upsert({
+    where: { email: "customer@hotel.test" },
+    update: {
+      name: "Demo Customer",
+      phone: "+1 (514) 555-0199",
+      addressLine1: "100 Rue de la Commune",
+      city: "Montréal",
+      province: "QC",
+      postalCode: "H2Y 0B7",
+      country: "CA",
+    },
+    create: {
+      email: "customer@hotel.test",
+      name: "Demo Customer",
+      password: passwordHash,
+      role: Role.CUSTOMER,
+      phone: "+1 (514) 555-0199",
+      addressLine1: "100 Rue de la Commune",
+      city: "Montréal",
+      province: "QC",
+      postalCode: "H2Y 0B7",
+      country: "CA",
+    },
+  })
+
+  const hasBooking = await prisma.booking.findFirst({
+    where: { userId: customer.id },
+    select: { id: true },
+  })
+  if (!hasBooking) {
+    const checkIn = startOfDay(addDays(new Date(), 14))
+    const checkOut = startOfDay(addDays(new Date(), 16))
+
+    const candidates = await prisma.room.findMany({
+      where: { isCatalog: false },
+      orderBy: { roomNumber: "asc" },
+    })
+    const overlapping = await prisma.booking.findMany({
+      where: {
+        roomId: { in: candidates.map((room) => room.id) },
+        status: { in: ["PENDING", "CONFIRMED"] },
+        checkIn: { lt: checkOut },
+        checkOut: { gt: checkIn },
+      },
+      select: { roomId: true },
+    })
+    const bookedRoomIds = new Set(overlapping.map((b) => b.roomId))
+    const unit = candidates.find((room) => !bookedRoomIds.has(room.id))
+
+    if (unit) {
+      await prisma.booking.create({
+        data: {
+          userId: customer.id,
+          roomId: unit.id,
+          subcategoryId: unit.subcategoryId,
+          checkIn,
+          checkOut,
+          guests: 2,
+          totalPrice: unit.basePrice * 2,
+          status: "CONFIRMED",
+          guestName: customer.name,
+          guestEmail: customer.email,
+          guestPhone: customer.phone,
+        },
+      })
+    }
+  }
+
+  return { admin, customer }
+}
+
 async function main() {
   console.log("🌱 Seeding database (non-destructive)…")
 
@@ -408,9 +552,7 @@ async function main() {
   console.log(`  • ${amenityIdByName.size} amenities ensured`)
 
   const { created, updated } = await ensureInventory(amenityIdByName)
-  console.log(
-    `  • Inventory synced (${created} created, ${updated} updated)`,
-  )
+  console.log(`  • Inventory synced (${created} created, ${updated} updated)`)
 
   const imagesReplaced = await replaceRetiredCatalogImageUrls()
   if (imagesReplaced > 0) {
@@ -424,13 +566,20 @@ async function main() {
 
   const inventoryTotal = await prisma.room.count()
   const catalogTotal = await prisma.room.count({ where: { isCatalog: true } })
-  console.log(`  • ${inventoryTotal} inventory units · ${catalogTotal} catalog rooms`)
+  console.log(
+    `  • ${inventoryTotal} inventory units · ${catalogTotal} catalog rooms`,
+  )
 
   const placesUpserted = await ensureNearbyPlaces()
   console.log(`  • ${placesUpserted} nearby place entries ensured`)
 
-  const { created: subCreated, assigned: subAssigned, assignedByName, basesSynced, orphansDeleted } =
-    await ensureSubcategories()
+  const {
+    created: subCreated,
+    assigned: subAssigned,
+    assignedByName,
+    basesSynced,
+    orphansDeleted,
+  } = await ensureSubcategories()
   if (subCreated > 0) {
     console.log(`  • ${subCreated} subcategory(ies) created`)
   }
@@ -441,11 +590,16 @@ async function main() {
     }
   }
   if (basesSynced > 0) {
-    console.log(`  • ${basesSynced} inventory base price(s) synced to subcategory`)
+    console.log(
+      `  • ${basesSynced} inventory base price(s) synced to subcategory`,
+    )
   }
   if (orphansDeleted > 0) {
     console.log(`  • ${orphansDeleted} orphan subcategory(ies) removed`)
   }
+
+  await ensureUsers()
+  console.log("  • Demo users ensured (admin@hotel.test, customer@hotel.test)")
 
   console.log("✅ Seed complete.")
 }

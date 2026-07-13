@@ -47,7 +47,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           Hôtel Levio
         </div>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>Access the admin dashboard</CardDescription>
+        <CardDescription>Staff access to the admin dashboard</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -86,10 +86,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           </Button>
         </form>
 
-        <p className="text-muted-foreground mt-4 text-center text-xs">
-          Demo admin: <span className="font-medium">admin@hotel.test</span> ·
-          any password
-        </p>
+        {process.env.NODE_ENV !== "production" && (
+          <p className="text-muted-foreground mt-4 text-center text-xs">
+            Demo admin: <span className="font-medium">admin@hotel.test</span> ·
+            password <span className="font-medium">password123</span>
+          </p>
+        )}
       </CardContent>
     </Card>
   )

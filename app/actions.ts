@@ -17,9 +17,41 @@ import {
   adminNotificationEmail,
 } from "@/lib/email-templates"
 import { listingAvailabilityKey } from "@/lib/rooms"
+import { auth } from "@/auth"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 const CART_QUOTE_METADATA_PREFIX = "cart_quote_"
+
+async function requireCheckoutUser(): Promise<
+  | {
+      ok: true
+      user: {
+        id: string
+        name: string | null
+        email: string
+        phone: string | null
+      }
+    }
+  | { ok: false; error: string }
+> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return {
+      ok: false,
+      error: "Sign in required to complete your reservation",
+    }
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, email: true, phone: true },
+  })
+  if (!user) {
+    return { ok: false, error: "User account not found" }
+  }
+
+  return { ok: true, user }
+}
 
 function guestCountError(guests: number, capacity: number): string | null {
   if (!Number.isInteger(guests) || guests < 1) {
@@ -356,14 +388,19 @@ export async function finalizeBooking(input: {
   checkIn: string | Date
   checkOut: string | Date
   guests: number
-  guestName: string
-  guestEmail: string
-  guestPhone?: string
   specialRequests?: string
   stripePaymentIntentId: string
   subcategoryId?: string
 }): Promise<FinalizeResult> {
   try {
+    const checkoutUser = await requireCheckoutUser()
+    if (!checkoutUser.ok) return checkoutUser
+
+    const { user } = checkoutUser
+    const guestName = user.name?.trim() || user.email
+    const guestEmail = user.email.toLowerCase()
+    const guestPhone = user.phone
+
     const checkIn = startOfDay(new Date(input.checkIn))
     const checkOut = startOfDay(new Date(input.checkOut))
     const today = startOfDay(new Date())
@@ -413,31 +450,26 @@ export async function finalizeBooking(input: {
     )
     if (!paymentCheck.ok) return paymentCheck
 
-    const guest = await prisma.user.upsert({
-      where: { email: input.guestEmail.toLowerCase() },
-      update: { name: input.guestName },
-      create: { email: input.guestEmail.toLowerCase(), name: input.guestName },
-    })
-
     const booking = await prisma.booking.create({
       data: {
         roomId: result.unit.id,
         subcategoryId: result.subcategoryId,
-        userId: guest.id,
+        userId: user.id,
         checkIn,
         checkOut,
         guests: input.guests,
         totalPrice: result.quote.total,
         status: "CONFIRMED",
         stripeSessionId: input.stripePaymentIntentId,
-        guestName: input.guestName,
-        guestEmail: input.guestEmail.toLowerCase(),
-        guestPhone: input.guestPhone || null,
+        guestName,
+        guestEmail,
+        guestPhone: guestPhone || null,
         specialRequests: input.specialRequests || null,
       },
     })
 
     revalidatePath("/admin")
+    revalidatePath("/account/reservations")
 
     const emailData = {
       bookingId: booking.id,
@@ -447,9 +479,9 @@ export async function finalizeBooking(input: {
       checkOut,
       nights: differenceInCalendarDays(checkOut, checkIn),
       guests: input.guests,
-      guestName: input.guestName,
-      guestEmail: input.guestEmail,
-      guestPhone: input.guestPhone,
+      guestName,
+      guestEmail,
+      guestPhone: guestPhone ?? undefined,
       specialRequests: input.specialRequests,
       totalPrice: result.quote.total,
     }
@@ -458,7 +490,7 @@ export async function finalizeBooking(input: {
     const adminMail = adminNotificationEmail(emailData)
 
     Promise.all([
-      sendMail({ to: input.guestEmail, ...guestMail }),
+      sendMail({ to: guestEmail, ...guestMail }),
       sendMail({ to: ADMIN_EMAIL, ...adminMail }),
     ]).catch((err) => console.error("Email send failed:", err))
 
@@ -656,13 +688,18 @@ export type CartFinalizeResult =
 
 export async function finalizeCartBookings(input: {
   items: CartCheckoutItem[]
-  guestName: string
-  guestEmail: string
-  guestPhone?: string
   specialRequests?: string
   stripePaymentIntentId: string
 }): Promise<CartFinalizeResult> {
   try {
+    const checkoutUser = await requireCheckoutUser()
+    if (!checkoutUser.ok) return checkoutUser
+
+    const { user } = checkoutUser
+    const guestName = user.name?.trim() || user.email
+    const guestEmail = user.email.toLowerCase()
+    const guestPhone = user.phone
+
     const today = startOfDay(new Date())
 
     const paymentIntent = await stripe.paymentIntents.retrieve(
@@ -766,12 +803,6 @@ export async function finalizeCartBookings(input: {
       }),
     )
 
-    const guest = await prisma.user.upsert({
-      where: { email: input.guestEmail.toLowerCase() },
-      update: { name: input.guestName },
-      create: { email: input.guestEmail.toLowerCase(), name: input.guestName },
-    })
-
     const bookingIds = await prisma.$transaction(async (tx) => {
       const ids: string[] = []
       for (const [index, p] of prepared.entries()) {
@@ -806,16 +837,16 @@ export async function finalizeCartBookings(input: {
           data: {
             roomId: p.unit.id,
             subcategoryId: p.subcategoryId,
-            userId: guest.id,
+            userId: user.id,
             checkIn: p.checkIn,
             checkOut: p.checkOut,
             guests: p.guests,
             totalPrice: p.quote.total,
             status: "CONFIRMED",
             stripeSessionId: input.stripePaymentIntentId,
-            guestName: input.guestName,
-            guestEmail: input.guestEmail.toLowerCase(),
-            guestPhone: input.guestPhone || null,
+            guestName,
+            guestEmail,
+            guestPhone: guestPhone || null,
             specialRequests: input.specialRequests || null,
           },
         })
@@ -825,6 +856,7 @@ export async function finalizeCartBookings(input: {
     })
 
     revalidatePath("/admin")
+    revalidatePath("/account/reservations")
 
     Promise.all(
       prepared.map((p, i) => {
@@ -837,15 +869,15 @@ export async function finalizeCartBookings(input: {
           checkOut: p.checkOut,
           nights,
           guests: p.guests,
-          guestName: input.guestName,
-          guestEmail: input.guestEmail,
-          guestPhone: input.guestPhone,
+          guestName,
+          guestEmail,
+          guestPhone: guestPhone ?? undefined,
           specialRequests: input.specialRequests,
           totalPrice: p.quote.total,
         }
         return Promise.all([
           sendMail({
-            to: input.guestEmail,
+            to: guestEmail,
             ...guestConfirmationEmail(emailData),
           }),
           sendMail({ to: ADMIN_EMAIL, ...adminNotificationEmail(emailData) }),
