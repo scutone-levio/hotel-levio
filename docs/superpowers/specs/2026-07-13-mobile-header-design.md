@@ -11,19 +11,19 @@ Add a responsive mobile header to Hôtel Levio. Below the `lg` breakpoint (1024 
 
 ### Desktop (≥ 1024 px) — unchanged
 
-```
+```text
 [HÔTEL LEVIO logo]    ABOUT US  CONTACT US  ADMIN  SIGN OUT  🛒  [BOOK A ROOM]
 ```
 
 ### Mobile (< 1024 px)
 
-```
+```text
 [HÔTEL LEVIO logo]                              🛒₃  [BOOK A ROOM]  [☰ / ✕]
 ```
 
 - **Cart icon** — same `CartIcon` component and `cartIconTheme` styles; badge visible at all times.
 - **Book A Room** — same gold-border button (`border border-[#c69456]`, gold text, hover fill). Padding unchanged; on very small screens (< 375 px) label may truncate naturally.
-- **Hamburger / close** — Lucide `Menu` icon (closed) / `X` icon (open), both in `#f3ecda`. No label.
+- **Hamburger / close** — Lucide `Menu` icon (closed) / `X` icon (open), both in `#f3ecda`. Visually icon-only, but exposes an accessible name via `aria-label` that changes with state ("Open menu" / "Close menu"), plus `aria-expanded` reflecting whether the flyout is open and `aria-controls` referencing the flyout panel's `id`.
 
 ## Flyout panel
 
@@ -50,13 +50,14 @@ The panel is positioned `absolute; top: 100%; left: 0; right: 0` inside a `posit
 **Account links** (conditional, same logic as `AccountNav`):
 - Not signed in: Sign In → `/account/login`
 - Customer: My Account → `/account`, Reservations → `/account/reservations`, Sign Out
-- Admin: Admin → `/admin`, Sign Out
+- Admin: Sign Out (Admin link lives in the footer, not the header)
 
 ### Animation
 
 - Enter: `translateY(-100%)` → `translateY(0)`, 200 ms ease-out CSS transition
 - Exit: `translateY(0)` → `translateY(-100%)`, 150 ms ease-in
-- Implemented via Tailwind `transition-transform duration-200 ease-out` + toggled `-translate-y-full` class
+- Implemented via Tailwind `transition-transform` with state-dependent duration/easing classes: `translate-y-0 duration-200 ease-out` when open, `-translate-y-full duration-150 ease-in` when closed
+- The flyout panel stays mounted at all times — closing only toggles classes (transform, `pointer-events-none`, `inert`), it is never conditionally unmounted — so the exit transition can play in full before the panel becomes non-interactive
 - The `<header>` element gets a `relative` class so the flyout can be absolutely positioned within it; the flyout is `z-40` to sit above page content
 
 ### Close triggers
