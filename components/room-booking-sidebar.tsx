@@ -45,10 +45,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
       setGuests(Math.min(heroGuests, room.capacity))
       didPrefillGuests.current = true
     }
-    // Pre-fill once after hydration only — later hero guest changes must not
-    // overwrite a value the visitor already edited in this sidebar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated])
+  }, [isHydrated, heroGuests, room.capacity])
 
   React.useEffect(() => {
     if (!range?.from || !range?.to) {

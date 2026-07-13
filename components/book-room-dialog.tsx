@@ -55,9 +55,19 @@ export function BookRoomDialog({
     if (!open && isHydrated) setRange(dateRange)
   }, [dateRange, open, isHydrated])
 
-  // Pre-fill guests from the hero search bar, clamped to this room's capacity.
+  // Pre-fill guests once when the dialog opens, clamped to this room's capacity.
+  // Subsequent hero-guest changes while the dialog is open must not overwrite
+  // a value the visitor has already edited.
+  const didPrefillGuests = React.useRef(false)
   React.useEffect(() => {
-    if (open) setGuests(Math.min(heroGuests, room.capacity))
+    if (!open) {
+      didPrefillGuests.current = false
+      return
+    }
+    if (!didPrefillGuests.current) {
+      setGuests(Math.min(heroGuests, room.capacity))
+      didPrefillGuests.current = true
+    }
   }, [open, heroGuests, room.capacity])
 
   React.useEffect(() => {
