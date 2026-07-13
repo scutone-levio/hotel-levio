@@ -3,7 +3,14 @@ import { BedDouble, Users } from "lucide-react"
 
 import type { RoomWithDetails } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
-import { formatPrice, isListingFeatured, listingFromPriceCents, roomPath } from "@/lib/rooms"
+import {
+  BOOKING_ACTION_BUTTON_CLASS,
+  formatPrice,
+  isListingFeatured,
+  listingFromPriceCents,
+  roomPath,
+} from "@/lib/rooms"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -100,7 +107,7 @@ export function RoomCard({
           room={room}
           trigger={
             <Button
-              className="w-full cursor-pointer !bg-[#0f2a3d] !text-[#f3ecda] hover:!bg-[#c69456] hover:!text-[#0f2a3d]"
+              className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
               data-testid="book-now"
             >
               Book Now

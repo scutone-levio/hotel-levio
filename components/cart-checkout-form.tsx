@@ -16,12 +16,13 @@ import { CalendarDays, Loader2, Trash2, Users } from "lucide-react"
 
 import type { CartItem } from "@/lib/cart"
 import { useCart } from "@/lib/cart"
-import { formatPrice } from "@/lib/rooms"
+import { BOOKING_ACTION_BUTTON_CLASS, formatPrice } from "@/lib/rooms"
 import { createCartPaymentIntent, finalizeCartBookings } from "@/app/actions"
 import { AuthPanel } from "@/components/auth-panel"
 import type { OAuthProvider } from "@/lib/oauth"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
 type Step = "review" | "account" | "payment"
 
@@ -116,7 +117,7 @@ function PaymentStep({
       <Button
         type="submit"
         size="lg"
-        className="w-full cursor-pointer"
+        className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
         disabled={!stripe || !elements || status === "processing"}
       >
         {status === "processing" ? (
@@ -187,7 +188,7 @@ export function CartCheckoutForm({
     return (
       <div className="py-20 text-center">
         <p className="text-muted-foreground text-lg">Your cart is empty.</p>
-        <Button className="mt-6 cursor-pointer" onClick={() => router.push("/#rooms")}>
+        <Button className={cn("mt-6 cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)} onClick={() => router.push("/#rooms")}>
           Browse rooms
         </Button>
       </div>
@@ -209,7 +210,7 @@ export function CartCheckoutForm({
             </section>
             <Button
               size="lg"
-              className="w-full cursor-pointer"
+              className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
               onClick={() => setStep("account")}
             >
               {isAuthenticated ? "Continue →" : "Continue to sign in →"}
@@ -246,7 +247,7 @@ export function CartCheckoutForm({
                 </div>
                 <Button
                   size="lg"
-                  className="w-full cursor-pointer"
+                  className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
                   onClick={startPayment}
                   disabled={isPending}
                 >

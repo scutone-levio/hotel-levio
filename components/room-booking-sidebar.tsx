@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const router = useRouter()
   const { items, addItem } = useCart()
-  const { dateRange, setDateRange, isHydrated } = useDateRange()
+  const { dateRange, setDateRange, isHydrated, guests: heroGuests } = useDateRange()
   const [range, setRange] = React.useState<DateRange | undefined>()
   const [guests, setGuests] = React.useState(1)
   const [quote, setQuote] = React.useState<{
@@ -38,6 +38,14 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   React.useEffect(() => {
     if (isHydrated) setRange(dateRange)
   }, [dateRange, isHydrated])
+
+  const didPrefillGuests = React.useRef(false)
+  React.useEffect(() => {
+    if (isHydrated && !didPrefillGuests.current) {
+      setGuests(Math.min(heroGuests, room.capacity))
+      didPrefillGuests.current = true
+    }
+  }, [isHydrated, heroGuests, room.capacity])
 
   React.useEffect(() => {
     if (!range?.from || !range?.to) {

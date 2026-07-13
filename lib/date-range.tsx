@@ -5,6 +5,9 @@ import type { DateRange } from "react-day-picker"
 
 const STORAGE_KEY = "hotellevio_date_range"
 
+export const MIN_GUESTS = 1
+export const MAX_GUESTS = 4
+
 export function parseStoredDateRange(
   checkIn: string | null,
   checkOut: string | null,
@@ -22,22 +25,30 @@ export function parseStoredDateRange(
   return { from, to }
 }
 
-function readStoredDateRange(): DateRange | undefined {
+function readStored(): { range: DateRange | undefined; guests: number } {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
-    if (!raw) return undefined
+    if (!raw) return { range: undefined, guests: MIN_GUESTS }
 
-    const { checkIn, checkOut } = JSON.parse(raw) as {
+    const { checkIn, checkOut, guests } = JSON.parse(raw) as {
       checkIn?: string
       checkOut?: string
+      guests?: number
     }
-    return parseStoredDateRange(checkIn ?? null, checkOut ?? null)
+    const range = parseStoredDateRange(checkIn ?? null, checkOut ?? null)
+    const parsedGuests =
+      typeof guests === "number" &&
+      guests >= MIN_GUESTS &&
+      guests <= MAX_GUESTS
+        ? guests
+        : MIN_GUESTS
+    return { range, guests: parsedGuests }
   } catch {
-    return undefined
+    return { range: undefined, guests: MIN_GUESTS }
   }
 }
 
-function persistDateRange(range: DateRange | undefined) {
+function persistStored(range: DateRange | undefined, guests: number) {
   try {
     if (range?.from && range?.to) {
       sessionStorage.setItem(
@@ -45,10 +56,14 @@ function persistDateRange(range: DateRange | undefined) {
         JSON.stringify({
           checkIn: range.from.toISOString(),
           checkOut: range.to.toISOString(),
+          guests,
         }),
       )
     } else {
-      sessionStorage.removeItem(STORAGE_KEY)
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ guests }),
+      )
     }
   } catch {}
 }
@@ -58,6 +73,8 @@ type DateRangeCtx = {
   setDateRange: (range: DateRange | undefined) => void
   clearDateRange: () => void
   isHydrated: boolean
+  guests: number
+  setGuests: (n: number) => void
 }
 
 const DateRangeContext = React.createContext<DateRangeCtx>({
@@ -65,30 +82,51 @@ const DateRangeContext = React.createContext<DateRangeCtx>({
   setDateRange: () => {},
   clearDateRange: () => {},
   isHydrated: false,
+  guests: MIN_GUESTS,
+  setGuests: () => {},
 })
 
 export function DateRangeProvider({ children }: { children: React.ReactNode }) {
   const [dateRange, setDateRangeState] = React.useState<DateRange | undefined>()
+  const [guests, setGuestsState] = React.useState(MIN_GUESTS)
   const [isHydrated, setIsHydrated] = React.useState(false)
 
   React.useEffect(() => {
-    setDateRangeState(readStoredDateRange())
+    const stored = readStored()
+    setDateRangeState(stored.range)
+    setGuestsState(stored.guests)
     setIsHydrated(true)
   }, [])
 
-  function setDateRange(range: DateRange | undefined) {
-    setDateRangeState(range)
-    persistDateRange(range)
-  }
+  const setDateRange = React.useCallback(
+    (range: DateRange | undefined) => {
+      setDateRangeState(range)
+      persistStored(range, guests)
+    },
+    [guests],
+  )
 
-  function clearDateRange() {
-    setDateRange(undefined)
-  }
+  const setGuests = React.useCallback(
+    (n: number) => {
+      const clamped = Math.min(MAX_GUESTS, Math.max(MIN_GUESTS, n))
+      setGuestsState(clamped)
+      persistStored(dateRange, clamped)
+    },
+    [dateRange],
+  )
+
+  const clearDateRange = React.useCallback(() => {
+    setDateRangeState(undefined)
+    persistStored(undefined, guests)
+  }, [guests])
+
+  const value = React.useMemo(
+    () => ({ dateRange, setDateRange, clearDateRange, isHydrated, guests, setGuests }),
+    [dateRange, setDateRange, clearDateRange, isHydrated, guests, setGuests],
+  )
 
   return (
-    <DateRangeContext.Provider
-      value={{ dateRange, setDateRange, clearDateRange, isHydrated }}
-    >
+    <DateRangeContext.Provider value={value}>
       {children}
     </DateRangeContext.Provider>
   )

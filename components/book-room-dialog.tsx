@@ -9,9 +9,10 @@ import type { DateRange } from "react-day-picker"
 import type { RoomWithDetails } from "@/lib/queries"
 import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice } from "@/lib/rooms"
+import { BOOKING_ACTION_BUTTON_CLASS, formatPrice } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,7 @@ export function BookRoomDialog({
 }) {
   const router = useRouter()
   const { items, addItem } = useCart()
-  const { dateRange, setDateRange, isHydrated } = useDateRange()
+  const { dateRange, setDateRange, isHydrated, guests: heroGuests } = useDateRange()
   const [open, setOpen] = React.useState(false)
   const [range, setRange] = React.useState<DateRange | undefined>()
   const [guests, setGuests] = React.useState(1)
@@ -53,6 +54,21 @@ export function BookRoomDialog({
   React.useEffect(() => {
     if (!open && isHydrated) setRange(dateRange)
   }, [dateRange, open, isHydrated])
+
+  // Pre-fill guests once when the dialog opens, clamped to this room's capacity.
+  // Subsequent hero-guest changes while the dialog is open must not overwrite
+  // a value the visitor has already edited.
+  const didPrefillGuests = React.useRef(false)
+  React.useEffect(() => {
+    if (!open) {
+      didPrefillGuests.current = false
+      return
+    }
+    if (!didPrefillGuests.current) {
+      setGuests(Math.min(heroGuests, room.capacity))
+      didPrefillGuests.current = true
+    }
+  }, [open, heroGuests, room.capacity])
 
   React.useEffect(() => {
     if (!open) {
@@ -217,7 +233,7 @@ export function BookRoomDialog({
               quotePending ||
               !!quoteError
             }
-            className="cursor-pointer"
+            className={cn("cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
           >
             <ShoppingCart className="size-4" />
             Add to cart
