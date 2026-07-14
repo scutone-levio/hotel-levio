@@ -67,7 +67,8 @@ prisma/
 
 ### Button styling by surface
 
-- **Light/white surface** (cards, modals, dialogs, popovers, forms, calendar pickers): use `variant="action"` on `<Button>`. Renders dark navy (`#0f2a3d`) with ivory text, hovering to gold — matches the "Book Now" CTA style used throughout the app.
+- **Sign in / auth submit buttons** on a light surface: use `variant="blue"` — dark navy `#0f2a3d` with ivory text and lighter navy hover. Same base color as Book Now; no gold hover.
+- **Booking CTAs on a light surface** (Book Now, Apply, Create account, checkout): use `variant="action"` — dark navy `#0f2a3d`, ivory text, gold hover.
 - **Dark navy chrome** (header, footer, hero): use `variant="default"` (gold/primary) or `variant="outline"`.
 - Buttons already using `BOOKING_ACTION_BUTTON_CLASS` from `lib/rooms.ts` produce the same visual result as `variant="action"` — do not change them. (`BOOKING_ACTION_BUTTON_CLASS` uses `!important` because it overrides an existing variant via `className`; the CVA `action` variant doesn't need `!important` because it is the variant.)
 - Run `/button-style` to audit and fix button variants across the codebase.

@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils"
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"
 
+const LISTING_SHADOW =
+  "shadow-[0_1px_2px_rgba(15,42,61,0.07),0_18px_34px_-18px_rgba(15,42,61,0.32)]"
+
 type GalleryImage = { id: string; url: string }
 
 export function RoomImageCarousel({
@@ -58,6 +61,10 @@ export function RoomImageCarousel({
   const frameClass = isHero
     ? "aspect-[4/3] sm:aspect-[21/9] rounded-2xl"
     : "aspect-[4/3]"
+  const heroShadowWrap = isHero
+    ? cn("rounded-2xl", LISTING_SHADOW)
+    : undefined
+  const heroClipWrap = isHero ? "relative overflow-hidden rounded-2xl" : undefined
 
   function stopNav(e: React.MouseEvent) {
     e.preventDefault()
@@ -103,8 +110,8 @@ export function RoomImageCarousel({
 
   if (!hasMultiple) {
     const img = slides[0]
-    return (
-      <SlideFrame className={className} testId={dataTestId}>
+    const gallery = (
+      <SlideFrame testId={dataTestId}>
         <Image
           src={img.url}
           alt={roomName}
@@ -126,12 +133,16 @@ export function RoomImageCarousel({
         )}
       </SlideFrame>
     )
+
+    if (!isHero) {
+      return <div className={className}>{gallery}</div>
+    }
+
+    return <div className={cn(heroShadowWrap, className)}>{gallery}</div>
   }
 
-  return (
-    <div
-      className={cn(isHero ? "relative mb-10" : "relative", className)}
-    >
+  const carouselWithNav = (
+    <>
       <Carousel setApi={setApi} className="w-full">
         <CarouselContent className="ml-0">
           {slides.map((img, index) => (
@@ -166,37 +177,51 @@ export function RoomImageCarousel({
       </Carousel>
 
       <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className={cn(
-            "bg-background/80 absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur-sm",
-            isHero ? "left-3 size-9" : "left-2 size-7",
-          )}
-          onClick={(e) => {
-            stopNav(e)
-            api?.scrollPrev()
-          }}
-          aria-label="Previous image"
-        >
-          <ChevronLeft className={isHero ? "size-5" : "size-4"} />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className={cn(
-            "bg-background/80 absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur-sm",
-            isHero ? "right-3 size-9" : "right-2 size-7",
-          )}
-          onClick={(e) => {
-            stopNav(e)
-            api?.scrollNext()
-          }}
-          aria-label="Next image"
-        >
-          <ChevronRight className={isHero ? "size-5" : "size-4"} />
-        </Button>
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn(
+          "bg-background/80 absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur-sm",
+          isHero ? "left-3 size-9" : "left-2 size-7",
+        )}
+        onClick={(e) => {
+          stopNav(e)
+          api?.scrollPrev()
+        }}
+        aria-label="Previous image"
+      >
+        <ChevronLeft className={isHero ? "size-5" : "size-4"} />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn(
+          "bg-background/80 absolute top-1/2 -translate-y-1/2 rounded-full shadow-sm backdrop-blur-sm",
+          isHero ? "right-3 size-9" : "right-2 size-7",
+        )}
+        onClick={(e) => {
+          stopNav(e)
+          api?.scrollNext()
+        }}
+        aria-label="Next image"
+      >
+        <ChevronRight className={isHero ? "size-5" : "size-4"} />
+      </Button>
+    </>
+  )
+
+  return (
+    <div
+      className={cn(isHero ? "relative mb-10" : "relative", className)}
+    >
+      {isHero ? (
+        <div className={heroShadowWrap}>
+          <div className={heroClipWrap}>{carouselWithNav}</div>
+        </div>
+      ) : (
+        carouselWithNav
+      )}
 
       {showDots ? (
         <div className="mt-3 flex justify-center gap-1.5">
