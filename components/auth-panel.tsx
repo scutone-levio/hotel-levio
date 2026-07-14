@@ -186,7 +186,7 @@ export function AuthPanel({
                 required
               />
             </div>
-            <Button type="submit" className="w-full cursor-pointer" disabled={pending}>
+            <Button type="submit" variant="blue" className="w-full cursor-pointer" disabled={pending}>
               {pending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -226,7 +226,7 @@ export function AuthPanel({
                 minLength={8}
               />
             </div>
-            <Button type="submit" className="w-full cursor-pointer" disabled={pending}>
+            <Button type="submit" variant="action" className="w-full cursor-pointer" disabled={pending}>
               {pending ? "Creating account…" : "Create account"}
             </Button>
           </form>

@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
+import Link from "next/link"
 import { signIn } from "next-auth/react"
-import { Waves } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,9 +43,16 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
-        <div className="mb-2 flex items-center justify-center gap-2 text-lg font-semibold">
-          <Waves className="text-primary size-5" />
-          Hôtel Levio
+        <div className="mb-2 flex justify-center">
+          <Link href="/">
+            <Image
+              src="/hotel-levio-logo.png"
+              alt="Hôtel Levio"
+              width={993}
+              height={495}
+              className="h-[52px] w-auto"
+            />
+          </Link>
         </div>
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Staff access to the admin dashboard</CardDescription>
@@ -81,7 +89,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             </p>
           ) : null}
 
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" variant="blue" className="w-full" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
