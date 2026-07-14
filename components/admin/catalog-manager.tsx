@@ -50,16 +50,12 @@ export function CatalogManager({
   const inventoryInfo = inventory[activeType]
 
   const {
-    setPage,
     pageSize,
     currentPage,
     paginated: paginatedChildren,
     handlePageSizeChange,
-  } = usePaginatedList(childRooms)
-
-  React.useEffect(() => {
-    setPage(1)
-  }, [activeType, setPage])
+    setPage,
+  } = usePaginatedList(childRooms, { resetKey: activeType })
 
   function saveQuantity(quantity: number) {
     startTransition(async () => {

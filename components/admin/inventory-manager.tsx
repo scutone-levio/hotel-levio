@@ -46,11 +46,7 @@ export function InventoryManager({
     currentPage,
     paginated,
     handlePageSizeChange,
-  } = usePaginatedList(filtered)
-
-  React.useEffect(() => {
-    setPage(1)
-  }, [typeFilter, setPage])
+  } = usePaginatedList(filtered, { resetKey: typeFilter })
 
   const filterLabel =
     typeFilter === "ALL"
