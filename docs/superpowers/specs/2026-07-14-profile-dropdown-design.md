@@ -71,4 +71,4 @@ The global `a, button:not(:disabled) { cursor-pointer }` rule in `globals.css` c
 
 ## Prerequisites
 
-Run `npx shadcn@latest add dropdown-menu` before implementation to install `components/ui/dropdown-menu.tsx`.
+This feature uses the existing hand-written `components/ui/dropdown-menu.tsx` implementation. No additional setup required.

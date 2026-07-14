@@ -35,7 +35,10 @@ export function ProfileDropdown({ user }: { user: Session["user"] | null }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={`${iconClassName} outline-none`}>
+      <DropdownMenuTrigger
+        className={`${iconClassName} outline-none`}
+        aria-label="Account menu"
+      >
         <UserCircle className="size-5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
