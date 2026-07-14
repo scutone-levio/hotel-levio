@@ -4,7 +4,7 @@ Find every `<Button>` in the codebase that renders on a light or white backgroun
 
 ### `variant="blue"` — Auth/sign-in buttons
 Dark navy (`#0f2a3d`) background, ivory (`#f3ecda`) text, lighter navy hover (`#163d57`).
-Use for: **Sign in**, **Sign up**, and other authentication submit buttons.
+Use for: **Sign in** and other authentication submit buttons.
 This is the same dark navy blue as the "Book Now" button on the home page.
 
 ### `variant="action"` — Booking CTAs

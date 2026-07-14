@@ -138,7 +138,13 @@ export function RoomImageCarousel({
       return <div className={className}>{gallery}</div>
     }
 
-    return <div className={cn(heroShadowWrap, className)}>{gallery}</div>
+    return (
+      <div className={cn("relative mb-10", className)}>
+        <div className={heroShadowWrap}>
+          <div className={heroClipWrap}>{gallery}</div>
+        </div>
+      </div>
+    )
   }
 
   const carouselWithNav = (
