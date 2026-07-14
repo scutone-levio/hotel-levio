@@ -41,6 +41,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import { usePaginatedList } from "@/components/admin/use-paginated-list"
 
 const schema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters"),
@@ -150,6 +152,13 @@ export function AmenitiesManager({
   amenities: AmenityWithCount[]
 }) {
   const [pending, startTransition] = React.useTransition()
+  const {
+    setPage,
+    pageSize,
+    currentPage,
+    paginated: paginatedAmenities,
+    handlePageSizeChange,
+  } = usePaginatedList(amenities)
 
   function handleDelete(a: AmenityWithCount) {
     if (
@@ -192,9 +201,9 @@ export function AmenitiesManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {amenities.length ? (
-              amenities.map((a) => (
-                <TableRow key={a.id}>
+            {paginatedAmenities.length ? (
+              paginatedAmenities.map((a) => (
+                <TableRow key={a.id} className="bg-white">
                   <TableCell className="font-medium">{a.name}</TableCell>
                   <TableCell>
                     {a.category ? (
@@ -237,6 +246,13 @@ export function AmenitiesManager({
           </TableBody>
         </Table>
       </div>
+      <AdminPagination
+        page={currentPage}
+        pageSize={pageSize}
+        total={amenities.length}
+        onPageChange={setPage}
+        onPageSizeChange={handlePageSizeChange}
+      />
     </div>
   )
 }

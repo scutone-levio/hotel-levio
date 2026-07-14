@@ -11,10 +11,8 @@ import {
   formatPrice,
 } from "@/lib/rooms"
 import { RoomManageDialog } from "@/components/admin/room-manage-dialog"
-import {
-  AdminPagination,
-  type AdminPageSize,
-} from "@/components/admin/admin-pagination"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import { usePaginatedList } from "@/components/admin/use-paginated-list"
 import { updateRoomInventoryAction } from "@/app/admin/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,24 +34,23 @@ export function InventoryManager({
   allAmenities: AmenityWithCount[]
 }) {
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>("ALL")
-  const [page, setPage] = React.useState(1)
-  const [pageSize, setPageSize] = React.useState<AdminPageSize>(10)
 
   const filtered = React.useMemo(() => {
     if (typeFilter === "ALL") return rooms
     return rooms.filter((r) => r.type === typeFilter)
   }, [rooms, typeFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const paginated = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  )
+  const {
+    setPage,
+    pageSize,
+    currentPage,
+    paginated,
+    handlePageSizeChange,
+  } = usePaginatedList(filtered)
 
   React.useEffect(() => {
     setPage(1)
-  }, [typeFilter, pageSize])
+  }, [typeFilter, setPage])
 
   const filterLabel =
     typeFilter === "ALL"
@@ -122,10 +119,7 @@ export function InventoryManager({
         pageSize={pageSize}
         total={filtered.length}
         onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size)
-          setPage(1)
-        }}
+        onPageSizeChange={handlePageSizeChange}
       />
     </div>
   )
@@ -161,7 +155,7 @@ function InventoryRow({
   }
 
   return (
-    <tr className="border-b last:border-0">
+    <tr className="bg-white border-b last:border-0">
       <td className="px-3 py-2 text-sm">{room.floor ?? "—"}</td>
       <td className="px-3 py-2">
         <Input

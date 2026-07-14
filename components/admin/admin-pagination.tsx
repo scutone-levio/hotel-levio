@@ -28,7 +28,7 @@ export function AdminPagination({
   onPageSizeChange,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(page, totalPages)
+  const currentPage = Math.min(Math.max(page, 1), totalPages)
   const rangeStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const rangeEnd = Math.min(currentPage * pageSize, total)
 

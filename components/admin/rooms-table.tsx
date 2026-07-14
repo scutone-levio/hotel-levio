@@ -115,7 +115,7 @@ export function RoomsTable({ data }: { data: RoomWithDetails[] }) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} data-testid="room-row">
+              <TableRow key={row.id} data-testid="room-row" className="bg-white">
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
