@@ -99,7 +99,7 @@ const NEARBY_ICONS: Record<string, LucideIcon> = {
 
 function NearbyIcon({ category }: { category: string }) {
   const Icon = NEARBY_ICONS[category] ?? MapPin
-  return <Icon className="size-4 text-muted-foreground" />
+  return <Icon className="size-5" />
 }
 
 /* ------------------------------------------------------------------ */
@@ -203,7 +203,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {room.nearbyPlaces.map((place) => (
                         <div key={place.id} className="flex items-center gap-3">
-                          <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+                          <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
                             <NearbyIcon category={place.category} />
                           </div>
                           <div>

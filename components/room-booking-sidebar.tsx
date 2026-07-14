@@ -9,13 +9,14 @@ import type { DateRange } from "react-day-picker"
 import type { RoomWithDetails } from "@/lib/queries"
 import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { formatPrice, listingFromPriceCents } from "@/lib/rooms"
+import { formatPrice, BOOKING_ACTION_BUTTON_CLASS, listingFromPriceCents } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
 export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const router = useRouter()
@@ -199,7 +200,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
       )}
 
       <Button
-        className="w-full cursor-pointer"
+        className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
         size="lg"
         onClick={handleAddToCart}
         disabled={

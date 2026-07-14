@@ -4,6 +4,8 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BOOKING_ACTION_BUTTON_CLASS } from "@/lib/rooms"
+import { cn } from "@/lib/utils"
 
 export function ContactForm() {
   const [state, setState] = React.useState<"idle" | "submitting" | "success">(
@@ -141,7 +143,11 @@ export function ContactForm() {
         Fields marked <span className="text-destructive">*</span> are required.
       </p>
 
-      <Button type="submit" disabled={state === "submitting"} className="w-full sm:w-auto">
+      <Button
+        type="submit"
+        disabled={state === "submitting"}
+        className={cn("w-full sm:w-auto", BOOKING_ACTION_BUTTON_CLASS)}
+      >
         {state === "submitting" ? "Sending…" : "Send message"}
       </Button>
     </form>
