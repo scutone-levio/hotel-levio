@@ -177,6 +177,7 @@ export function HeroSearchBar() {
                 Clear
               </Button>
               <Button
+                variant="action"
                 size="sm"
                 disabled={!range?.from || !range?.to}
                 onClick={() => setOpen(false)}
