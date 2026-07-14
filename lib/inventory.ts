@@ -1,4 +1,4 @@
-import type { RoomType } from "@prisma/client"
+import type { Prisma, RoomType } from "@prisma/client"
 import { startOfDay } from "date-fns"
 
 import { prisma } from "@/lib/prisma"
@@ -182,15 +182,9 @@ async function subcategoryIdForNewUnit(
   return sub.id
 }
 
-type CatalogRoom = NonNullable<
-  Awaited<
-    ReturnType<
-      typeof prisma.room.findFirst<{
-        include: { amenities: true; priceRules: true }
-      }>
-    >
-  >
->
+type CatalogRoom = Prisma.RoomGetPayload<{
+  include: { amenities: true; priceRules: true }
+}>
 
 async function addInventoryUnits(
   type: RoomType,
