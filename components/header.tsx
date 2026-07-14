@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { auth } from "@/auth"
 import { CartIcon } from "@/components/cart-icon"
-import { AccountNav } from "@/components/account-nav"
+import { ProfileDropdown } from "@/components/profile-dropdown"
 import { MobileNav } from "@/components/mobile-nav"
 import { SiteNavLink } from "@/components/site-nav-link"
 import { cartIconTheme, siteHeaderClassName } from "@/lib/site-chrome"
@@ -30,7 +30,7 @@ export async function Header() {
         <nav className="hidden lg:flex items-center gap-6">
           <SiteNavLink href="/about">About Us</SiteNavLink>
           <SiteNavLink href="/contact">Contact Us</SiteNavLink>
-          <AccountNav user={session?.user ?? null} />
+          <ProfileDropdown user={session?.user ?? null} />
           <span className="text-[#f3ecda]" style={cartIconTheme}>
             <CartIcon />
           </span>
