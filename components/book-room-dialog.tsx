@@ -9,10 +9,11 @@ import type { DateRange } from "react-day-picker"
 import type { RoomWithDetails } from "@/lib/queries"
 import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
-import { BOOKING_ACTION_BUTTON_CLASS, formatPrice } from "@/lib/rooms"
+import { BOOKING_ACTION_BUTTON_CLASS } from "@/lib/rooms"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { cn } from "@/lib/utils"
+import { QuotePricePanel } from "@/components/quote-price-panel"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
@@ -190,30 +191,12 @@ export function BookRoomDialog({
               />
             </div>
 
-            <div className="rounded-lg border p-3 text-sm">
-              {quotePending ? (
-                <p className="text-muted-foreground">Calculating price…</p>
-              ) : quoteError ? (
-                <p className="text-destructive">{quoteError}</p>
-              ) : quote && quote.nights > 0 ? (
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {quote.nights} night{quote.nights > 1 ? "s" : ""}
-                    </span>
-                    <span>{formatPrice(quote.total, "CAD")}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>{formatPrice(quote.total, "CAD")}</span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Select dates to see the price. Weekend nights may cost more.
-                </p>
-              )}
-            </div>
+            <QuotePricePanel
+              quotePending={quotePending}
+              quoteError={quoteError}
+              quote={quote}
+              emptyMessage="Select dates to see the price. Weekend nights may cost more."
+            />
 
             {alreadyInCart && (
               <p className="text-xs text-amber-600">

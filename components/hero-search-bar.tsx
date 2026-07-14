@@ -6,6 +6,7 @@ import { differenceInCalendarDays, format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
 import { useDateRange, MIN_GUESTS, MAX_GUESTS } from "@/lib/date-range"
+import { pluralize } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -57,6 +58,10 @@ export function HeroSearchBar() {
 
   const checkInLabel = range?.from ? format(range.from, "LLL dd, y") : "Add date"
   const checkOutLabel = range?.to ? format(range.to, "LLL dd, y") : "Add date"
+  const nightsLabel =
+    nights > 0
+      ? `${nights} ${pluralize(nights, "night")} selected`
+      : "Select your dates"
 
   return (
     <div style={heroTheme} className="text-[#f3ecda]">
@@ -164,9 +169,7 @@ export function HeroSearchBar() {
               className="text-muted-foreground text-sm"
               data-testid="booking-nights"
             >
-              {nights > 0
-                ? `${nights} night${nights > 1 ? "s" : ""} selected`
-                : "Select your dates"}
+              {nightsLabel}
             </span>
             <div className="flex gap-2">
               <Button

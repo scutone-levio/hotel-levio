@@ -261,6 +261,107 @@ export function RoomsBrowser({
     setAmenityIds(new Set())
   }
 
+  function renderRoomResults() {
+    if (isCheckingAvailability && filtered.length === 0) {
+      return (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {rooms.slice(0, 6).map((room) => (
+            <div
+              key={`${room.id}-${room.subcategory?.id ?? "default"}`}
+              className="bg-muted aspect-[3/4] animate-pulse rounded-xl"
+            />
+          ))}
+        </div>
+      )
+    }
+
+    if (filtered.length === 0) {
+      return (
+        <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
+          {hasDates && availableIds !== null
+            ? "No rooms are available for the selected dates."
+            : "No rooms match your filters."}{" "}
+          {activeCount > 0 && (
+            <button
+              onClick={clearAll}
+              className="text-foreground underline underline-offset-4"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <>
+        <div
+          className={`space-y-10 transition-opacity duration-200 ${isCheckingAvailability ? "opacity-50" : ""}`}
+          aria-busy={isCheckingAvailability}
+        >
+          {grouped.map(({ type, rooms: sectionRooms }) => (
+            <section key={type}>
+              <h3 className="text-primary-foreground mb-4 text-xl">
+                {ROOM_TYPE_SHORT_LABELS[type]}
+              </h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {sectionRooms.map((room) => (
+                  <RoomCard
+                    key={`${room.id}-${room.subcategory?.id ?? "default"}`}
+                    room={room}
+                    availability={
+                      room.subcategory?.id
+                        ? (availabilityCounts?.[
+                            listingAvailabilityKey(
+                              room.id,
+                              room.subcategory.id,
+                            )
+                          ] ?? null)
+                        : null
+                    }
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div
+          className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+          data-testid="rooms-pagination"
+        >
+          <p className="text-muted-foreground text-sm">
+            Showing {rangeStart}–{rangeEnd} of {filtered.length} room
+            {filtered.length === 1 ? "" : "s"}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              data-testid="pagination-prev"
+            >
+              Previous
+            </Button>
+            <span className="text-muted-foreground min-w-24 text-center text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              data-testid="pagination-next"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
@@ -391,96 +492,7 @@ export function RoomsBrowser({
         </div>
       </div>
 
-      {isCheckingAvailability && filtered.length === 0 ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {rooms.slice(0, 6).map((room) => (
-            <div
-              key={`${room.id}-${room.subcategory?.id ?? "default"}`}
-              className="bg-muted aspect-[3/4] animate-pulse rounded-xl"
-            />
-          ))}
-        </div>
-      ) : filtered.length ? (
-        <>
-          <div
-            className={`space-y-10 transition-opacity duration-200 ${isCheckingAvailability ? "opacity-50" : ""}`}
-            aria-busy={isCheckingAvailability}
-          >
-            {grouped.map(({ type, rooms: sectionRooms }) => (
-              <section key={type}>
-                <h3 className="text-primary-foreground mb-4 text-xl">
-                  {ROOM_TYPE_SHORT_LABELS[type]}
-                </h3>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {sectionRooms.map((room) => (
-                    <RoomCard
-                      key={`${room.id}-${room.subcategory?.id ?? "default"}`}
-                      room={room}
-                      availability={
-                        room.subcategory?.id
-                          ? (availabilityCounts?.[
-                              listingAvailabilityKey(
-                                room.id,
-                                room.subcategory.id,
-                              )
-                            ] ?? null)
-                          : null
-                      }
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <div
-            className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-            data-testid="rooms-pagination"
-          >
-            <p className="text-muted-foreground text-sm">
-              Showing {rangeStart}–{rangeEnd} of {filtered.length} room
-              {filtered.length === 1 ? "" : "s"}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                data-testid="pagination-prev"
-              >
-                Previous
-              </Button>
-              <span className="text-muted-foreground min-w-24 text-center text-sm">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                data-testid="pagination-next"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="text-muted-foreground rounded-lg border border-dashed p-12 text-center">
-          {hasDates && availableIds !== null
-            ? "No rooms are available for the selected dates."
-            : "No rooms match your filters."}{" "}
-          {activeCount > 0 && (
-            <button
-              onClick={clearAll}
-              className="text-foreground underline underline-offset-4"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      )}
+      {renderRoomResults()}
     </>
   )
 }

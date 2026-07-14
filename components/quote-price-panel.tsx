@@ -1,0 +1,62 @@
+import { formatPrice } from "@/lib/rooms"
+import { pluralize } from "@/lib/utils"
+
+type Quote = {
+  nights: number
+  total: number
+}
+
+type QuotePricePanelProps = {
+  quotePending: boolean
+  quoteError: string | null
+  quote: Quote | null
+  emptyMessage?: string
+  className?: string
+  pendingClassName?: string
+  errorClassName?: string
+  emptyClassName?: string
+}
+
+export function QuotePricePanel({
+  quotePending,
+  quoteError,
+  quote,
+  emptyMessage,
+  className = "rounded-lg border p-3 text-sm",
+  pendingClassName = "text-muted-foreground",
+  errorClassName = "text-destructive",
+  emptyClassName = "text-muted-foreground",
+}: QuotePricePanelProps) {
+  if (quotePending) {
+    return <p className={pendingClassName}>Calculating price…</p>
+  }
+
+  if (quoteError) {
+    return <p className={errorClassName}>{quoteError}</p>
+  }
+
+  if (!quote || quote.nights <= 0) {
+    return emptyMessage ? (
+      <p className={emptyClassName}>{emptyMessage}</p>
+    ) : null
+  }
+
+  const nightLabel = pluralize(quote.nights, "night")
+
+  return (
+    <div className={className}>
+      <div className="space-y-1">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">
+            {quote.nights} {nightLabel}
+          </span>
+          <span>{formatPrice(quote.total, "CAD")}</span>
+        </div>
+        <div className="flex justify-between font-semibold">
+          <span>Total</span>
+          <span>{formatPrice(quote.total, "CAD")}</span>
+        </div>
+      </div>
+    </div>
+  )
+}

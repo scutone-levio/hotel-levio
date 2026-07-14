@@ -4,12 +4,13 @@ import * as React from "react"
 import type { RoomType } from "@prisma/client"
 import { toast } from "sonner"
 
-import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
+import type { RoomWithDetails, AmenityWithCount } from "@/lib/queries"
 import {
   ROOM_TYPE_LABELS,
   ROOM_TYPES,
   formatPrice,
 } from "@/lib/rooms"
+import { pluralLabel, pluralize } from "@/lib/utils"
 import { RoomManageDialog } from "@/components/admin/room-manage-dialog"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { usePaginatedList } from "@/components/admin/use-paginated-list"
@@ -30,7 +31,7 @@ export function InventoryManager({
   rooms,
   allAmenities,
 }: {
-  rooms: RoomForAdmin[]
+  rooms: RoomWithDetails[]
   allAmenities: AmenityWithCount[]
 }) {
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>("ALL")
@@ -50,8 +51,8 @@ export function InventoryManager({
 
   const filterLabel =
     typeFilter === "ALL"
-      ? `${filtered.length} rooms`
-      : `${filtered.length} ${typeFilter.toLowerCase()} room${filtered.length === 1 ? "" : "s"}`
+      ? pluralLabel(filtered.length, "room")
+      : `${filtered.length} ${typeFilter.toLowerCase()} ${pluralize(filtered.length, "room")}`
 
   return (
     <div className="space-y-4">
@@ -125,7 +126,7 @@ function InventoryRow({
   room,
   allAmenities,
 }: {
-  room: RoomForAdmin
+  room: RoomWithDetails
   allAmenities: AmenityWithCount[]
 }) {
   const [roomNumber, setRoomNumber] = React.useState(room.roomNumber ?? "")

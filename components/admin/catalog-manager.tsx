@@ -4,7 +4,7 @@ import * as React from "react"
 import type { RoomType } from "@prisma/client"
 import { toast } from "sonner"
 
-import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
+import type { RoomWithDetails, AmenityWithCount } from "@/lib/queries"
 import { TYPE_TOTALS } from "@/lib/floor-plan"
 import {
   ROOM_TYPE_LABELS,
@@ -37,8 +37,8 @@ export function CatalogManager({
   allAmenities,
   inventory,
 }: {
-  catalogRooms: RoomForAdmin[]
-  inventoryUnits: RoomForAdmin[]
+  catalogRooms: RoomWithDetails[]
+  inventoryUnits: RoomWithDetails[]
   allAmenities: AmenityWithCount[]
   inventory: InventorySummary
 }) {
