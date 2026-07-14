@@ -505,7 +505,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
                 return (
                   <React.Fragment key={b.id}>
                     <tr
-                      className="hover:bg-muted/30 border-b cursor-pointer transition-colors"
+                      className="bg-white hover:bg-muted/30 border-b cursor-pointer transition-colors"
                       onClick={() =>
                         setExpandedId(isExpanded ? null : b.id)
                       }

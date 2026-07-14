@@ -136,4 +136,11 @@
   [data-slot="popover-title"] {
     @apply font-serif font-black;
   }
+  a,
+  button:not(:disabled) {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed;
+  }
 }

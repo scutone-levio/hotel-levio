@@ -414,7 +414,7 @@ export function SubcategoriesManager({
               </TableRow>
             ) : (
               filteredSubs.map((sub) => (
-                <TableRow key={sub.id}>
+                <TableRow key={sub.id} className="bg-white">
                   {editingId === sub.id ? (
                     <>
                       <TableCell>

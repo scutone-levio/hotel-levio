@@ -12,10 +12,8 @@ import {
   formatPrice,
 } from "@/lib/rooms"
 import { RoomManageDialog } from "@/components/admin/room-manage-dialog"
-import {
-  AdminPagination,
-  type AdminPageSize,
-} from "@/components/admin/admin-pagination"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import { usePaginatedList } from "@/components/admin/use-paginated-list"
 import { syncTypeQuantityAction } from "@/app/admin/actions"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,24 +43,19 @@ export function CatalogManager({
   inventory: InventorySummary
 }) {
   const [activeType, setActiveType] = React.useState<RoomType>("TWIN")
-  const [page, setPage] = React.useState(1)
-  const [pageSize, setPageSize] = React.useState<AdminPageSize>(10)
   const [pending, startTransition] = React.useTransition()
 
   const catalog = catalogRooms.find((r) => r.type === activeType)
   const childRooms = inventoryUnits.filter((r) => r.type === activeType)
   const inventoryInfo = inventory[activeType]
 
-  const totalPages = Math.max(1, Math.ceil(childRooms.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const paginatedChildren = childRooms.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  )
-
-  React.useEffect(() => {
-    setPage(1)
-  }, [activeType, pageSize])
+  const {
+    pageSize,
+    currentPage,
+    paginated: paginatedChildren,
+    handlePageSizeChange,
+    setPage,
+  } = usePaginatedList(childRooms, { resetKey: activeType })
 
   function saveQuantity(quantity: number) {
     startTransition(async () => {
@@ -156,7 +149,7 @@ export function CatalogManager({
             <tbody>
               {paginatedChildren.length ? (
                 paginatedChildren.map((room) => (
-                  <tr key={room.id} className="border-b last:border-0">
+                  <tr key={room.id} className="bg-white border-b last:border-0">
                     <td className="px-3 py-2 text-sm">{room.floor ?? "—"}</td>
                     <td className="px-3 py-2 text-sm">{room.roomNumber}</td>
                     <td className="px-3 py-2 text-sm text-muted-foreground">
@@ -193,10 +186,7 @@ export function CatalogManager({
           pageSize={pageSize}
           total={childRooms.length}
           onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size)
-            setPage(1)
-          }}
+          onPageSizeChange={handlePageSizeChange}
         />
       </section>
     </div>
