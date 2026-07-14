@@ -27,7 +27,7 @@ export function MobileNav({ user }: { user: Session["user"] | null }) {
       <Link
         href="/#rooms"
         onClick={close}
-        className="ml-2 border border-[#c69456] px-4 py-2 text-[0.72rem] tracking-[0.14em] text-[#c69456] uppercase transition-colors hover:bg-[#c69456] hover:text-[#081a27]"
+        className="ml-2 border border-[#c69456] px-5 py-2.5 text-[0.72rem] tracking-[0.14em] text-[#c69456] uppercase transition-colors hover:bg-[#c69456] hover:text-[#081a27]"
       >
         Book a Room
       </Link>

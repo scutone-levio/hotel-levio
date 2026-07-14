@@ -12,7 +12,7 @@ Add a responsive mobile header to Hôtel Levio. Below the `lg` breakpoint (1024 
 ### Desktop (≥ 1024 px) — unchanged
 
 ```text
-[HÔTEL LEVIO logo]    ABOUT US  CONTACT US  ADMIN  SIGN OUT  🛒  [BOOK A ROOM]
+[HÔTEL LEVIO logo]    ABOUT US  CONTACT US  SIGN IN / MY ACCOUNT  SIGN OUT  🛒  [BOOK A ROOM]
 ```
 
 ### Mobile (< 1024 px)
@@ -22,7 +22,7 @@ Add a responsive mobile header to Hôtel Levio. Below the `lg` breakpoint (1024 
 ```
 
 - **Cart icon** — same `CartIcon` component and `cartIconTheme` styles; badge visible at all times.
-- **Book A Room** — same gold-border button (`border border-[#c69456]`, gold text, hover fill). Padding unchanged; on very small screens (< 375 px) label may truncate naturally.
+- **Book A Room** — same gold-border button (`border border-[#c69456]`, gold text, hover fill) with the same padding as desktop (`px-5 py-2.5`); on very small screens (< 375 px) label may truncate naturally.
 - **Hamburger / close** — Lucide `Menu` icon (closed) / `X` icon (open), both in `#f3ecda`. Visually icon-only, but exposes an accessible name via `aria-label` that changes with state ("Open menu" / "Close menu"), plus `aria-expanded` reflecting whether the flyout is open and `aria-controls` referencing the flyout panel's `id`.
 
 ## Flyout panel
@@ -73,6 +73,8 @@ The panel is positioned `absolute; top: 100%; left: 0; right: 0` inside a `posit
 |---|---|
 | `components/header.tsx` | Add `relative` to `<header>`; render `<MobileNav>` alongside existing `<nav>`; hide desktop nav at `< lg` |
 | `components/mobile-nav.tsx` | **New** — client component (see below) |
+| `components/account-nav.tsx` | Remove Admin link from header for signed-in admins (footer link only); admin branch now renders Sign Out only |
+| `components/sign-out-button.tsx` | Accept optional `className` prop so the mobile flyout can apply block layout styles |
 
 ### `components/header.tsx` (server component — no change to `async` / `await auth()`)
 
@@ -97,7 +99,7 @@ The panel is positioned `absolute; top: 100%; left: 0; right: 0` inside a `posit
 //      — each link onClick closes the menu
 ```
 
-`AccountNav` is **not changed** — its logic is small enough to inline in `MobileNav` directly.
+`AccountNav` is updated alongside the mobile work: the admin branch no longer renders an Admin header link (footer only), and `SignOutButton` accepts an optional `className` so `MobileNav` can reuse it inside the flyout with block padding. `MobileNav` mirrors the same three-branch account logic inline.
 
 ## Reused components / styles
 
