@@ -182,18 +182,20 @@ async function subcategoryIdForNewUnit(
   return sub.id
 }
 
+type CatalogRoom = NonNullable<
+  Awaited<
+    ReturnType<
+      typeof prisma.room.findFirst<{
+        include: { amenities: true; priceRules: true }
+      }>
+    >
+  >
+>
+
 async function addInventoryUnits(
   type: RoomType,
   count: number,
-  catalog: NonNullable<
-    Awaited<
-      ReturnType<
-        typeof prisma.room.findFirst<{
-          include: { amenities: true; priceRules: true }
-        }>
-      >
-    >
-  >,
+  catalog: CatalogRoom,
 ) {
   const taken = new Set(
     (await prisma.room.findMany({ select: { roomNumber: true } })).map(

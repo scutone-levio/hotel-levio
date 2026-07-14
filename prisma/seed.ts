@@ -256,8 +256,8 @@ async function upsertFloorPlanSlot(
         roomNumber: slot.roomNumber,
         type: slot.type,
         isCatalog,
-        slug: isCatalog ? catalogSlug(slot.type) : `room-${slot.roomNumber}`,
-        name: isCatalog ? meta.label : `${meta.label} · ${slot.roomNumber}`,
+        slug,
+        name,
       },
     })
     return "updated"

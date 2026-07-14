@@ -27,18 +27,24 @@ export function QuotePricePanel({
   errorClassName = "text-destructive",
   emptyClassName = "text-muted-foreground",
 }: QuotePricePanelProps) {
+  function renderMessage(message: string, messageClassName: string) {
+    return (
+      <div className={className}>
+        <p className={messageClassName}>{message}</p>
+      </div>
+    )
+  }
+
   if (quotePending) {
-    return <p className={pendingClassName}>Calculating price…</p>
+    return renderMessage("Calculating price…", pendingClassName)
   }
 
   if (quoteError) {
-    return <p className={errorClassName}>{quoteError}</p>
+    return renderMessage(quoteError, errorClassName)
   }
 
   if (!quote || quote.nights <= 0) {
-    return emptyMessage ? (
-      <p className={emptyClassName}>{emptyMessage}</p>
-    ) : null
+    return emptyMessage ? renderMessage(emptyMessage, emptyClassName) : null
   }
 
   const nightLabel = pluralize(quote.nights, "night")
