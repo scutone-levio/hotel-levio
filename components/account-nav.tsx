@@ -13,12 +13,7 @@ export function AccountNav({
   }
 
   if (user.role === "ADMIN") {
-    return (
-      <>
-        <SiteNavLink href="/admin">Admin</SiteNavLink>
-        <SignOutButton />
-      </>
-    )
+    return <SignOutButton />
   }
 
   return (

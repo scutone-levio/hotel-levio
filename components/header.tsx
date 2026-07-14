@@ -4,6 +4,7 @@ import Link from "next/link"
 import { auth } from "@/auth"
 import { CartIcon } from "@/components/cart-icon"
 import { AccountNav } from "@/components/account-nav"
+import { MobileNav } from "@/components/mobile-nav"
 import { SiteNavLink } from "@/components/site-nav-link"
 import { cartIconTheme, siteHeaderClassName } from "@/lib/site-chrome"
 
@@ -11,7 +12,7 @@ export async function Header() {
   const session = await auth()
 
   return (
-    <header className={siteHeaderClassName}>
+    <header className={`${siteHeaderClassName} relative`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-[10px]">
         <Link
           href="/"
@@ -26,7 +27,7 @@ export async function Header() {
             priority
           />
         </Link>
-        <nav className="flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-6">
           <SiteNavLink href="/about">About Us</SiteNavLink>
           <SiteNavLink href="/contact">Contact Us</SiteNavLink>
           <AccountNav user={session?.user ?? null} />
@@ -40,6 +41,7 @@ export async function Header() {
             Book a Room
           </Link>
         </nav>
+        <MobileNav user={session?.user ?? null} />
       </div>
     </header>
   )
