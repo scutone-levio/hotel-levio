@@ -56,6 +56,35 @@ flowchart TD
 
 ---
 
+## Database Relationships
+
+```mermaid
+graph LR
+    USER -->|"1 : N"| BOOKING
+    ROOM -->|"1 : N"| BOOKING
+    ROOM_SUBCATEGORY -->|"0..1 : N"| BOOKING
+    ROOM_SUBCATEGORY -->|"0..1 : N"| ROOM
+    ROOM -->|"1 : N"| ROOM_IMAGE
+    ROOM -->|"1 : N"| ROOM_BLACKOUT
+    ROOM -->|"1 : N"| ROOM_PRICE_RULE
+    ROOM -->|"1 : N"| NEARBY_PLACE
+    ROOM <-->|"M : N"| AMENITY
+```
+
+| From | To | Cardinality | On Delete |
+|---|---|---|---|
+| `User` | `Booking` | One-to-many | Cascade — bookings deleted with user |
+| `Room` | `Booking` | One-to-many | Cascade — bookings deleted with room |
+| `RoomSubcategory` | `Booking` | Optional one-to-many | SetNull — `subcategoryId` nulled, booking preserved |
+| `RoomSubcategory` | `Room` | Optional one-to-many | SetNull — `subcategoryId` nulled, room preserved |
+| `Room` | `RoomImage` | One-to-many | Cascade — images deleted with room |
+| `Room` | `RoomBlackout` | One-to-many | Cascade — blackouts deleted with room |
+| `Room` | `RoomPriceRule` | One-to-many | Cascade — price rules deleted with room; unique per `(roomId, dayOfWeek)` |
+| `Room` | `NearbyPlace` | One-to-many | Cascade — places deleted with room; unique per `(roomId, name)` |
+| `Room` ↔ `Amenity` | — | Many-to-many | Implicit join table — removing an amenity cleans up all join rows |
+
+---
+
 ## Database Schema
 
 ```mermaid
