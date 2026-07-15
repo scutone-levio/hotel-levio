@@ -11,7 +11,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:unit": "tsx --test lib/subcategories.pricing.test.ts lib/subcategory-pricing.test.ts lib/rooms.test.ts lib/account-bookings.test.ts lib/account-actions.test.ts lib/password.test.ts lib/account-schemas.test.ts",
+    "test:unit": "tsx --test lib/subcategories.pricing.test.ts lib/subcategory-pricing.test.ts lib/rooms.test.ts lib/listing-images.test.ts lib/account-bookings.test.ts lib/account-actions.test.ts lib/password.test.ts lib/account-schemas.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

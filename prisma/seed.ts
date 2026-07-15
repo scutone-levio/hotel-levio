@@ -22,6 +22,10 @@ import {
   isCatalogRoomNumber,
 } from "../lib/floor-plan"
 import { catalogImagesByType, coverImageForType } from "../lib/room-type-images"
+import { kingSubcategoryImagesByName } from "../lib/king-subcategory-images"
+import { queenSubcategoryImagesByName } from "../lib/queen-subcategory-images"
+import { suiteSubcategoryImagesByName } from "../lib/suite-subcategory-images"
+import { twinSubcategoryImagesByName } from "../lib/twin-subcategory-images"
 
 const nearbyPlacesByType: Record<
   RoomType,
@@ -348,6 +352,59 @@ async function ensureCatalogImages() {
   return added
 }
 
+/**
+ * Seed curated listing galleries for subcategories that don't have images yet.
+ * Skips subcategories that already have images so this never clobbers
+ * admin-curated galleries on repeat seed runs.
+ */
+async function ensureSubcategoryImagesForType(
+  roomType: RoomType,
+  imagesByName: Record<
+    (typeof PUBLIC_SUBCATEGORY_NAMES)[number],
+    { url: string; caption: string }[]
+  >,
+) {
+  let seeded = 0
+  for (const name of PUBLIC_SUBCATEGORY_NAMES) {
+    const images = imagesByName[name]
+    const subcategory = await prisma.roomSubcategory.findUnique({
+      where: { roomType_name: { roomType, name } },
+      select: { id: true, _count: { select: { images: true } } },
+    })
+    if (!subcategory || subcategory._count.images > 0) continue
+
+    await prisma.$transaction(
+      images.map((img, sortOrder) =>
+        prisma.subcategoryImage.create({
+          data: {
+            subcategoryId: subcategory.id,
+            url: img.url,
+            sortOrder,
+          },
+        }),
+      ),
+    )
+    seeded += 1
+  }
+  return seeded
+}
+
+async function ensureTwinSubcategoryImages() {
+  return ensureSubcategoryImagesForType("TWIN", twinSubcategoryImagesByName)
+}
+
+async function ensureQueenSubcategoryImages() {
+  return ensureSubcategoryImagesForType("QUEEN", queenSubcategoryImagesByName)
+}
+
+async function ensureKingSubcategoryImages() {
+  return ensureSubcategoryImagesForType("KING", kingSubcategoryImagesByName)
+}
+
+async function ensureSuiteSubcategoryImages() {
+  return ensureSubcategoryImagesForType("SUITE", suiteSubcategoryImagesByName)
+}
+
 const RETIRED_COFFEE_BEANS_URL =
   "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=1200&q=80"
 
@@ -604,6 +661,34 @@ async function main() {
   }
   if (orphansDeleted > 0) {
     console.log(`  • ${orphansDeleted} orphan subcategory(ies) removed`)
+  }
+
+  const twinSubGalleries = await ensureTwinSubcategoryImages()
+  if (twinSubGalleries > 0) {
+    console.log(
+      `  • ${twinSubGalleries} Twin subcategory galleries seeded (Lake View, City View, Lower Level)`,
+    )
+  }
+
+  const queenSubGalleries = await ensureQueenSubcategoryImages()
+  if (queenSubGalleries > 0) {
+    console.log(
+      `  • ${queenSubGalleries} Queen subcategory galleries seeded (Lake View, City View, Lower Level)`,
+    )
+  }
+
+  const kingSubGalleries = await ensureKingSubcategoryImages()
+  if (kingSubGalleries > 0) {
+    console.log(
+      `  • ${kingSubGalleries} King subcategory galleries seeded (Lake View, City View, Lower Level)`,
+    )
+  }
+
+  const suiteSubGalleries = await ensureSuiteSubcategoryImages()
+  if (suiteSubGalleries > 0) {
+    console.log(
+      `  • ${suiteSubGalleries} Suite subcategory galleries seeded (Lake View, City View, Lower Level)`,
+    )
   }
 
   await ensureUsers()

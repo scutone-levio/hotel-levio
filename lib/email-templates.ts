@@ -76,6 +76,14 @@ function money(cents: number) {
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(cents / 100)
 }
 function ref(id: string) { return id.slice(-8).toUpperCase() }
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+}
 
 /* ------------------------------------------------------------------ */
 /*  Guest confirmation                                                  */
@@ -310,6 +318,56 @@ export function adminBookingDeletedEmail(data: {
     `Check-out: ${fmt(booking.checkOut)}`,
     `Status:    ${booking.status}`,
     `Revenue:   ${money(booking.totalPrice)}`,
+  ].join("\n")
+
+  return { subject, html, text }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Admin — date-change refund failed                                   */
+/* ------------------------------------------------------------------ */
+
+export function adminDateChangeRefundFailedEmail(data: {
+  bookingId: string
+  stripePaymentIntentId: string
+  amount: number
+  persistError: string
+  refundError: string
+}) {
+  const subject = `ACTION REQUIRED — Refund failed for booking #${ref(data.bookingId)}`
+  const dashboardUrl = escapeHtml(
+    `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin`,
+  )
+
+  const html = base(`
+    <p style="margin:0 0 6px;font-size:20px;font-weight:700;color:#b91c1c;">Refund failed after date-change error</p>
+    <p style="margin:0 0 28px;font-size:15px;color:${MUTED};">
+      A reservation date change could not be saved, and the automatic Stripe refund for the
+      guest also failed. This needs to be resolved manually in the Stripe Dashboard.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${row("Booking reference", `#${escapeHtml(ref(data.bookingId))}`)}
+      ${row("Stripe payment intent", escapeHtml(data.stripePaymentIntentId))}
+      ${row("Amount to refund (CAD)", escapeHtml(money(data.amount)))}
+      ${row("Date-change error", escapeHtml(data.persistError))}
+      ${row("Refund error", escapeHtml(data.refundError))}
+    </table>
+
+    <a href="${dashboardUrl}"
+       style="display:inline-block;background:${PRIMARY};color:${WHITE};font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;">
+      View in Admin Dashboard →
+    </a>
+  `)
+
+  const text = [
+    `ACTION REQUIRED — REFUND FAILED — HÔTEL LEVIO`,
+    ``,
+    `Reference:      #${ref(data.bookingId)}`,
+    `Payment intent: ${data.stripePaymentIntentId}`,
+    `Amount:         ${money(data.amount)}`,
+    `Date-change error: ${data.persistError}`,
+    `Refund error:      ${data.refundError}`,
   ].join("\n")
 
   return { subject, html, text }

@@ -140,6 +140,9 @@ function ImagesPanel({
 
   return (
     <div className="space-y-4">
+      <p className="text-muted-foreground text-xs">
+        Used when a subcategory has no images of its own.
+      </p>
       {room.images.length ? (
         <div className="grid grid-cols-3 gap-2">
           {room.images.map((img) => (

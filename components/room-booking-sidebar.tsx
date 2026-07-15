@@ -10,6 +10,7 @@ import type { RoomWithDetails } from "@/lib/queries"
 import { quoteListing } from "@/app/actions"
 import { useDateRange } from "@/lib/date-range"
 import { formatPrice, BOOKING_ACTION_BUTTON_CLASS, listingFromPriceCents } from "@/lib/rooms"
+import { listingCoverImageUrl } from "@/lib/listing-images"
 import { blackoutMatchers } from "@/lib/availability"
 import { useCart } from "@/lib/cart"
 import { Button } from "@/components/ui/button"
@@ -110,7 +111,7 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
     addItem({
       roomId: room.id,
       roomName: room.name,
-      imageUrl: room.images[0]?.url ?? null,
+      imageUrl: listingCoverImageUrl(room.images, room.subcategory?.images),
       checkIn: range.from.toISOString(),
       checkOut: range.to.toISOString(),
       guests,

@@ -33,6 +33,7 @@ import {
   listingAvailabilityKey,
   ROOM_TYPE_LABELS,
 } from "@/lib/rooms"
+import { resolveListingImagesForRoom } from "@/lib/listing-images"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
@@ -114,6 +115,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
 
   const similarRooms = await getSimilarRooms(room, 3)
   const featured = isListingFeatured(room)
+  const listingImages = resolveListingImagesForRoom(room)
 
   return (
     <div className="bg-background flex min-h-screen flex-col">
@@ -129,7 +131,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
           </Button>
 
           <RoomImageGallery
-            images={room.images}
+            images={listingImages}
             roomName={room.name}
             featured={featured}
           />

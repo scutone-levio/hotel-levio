@@ -20,7 +20,11 @@ const roomWithDetails = Prisma.validator<Prisma.RoomDefaultArgs>()({
     priceRules: { orderBy: { dayOfWeek: "asc" } },
     blackouts: { orderBy: { startDate: "asc" } },
     nearbyPlaces: { orderBy: { category: "asc" } },
-    subcategory: true,
+    subcategory: {
+      include: {
+        images: { orderBy: { sortOrder: "asc" } },
+      },
+    },
   },
 })
 
@@ -67,6 +71,7 @@ export function getCatalogRoomBySlug(
 
     const subcategory = await prisma.roomSubcategory.findFirst({
       where: { id: subcategoryId, roomType: catalog.type },
+      include: { images: { orderBy: { sortOrder: "asc" } } },
     })
     if (!subcategory) return catalog
 
@@ -87,6 +92,7 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     prisma.roomSubcategory.findMany({
       where: { name: { in: [...PUBLIC_SUBCATEGORY_NAMES] } },
       include: {
+        images: { orderBy: { sortOrder: "asc" } },
         _count: {
           select: {
             rooms: { where: { isCatalog: false } },
@@ -201,7 +207,10 @@ export function getCatalogRoomForType(type: RoomType) {
 export function getSubcategoriesByType(roomType: RoomType) {
   return prisma.roomSubcategory.findMany({
     where: { roomType },
-    include: { _count: { select: { rooms: true } } },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      _count: { select: { rooms: true } },
+    },
     orderBy: { name: "asc" },
   })
 }
@@ -212,7 +221,10 @@ export type RoomSubcategoryWithCount = Prisma.PromiseReturnType<
 
 export function getAllSubcategories() {
   return prisma.roomSubcategory.findMany({
-    include: { _count: { select: { rooms: true } } },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      _count: { select: { rooms: true } },
+    },
     orderBy: [{ roomType: "asc" }, { name: "asc" }],
   })
 }

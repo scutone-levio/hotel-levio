@@ -45,6 +45,17 @@ export type BumpLakeViewPricesResult =
     }
   | { ok: false; error: string }
 
+// Best-effort cleanup of an UploadThing file that was uploaded client-side
+// but whose metadata failed to persist, so it doesn't stay orphaned in storage.
+async function cleanupOrphanedUpload(key?: string | null) {
+  if (!key || !process.env.UPLOADTHING_TOKEN) return
+  try {
+    await new UTApi().deleteFiles(key)
+  } catch (e) {
+    console.error("Failed to clean up orphaned UploadThing file:", e)
+  }
+}
+
 function revalidate() {
   revalidatePath("/admin")
   revalidatePath("/admin/catalog")
@@ -153,13 +164,16 @@ export async function addRoomImage(
 ): Promise<ActionResult> {
   const count = await prisma.roomImage.count({ where: { roomId } })
   if (count >= 5) {
+    await cleanupOrphanedUpload(key)
     return { ok: false, error: "Maximum of 5 images per room type" }
   }
-  return run(async () => {
+  const result = await run(async () => {
     await prisma.roomImage.create({
       data: { roomId, url, key: key ?? null, sortOrder: count },
     })
   })
+  if (!result.ok) await cleanupOrphanedUpload(key)
+  return result
 }
 
 export async function deleteRoomImage(imageId: string): Promise<ActionResult> {
@@ -169,6 +183,104 @@ export async function deleteRoomImage(imageId: string): Promise<ActionResult> {
     if (image.key && process.env.UPLOADTHING_TOKEN) {
       try {
         await new UTApi().deleteFiles(image.key)
+      } catch (e) {
+        console.error("Failed to delete file from UploadThing:", e)
+      }
+    }
+  })
+}
+
+const addSubcategoryImageSchema = z.object({
+  subcategoryId: z.string().min(1, "Subcategory id is required"),
+  url: z.string().url("A valid image URL is required"),
+  key: z.string().min(1).optional(),
+})
+
+export async function addSubcategoryImage(
+  subcategoryId: string,
+  url: string,
+  key?: string,
+): Promise<ActionResult> {
+  const parsed = addSubcategoryImageSchema.safeParse({ subcategoryId, url, key })
+  if (!parsed.success) {
+    await cleanupOrphanedUpload(key)
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
+  const result = await run(async () => {
+    await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "RoomSubcategory" WHERE id = ${parsed.data.subcategoryId} FOR UPDATE
+      `
+      if (locked.length === 0) {
+        throw new Error("Subcategory not found")
+      }
+
+      const count = await tx.subcategoryImage.count({
+        where: { subcategoryId: parsed.data.subcategoryId },
+      })
+      if (count >= 5) {
+        throw new Error("Maximum of 5 images per subcategory")
+      }
+
+      await tx.subcategoryImage.create({
+        data: {
+          subcategoryId: parsed.data.subcategoryId,
+          url: parsed.data.url,
+          key: parsed.data.key ?? null,
+          sortOrder: count,
+        },
+      })
+    })
+  })
+  if (!result.ok) await cleanupOrphanedUpload(parsed.data.key)
+  return result
+}
+
+const deleteSubcategoryImageSchema = z.string().min(1, "Image id is required")
+
+export async function deleteSubcategoryImage(
+  imageId: string,
+): Promise<ActionResult> {
+  const parsed = deleteSubcategoryImageSchema.safeParse(imageId)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
+  return run(async () => {
+    let deletedKey: string | null = null
+
+    await prisma.$transaction(async (tx) => {
+      const image = await tx.subcategoryImage.findUnique({
+        where: { id: parsed.data },
+      })
+      if (!image) {
+        throw new Error("Image not found")
+      }
+
+      await tx.$queryRaw`
+        SELECT id FROM "RoomSubcategory" WHERE id = ${image.subcategoryId} FOR UPDATE
+      `
+
+      await tx.subcategoryImage.delete({ where: { id: parsed.data } })
+      deletedKey = image.key
+
+      const remaining = await tx.subcategoryImage.findMany({
+        where: { subcategoryId: image.subcategoryId },
+        orderBy: { sortOrder: "asc" },
+      })
+      for (let i = 0; i < remaining.length; i++) {
+        if (remaining[i].sortOrder !== i) {
+          await tx.subcategoryImage.update({
+            where: { id: remaining[i].id },
+            data: { sortOrder: i },
+          })
+        }
+      }
+    })
+
+    // Best-effort removal from UploadThing storage.
+    if (deletedKey && process.env.UPLOADTHING_TOKEN) {
+      try {
+        await new UTApi().deleteFiles(deletedKey)
       } catch (e) {
         console.error("Failed to delete file from UploadThing:", e)
       }

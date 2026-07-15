@@ -18,6 +18,10 @@ import { hashPassword, validatePassword, verifyPassword } from "@/lib/password"
 import { isRangeAvailable } from "@/lib/availability"
 import { quoteInventoryUnit } from "@/lib/inventory"
 import { stripe } from "@/lib/stripe"
+import { sendMail } from "@/lib/mailer"
+import { adminDateChangeRefundFailedEmail } from "@/lib/email-templates"
+
+const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
 type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -316,6 +320,21 @@ async function finalizeDateChange(input: {
       await refundDateChangePaymentIntent(input.stripePaymentIntentId).catch(
         (refundErr) => {
           console.error("date change refund failed:", refundErr)
+          Promise.resolve()
+            .then(() => {
+              const mail = adminDateChangeRefundFailedEmail({
+                bookingId: input.bookingId,
+                stripePaymentIntentId: input.stripePaymentIntentId!,
+                amount: input.priceDiff,
+                persistError: err instanceof Error ? err.message : String(err),
+                refundError:
+                  refundErr instanceof Error
+                    ? refundErr.message
+                    : String(refundErr),
+              })
+              return sendMail({ to: ADMIN_EMAIL, ...mail })
+            })
+            .catch((e) => console.error("Refund-failure admin email failed:", e))
         },
       )
     }
@@ -346,6 +365,65 @@ async function finalizeDateChange(input: {
   }
 }
 
+async function resolveDateChangeQuote(input: {
+  bookingId: string
+  checkIn: string
+  checkOut: string
+  userId: string
+}): Promise<
+  | {
+      ok: true
+      booking: NonNullable<
+        Awaited<ReturnType<typeof getConfirmedBookingForDateChange>>
+      >
+      checkIn: Date
+      checkOut: Date
+      quoteTotal: number
+      priceDiff: number
+    }
+  | { ok: false; error: string }
+> {
+  const booking = await getConfirmedBookingForDateChange(
+    input.bookingId,
+    input.userId,
+  )
+  if (!booking) {
+    return { ok: false, error: "Reservation not found" }
+  }
+
+  const parsedDates = parseReservationDateChangeRange(
+    input.checkIn,
+    input.checkOut,
+  )
+  if (!parsedDates.ok) return parsedDates
+
+  const { checkIn, checkOut } = parsedDates
+
+  if (!isRangeAvailable(booking.room.blackouts, checkIn, checkOut)) {
+    return { ok: false, error: "Room not available for those dates" }
+  }
+
+  const conflictCheck = await checkDateChangeRoomConflict({
+    roomId: booking.roomId,
+    bookingId: booking.id,
+    checkIn,
+    checkOut,
+  })
+  if (!conflictCheck.ok) return conflictCheck
+
+  const quote = quoteInventoryUnit(booking.room, checkIn, checkOut)
+  const priceDiff = quote.total - booking.totalPrice
+
+  return {
+    ok: true,
+    booking,
+    checkIn,
+    checkOut,
+    quoteTotal: quote.total,
+    priceDiff,
+  }
+}
+
 export async function changeReservationDates(input: {
   bookingId: string
   checkIn: string
@@ -356,39 +434,18 @@ export async function changeReservationDates(input: {
     const gate = await requireUserId()
     if (gate.ok === false) return { ok: false, error: gate.error }
 
-    const booking = await getConfirmedBookingForDateChange(
-      input.bookingId,
-      gate.userId,
-    )
-    if (!booking) {
-      return { ok: false, error: "Reservation not found" }
-    }
-
-    const parsedDates = parseReservationDateChangeRange(
-      input.checkIn,
-      input.checkOut,
-    )
-    if (!parsedDates.ok) return parsedDates
-
-    const { checkIn, checkOut } = parsedDates
-
-    if (!isRangeAvailable(booking.room.blackouts, checkIn, checkOut)) {
-      return { ok: false, error: "Room not available for those dates" }
-    }
-
-    const conflictCheck = await checkDateChangeRoomConflict({
-      roomId: booking.roomId,
-      bookingId: booking.id,
-      checkIn,
-      checkOut,
+    const resolved = await resolveDateChangeQuote({
+      bookingId: input.bookingId,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      userId: gate.userId,
     })
-    if (!conflictCheck.ok) return conflictCheck
+    if (!resolved.ok) return resolved
 
-    const quote = quoteInventoryUnit(booking.room, checkIn, checkOut)
-    const priceDiff = quote.total - booking.totalPrice
+    const { booking, checkIn, checkOut, quoteTotal, priceDiff } = resolved
 
     if (priceDiff > 0 && !input.stripePaymentIntentId) {
-      return prepareDateChangePayment(booking.id, priceDiff, quote.total)
+      return prepareDateChangePayment(booking.id, priceDiff, quoteTotal)
     }
 
     if (priceDiff > 0 && input.stripePaymentIntentId) {
@@ -405,7 +462,7 @@ export async function changeReservationDates(input: {
       userId: gate.userId,
       checkIn,
       checkOut,
-      quoteTotal: quote.total,
+      quoteTotal,
       priceDiff,
       stripePaymentIntentId: input.stripePaymentIntentId,
     })
