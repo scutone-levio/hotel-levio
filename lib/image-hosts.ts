@@ -21,12 +21,16 @@ export const ALLOWED_IMAGE_HOSTS = [
   "*.ufs.sh",
 ] as const
 
+// Matches next.config.ts remotePatterns semantics: "*." matches exactly one
+// additional hostname label, not an arbitrary number of subdomain levels.
 function isAllowedImageHost(hostname: string): boolean {
-  return ALLOWED_IMAGE_HOSTS.some((pattern) =>
-    pattern.startsWith("*.")
-      ? hostname.endsWith(pattern.slice(1))
-      : hostname === pattern,
-  )
+  return ALLOWED_IMAGE_HOSTS.some((pattern) => {
+    if (!pattern.startsWith("*.")) return hostname === pattern
+    const suffix = pattern.slice(1)
+    if (!hostname.endsWith(suffix)) return false
+    const prefix = hostname.slice(0, hostname.length - suffix.length)
+    return prefix.length > 0 && !prefix.includes(".")
+  })
 }
 
 export function isAllowedImageUrl(url: string): boolean {
