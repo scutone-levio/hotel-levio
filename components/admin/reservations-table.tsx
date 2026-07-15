@@ -5,6 +5,7 @@ import { format, differenceInCalendarDays } from "date-fns"
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   Loader2,
   Pencil,
   Search,
@@ -402,6 +403,17 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
   const [editTarget, setEditTarget] = React.useState<BookingRow | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<BookingRow | null>(null)
   const [isPending, startTransition] = React.useTransition()
+  const [isExporting, setIsExporting] = React.useState(false)
+
+  function handleExport() {
+    setIsExporting(true)
+    const params = new URLSearchParams()
+    if (statusFilter && statusFilter !== "ALL") params.set("status", statusFilter)
+    if (debouncedSearch) params.set("search", debouncedSearch)
+    if (roomId) params.set("roomId", roomId)
+    window.location.href = `/api/export/admin/bookings?${params.toString()}`
+    setTimeout(() => setIsExporting(false), 1000)
+  }
 
   // Debounce search input.
   React.useEffect(() => {
@@ -480,6 +492,15 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
               </button>
             ))}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            <Download className="size-4" />
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </Button>
         </div>
       )}
 

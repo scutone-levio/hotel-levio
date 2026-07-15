@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { partitionBookings, getDisplayRoomName } from "@/lib/account-bookings"
 import { ReservationsList } from "@/components/account/reservations-list"
 import { PageHeader } from "@/components/page-header"
+import { ExportCsvButton } from "@/components/account/export-csv-button"
 
 export const metadata = { title: "My Reservations — Hôtel Levio" }
 
@@ -39,6 +40,11 @@ export default async function AccountReservationsPage() {
         title="Reservations"
         subtitle="View upcoming stays and past bookings."
       />
+      {rows.length > 0 && (
+        <div className="mb-6">
+          <ExportCsvButton />
+        </div>
+      )}
       <ReservationsList upcoming={upcoming} past={past} />
     </>
   )
