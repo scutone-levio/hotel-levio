@@ -3,6 +3,8 @@ import { startOfDay } from "date-fns"
 import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
+import { quoteInventoryUnit } from "@/lib/inventory"
+import { stripe } from "@/lib/stripe"
 
 const DATE_CHANGE_TRANSACTION_MAX_ATTEMPTS = 3
 
@@ -79,6 +81,44 @@ export async function persistReservationDateChange(input: {
             throw new Error("Reservation not found")
           }
 
+          const room = await tx.room.findUnique({
+            where: { id: bookingForUpdate.roomId },
+            include: { priceRules: true },
+          })
+          if (!room) {
+            throw new Error("Reservation not found")
+          }
+
+          const { quoteTotal, priceDiff } = computeDateChangeQuote(
+            room,
+            bookingForUpdate.totalPrice,
+            input.checkIn,
+            input.checkOut,
+          )
+
+          const finalizationCheck = validateDateChangeFinalization({
+            booking: bookingForUpdate,
+            submittedQuoteTotal: input.quoteTotal,
+            submittedPriceDiff: input.priceDiff,
+            quoteTotal,
+            priceDiff,
+            stripePaymentIntentId: input.stripePaymentIntentId,
+          })
+          if (!finalizationCheck.ok) {
+            throw new Error(finalizationCheck.error)
+          }
+
+          if (priceDiff > 0 && input.stripePaymentIntentId) {
+            const paymentAlreadyUsed = await tx.booking.findFirst({
+              where: {
+                dateChangeStripePaymentId: input.stripePaymentIntentId,
+              },
+            })
+            if (paymentAlreadyUsed) {
+              throw new Error("Payment intent already used for a booking")
+            }
+          }
+
           const conflict = await tx.booking.findFirst({
             where: {
               roomId: bookingForUpdate.roomId,
@@ -96,10 +136,10 @@ export async function persistReservationDateChange(input: {
             where: { id: bookingForUpdate.id },
             data: buildDateChangeBookingUpdateData(
               bookingForUpdate,
-              input.priceDiff > 0 ? input.stripePaymentIntentId : undefined,
+              priceDiff > 0 ? input.stripePaymentIntentId : undefined,
               input.checkIn,
               input.checkOut,
-              input.quoteTotal,
+              quoteTotal,
             ),
           })
         },
@@ -115,6 +155,56 @@ export async function persistReservationDateChange(input: {
     }
   }
   throw new Error("Failed to persist date change")
+}
+
+export function computeDateChangeQuote(
+  room: { basePrice: number; priceRules: Array<{ dayOfWeek: number; price: number }> },
+  bookingTotalPrice: number,
+  checkIn: Date,
+  checkOut: Date,
+): { quoteTotal: number; priceDiff: number } {
+  const quoteTotal = quoteInventoryUnit(room, checkIn, checkOut).total
+  return { quoteTotal, priceDiff: quoteTotal - bookingTotalPrice }
+}
+
+export function validateDateChangeFinalization(input: {
+  booking: { totalPrice: number; dateChangeStripePaymentId: string | null }
+  submittedQuoteTotal: number
+  submittedPriceDiff: number
+  quoteTotal: number
+  priceDiff: number
+  stripePaymentIntentId?: string
+}): { ok: true } | { ok: false; error: string } {
+  if (
+    input.submittedQuoteTotal !== input.quoteTotal ||
+    input.submittedPriceDiff !== input.priceDiff
+  ) {
+    return { ok: false, error: "Quote no longer matches this reservation" }
+  }
+
+  const expectedDiff = input.quoteTotal - input.booking.totalPrice
+  if (expectedDiff !== input.priceDiff) {
+    return { ok: false, error: "Quote no longer matches this reservation" }
+  }
+
+  if (input.priceDiff > 0 && !input.stripePaymentIntentId) {
+    return { ok: false, error: "Payment is required for this date change" }
+  }
+
+  if (
+    input.stripePaymentIntentId &&
+    input.booking.dateChangeStripePaymentId === input.stripePaymentIntentId
+  ) {
+    return { ok: false, error: "Payment intent already used for a booking" }
+  }
+
+  return { ok: true }
+}
+
+export async function refundDateChangePaymentIntent(
+  paymentIntentId: string,
+): Promise<void> {
+  await stripe.refunds.create({ payment_intent: paymentIntentId })
 }
 
 export function validateDateChangePaymentIntentUsage(

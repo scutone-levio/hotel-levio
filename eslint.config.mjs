@@ -26,7 +26,7 @@ const eslintConfig = [
     },
   },
   {
-    files: ["scripts/**"],
+    files: ["scripts/db-seed.ts", "scripts/db-reset.ts"],
     rules: {
       "sonarjs/no-os-command-from-path": "off",
     },

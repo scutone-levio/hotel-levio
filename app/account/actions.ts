@@ -9,6 +9,7 @@ import {
   checkDateChangeRoomConflict,
   parseReservationDateChangeRange,
   persistReservationDateChange,
+  refundDateChangePaymentIntent,
   validateDateChangePaymentIntentUsage,
   verifyDateChangePaymentIntent,
 } from "@/lib/account-date-change"
@@ -308,9 +309,28 @@ async function finalizeDateChange(input: {
   priceDiff: number
   stripePaymentIntentId?: string
 }): Promise<ChangeDatesResult> {
-  const updatedBooking = await persistReservationDateChange(input)
-  if (!updatedBooking) {
-    return { ok: false, error: "Failed to update reservation" }
+  try {
+    await persistReservationDateChange(input)
+  } catch (err) {
+    if (input.priceDiff > 0 && input.stripePaymentIntentId) {
+      await refundDateChangePaymentIntent(input.stripePaymentIntentId).catch(
+        (refundErr) => {
+          console.error("date change refund failed:", refundErr)
+        },
+      )
+    }
+    const safe = new Set([
+      "Reservation not found",
+      "Room not available for those dates",
+      "Quote no longer matches this reservation",
+      "Payment is required for this date change",
+      "Payment intent already used for a booking",
+    ])
+    const msg = err instanceof Error ? err.message : ""
+    return {
+      ok: false,
+      error: safe.has(msg) ? msg : "Failed to update reservation",
+    }
   }
 
   revalidatePath("/account/reservations")
