@@ -81,10 +81,19 @@ async function main() {
     []
   let ok = 0
 
-  for (const [url, source] of urls) {
-    const status = await checkUrl(url)
-    if (status === 200) ok += 1
-    else broken.push({ url, source, status })
+  const entries = [...urls.entries()]
+  const CONCURRENCY = 10
+
+  for (let i = 0; i < entries.length; i += CONCURRENCY) {
+    const batch = entries.slice(i, i + CONCURRENCY)
+    const statuses = await Promise.all(batch.map(([url]) => checkUrl(url)))
+
+    for (let j = 0; j < batch.length; j++) {
+      const [url, source] = batch[j]
+      const status = statuses[j]
+      if (status === 200) ok += 1
+      else broken.push({ url, source, status })
+    }
   }
 
   console.log(`Checked ${urls.size} unique URLs: ${ok} OK, ${broken.length} broken`)
