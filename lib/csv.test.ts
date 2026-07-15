@@ -33,6 +33,18 @@ describe("sanitizeCsvField", () => {
     assert.equal(sanitizeCsvField("@SUM()"), "'@SUM()")
   })
 
+  it("prefixes leading tab with single-quote", () => {
+    assert.equal(sanitizeCsvField("\tfoo"), "'\tfoo")
+  })
+
+  it("prefixes leading tab followed by a formula with single-quote", () => {
+    assert.equal(sanitizeCsvField("\t=CMD()"), "'\t=CMD()")
+  })
+
+  it("prefixes leading carriage return followed by a formula with single-quote", () => {
+    assert.equal(sanitizeCsvField("\r=CMD()"), '"\'\r=CMD()"')
+  })
+
   it("does NOT neutralize = appearing mid-value", () => {
     assert.equal(sanitizeCsvField("a=b"), "a=b")
   })

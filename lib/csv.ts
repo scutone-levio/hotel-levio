@@ -1,9 +1,12 @@
-const FORMULA_CHARS = new Set(["=", "+", "-", "@"])
+const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\r"])
 
 export function sanitizeCsvField(value: string | null | undefined): string {
   if (value == null) return ""
 
-  // Formula-injection neutralization — must run before quoting
+  // Formula-injection neutralization — must run before quoting. Leading tab
+  // or carriage return are included because some spreadsheet apps still
+  // evaluate a formula after that character, bypassing a check that only
+  // looks for =/+/-/@.
   let v = FORMULA_CHARS.has(value[0]) ? `'${value}` : value
 
   // RFC 4180 quoting: wrap in double-quotes if the value contains a comma,

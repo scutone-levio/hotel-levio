@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic"
 
 const EXPORT_LIMIT = 20_000
 const NO_CACHE = "private, no-store"
+const VALID_STATUSES = new Set(["ALL", "PENDING", "CONFIRMED", "CANCELLED"])
 
 const HEADERS = [
   "Booking ID",
@@ -44,13 +45,20 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url)
-  const status = searchParams.get("status") ?? ""
+  const rawStatus = searchParams.get("status")
+  const status = !rawStatus ? "ALL" : rawStatus
+  if (!VALID_STATUSES.has(status)) {
+    return new Response("Invalid status filter.", {
+      status: 400,
+      headers: { "Cache-Control": NO_CACHE },
+    })
+  }
   const search = searchParams.get("search")?.trim() ?? ""
   const roomId = searchParams.get("roomId") ?? ""
 
   const where: Record<string, unknown> = {}
   if (roomId) where.roomId = roomId
-  if (status && status !== "ALL") where.status = status
+  if (status !== "ALL") where.status = status
   if (search) {
     where.OR = [
       { guestName: { contains: search, mode: "insensitive" } },
@@ -97,7 +105,9 @@ export async function GET(req: Request) {
     ])
 
     const filename = `reservations-${format(new Date(), "yyyy-MM-dd")}.csv`
-    const csv = buildCsv(HEADERS, rows)
+    // UTF-8 BOM so Excel reliably detects the encoding instead of guessing
+    // (guest names/addresses can contain accented characters).
+    const csv = "\uFEFF" + buildCsv(HEADERS, rows)
 
     return new Response(csv, {
       status: 200,

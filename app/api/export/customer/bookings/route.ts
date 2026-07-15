@@ -56,7 +56,9 @@ export async function GET() {
     ])
 
     const filename = `my-reservations-${format(new Date(), "yyyy-MM-dd")}.csv`
-    const csv = buildCsv(HEADERS, rows)
+    // UTF-8 BOM so Excel reliably detects the encoding instead of guessing
+    // (guest names/addresses can contain accented characters).
+    const csv = "\uFEFF" + buildCsv(HEADERS, rows)
 
     return new Response(csv, {
       status: 200,
