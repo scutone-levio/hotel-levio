@@ -40,5 +40,6 @@ export function isAllowedImageUrl(url: string): boolean {
   } catch {
     return false
   }
+  if (parsed.username || parsed.password) return false
   return parsed.protocol === "https:" && isAllowedImageHost(parsed.hostname)
 }
