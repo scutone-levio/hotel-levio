@@ -32,9 +32,15 @@ export type PublicRoomListing = RoomWithDetails & {
   featured: boolean
 }
 
-export type RoomForAdmin = RoomWithDetails
-
 const catalogOrder: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
+
+function withoutInventoryCount<T extends { _count: { rooms: number } }>(
+  sub: T,
+): Omit<T, "_count"> {
+  const subcategory = { ...sub }
+  delete (subcategory as Partial<T & { _count?: unknown }>)._count
+  return subcategory as Omit<T, "_count">
+}
 
 export function getCatalogRooms(): Promise<RoomWithDetails[]> {
   return prisma.room.findMany({
@@ -106,8 +112,7 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     .flatMap((sub) => {
       const catalog = catalogByType[sub.roomType]
       if (!catalog) return []
-      const { _count, ...subcategory } = sub
-      void _count
+      const subcategory = withoutInventoryCount(sub)
       return [
         {
           ...catalog,
@@ -139,11 +144,11 @@ export async function getSimilarRooms(
   return pickSimilarRooms(room, candidates, limit)
 }
 
-export function getCatalogRoomsForAdmin(): Promise<RoomForAdmin[]> {
+export function getCatalogRoomsForAdmin(): Promise<RoomWithDetails[]> {
   return getCatalogRooms()
 }
 
-export function getInventoryUnitsForAdmin(): Promise<RoomForAdmin[]> {
+export function getInventoryUnitsForAdmin(): Promise<RoomWithDetails[]> {
   return prisma.room.findMany({
     where: { ...inventoryRoomFilter(), isCatalog: false },
     ...roomWithDetails,

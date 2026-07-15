@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { QuotePricePanel } from "@/components/quote-price-panel"
 
 export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const router = useRouter()
@@ -167,31 +168,16 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
         />
       </div>
 
-      {quotePending ? (
-        <p className="text-muted-foreground text-center text-sm">
-          Calculating price…
-        </p>
-      ) : quoteError ? (
-        <p className="text-destructive text-center text-sm">{quoteError}</p>
-      ) : quote && quote.nights > 0 ? (
-        <div className="bg-muted/50 space-y-1.5 rounded-xl p-3 text-sm">
-          <div className="text-muted-foreground flex justify-between">
-            <span>
-              {quote.nights} night{quote.nights !== 1 ? "s" : ""}
-            </span>
-            <span>{formatPrice(quote.total, "CAD")}</span>
-          </div>
-          <div className="border-t" />
-          <div className="flex justify-between font-semibold">
-            <span>Total</span>
-            <span>{formatPrice(quote.total, "CAD")}</span>
-          </div>
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-center text-sm">
-          Select dates to see the total.
-        </p>
-      )}
+      <QuotePricePanel
+        quotePending={quotePending}
+        quoteError={quoteError}
+        quote={quote}
+        emptyMessage="Select dates to see the total."
+        className="bg-muted/50 space-y-1.5 rounded-xl p-3 text-sm"
+        pendingClassName="text-muted-foreground text-center text-sm"
+        errorClassName="text-destructive text-center text-sm"
+        emptyClassName="text-muted-foreground text-center text-sm"
+      />
 
       {alreadyInCart && (
         <p className="text-xs text-amber-600">

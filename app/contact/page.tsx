@@ -32,7 +32,7 @@ export default function ContactPage() {
           <div className="relative mx-auto max-w-2xl">
             <p className="inline-flex items-center gap-3 text-[0.72rem] tracking-[0.24em] text-[#dcae70] uppercase">
               <span className="h-px w-9 bg-[#dcae70]/70" />
-              Concierge · 24 hours a day
+              <span>Concierge · 24 hours a day</span>
               <span className="h-px w-9 bg-[#dcae70]/70" />
             </p>
 

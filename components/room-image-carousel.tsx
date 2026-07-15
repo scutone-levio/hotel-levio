@@ -23,6 +23,147 @@ const LISTING_SHADOW =
 
 type GalleryImage = { id: string; url: string }
 
+function CarouselDotNav({
+  slides,
+  current,
+  onSelect,
+}: {
+  slides: GalleryImage[]
+  current: number
+  onSelect: (index: number) => void
+}) {
+  return (
+    <div className="mt-3 flex justify-center gap-1.5">
+      {slides.map((img, index) => (
+        <button
+          key={img.id}
+          type="button"
+          aria-label={`Go to image ${index + 1}`}
+          aria-current={index === current ? "true" : undefined}
+          onClick={() => onSelect(index)}
+          className={cn(
+            "size-2 rounded-full transition-colors",
+            index === current ? "bg-primary" : "bg-muted-foreground/30",
+          )}
+        />
+      ))}
+    </div>
+  )
+}
+
+function RoomImageSingle({
+  img,
+  roomName,
+  featured,
+  isHero,
+  badgeClass,
+  frameClass,
+  heroShadowWrap,
+  heroClipWrap,
+  className,
+  imageHref,
+  dataTestId,
+}: {
+  img: GalleryImage
+  roomName: string
+  featured: boolean
+  isHero: boolean
+  badgeClass: string
+  frameClass: string
+  heroShadowWrap?: string
+  heroClipWrap?: string
+  className?: string
+  imageHref?: string
+  dataTestId?: string
+}) {
+  const gallery = (
+    <SlideFrame
+      roomName={roomName}
+      isHero={isHero}
+      frameClass={frameClass}
+      imageHref={imageHref}
+      testId={dataTestId}
+    >
+      <Image
+        src={img.url}
+        alt={roomName}
+        fill
+        priority
+        sizes={isHero ? "100vw" : "(max-width: 768px) 100vw, 33vw"}
+        className="object-cover"
+      />
+      {featured ? (
+        <div className={cn("absolute", badgeClass)}>
+          <Badge
+            className="gap-1 text-white hover:opacity-90"
+            style={{ backgroundColor: "#69C94F" }}
+            data-testid="featured-badge"
+          >
+            <Star className="size-3 fill-current" /> Featured
+          </Badge>
+        </div>
+      ) : null}
+    </SlideFrame>
+  )
+
+  if (!isHero) {
+    return <div className={className}>{gallery}</div>
+  }
+
+  return (
+    <div className={cn("relative mb-10", className)}>
+      <div className={heroShadowWrap}>
+        <div className={heroClipWrap}>{gallery}</div>
+      </div>
+    </div>
+  )
+}
+
+function SlideFrame({
+  children,
+  roomName,
+  isHero,
+  frameClass,
+  className: frameClassName,
+  testId,
+  ariaLabel,
+  imageHref,
+}: {
+  children: React.ReactNode
+  roomName: string
+  isHero: boolean
+  frameClass: string
+  className?: string
+  testId?: string
+  ariaLabel?: string
+  imageHref?: string
+}) {
+  const frameClassNameMerged = cn(
+    "relative overflow-hidden",
+    frameClass,
+    frameClassName,
+  )
+
+  if (imageHref && !isHero) {
+    return (
+      <Link
+        href={imageHref}
+        className={cn("block", frameClassNameMerged)}
+        aria-label={ariaLabel ?? `View ${roomName}`}
+        data-testid={testId}
+      >
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <div className={frameClassNameMerged} data-testid={testId}>
+      {children}
+    </div>
+  )
+}
+
 export function RoomImageCarousel({
   images,
   roomName,
@@ -71,79 +212,21 @@ export function RoomImageCarousel({
     e.stopPropagation()
   }
 
-  function SlideFrame({
-    children,
-    className: frameClassName,
-    testId,
-    ariaLabel,
-  }: {
-    children: React.ReactNode
-    className?: string
-    testId?: string
-    ariaLabel?: string
-  }) {
-    const frameClassNameMerged = cn(
-      "relative overflow-hidden",
-      frameClass,
-      frameClassName,
-    )
-
-    if (imageHref && !isHero) {
-      return (
-        <Link
-          href={imageHref}
-          className={cn("block", frameClassNameMerged)}
-          aria-label={ariaLabel ?? `View ${roomName}`}
-          data-testid={testId}
-        >
-          {children}
-        </Link>
-      )
-    }
-
-    return (
-      <div className={frameClassNameMerged} data-testid={testId}>
-        {children}
-      </div>
-    )
-  }
-
   if (!hasMultiple) {
-    const img = slides[0]
-    const gallery = (
-      <SlideFrame testId={dataTestId}>
-        <Image
-          src={img.url}
-          alt={roomName}
-          fill
-          priority
-          sizes={isHero ? "100vw" : "(max-width: 768px) 100vw, 33vw"}
-          className="object-cover"
-        />
-        {featured && (
-          <div className={cn("absolute", badgeClass)}>
-            <Badge
-              className="gap-1 text-white hover:opacity-90"
-              style={{ backgroundColor: "#69C94F" }}
-              data-testid="featured-badge"
-            >
-              <Star className="size-3 fill-current" /> Featured
-            </Badge>
-          </div>
-        )}
-      </SlideFrame>
-    )
-
-    if (!isHero) {
-      return <div className={className}>{gallery}</div>
-    }
-
     return (
-      <div className={cn("relative mb-10", className)}>
-        <div className={heroShadowWrap}>
-          <div className={heroClipWrap}>{gallery}</div>
-        </div>
-      </div>
+      <RoomImageSingle
+        img={slides[0]}
+        roomName={roomName}
+        featured={featured}
+        isHero={isHero}
+        badgeClass={badgeClass}
+        frameClass={frameClass}
+        heroShadowWrap={heroShadowWrap}
+        heroClipWrap={heroClipWrap}
+        className={className}
+        imageHref={imageHref}
+        dataTestId={dataTestId}
+      />
     )
   }
 
@@ -154,6 +237,10 @@ export function RoomImageCarousel({
           {slides.map((img, index) => (
             <CarouselItem key={img.id} className="pl-0">
               <SlideFrame
+                roomName={roomName}
+                isHero={isHero}
+                frameClass={frameClass}
+                imageHref={imageHref}
                 testId={index === 0 ? dataTestId : undefined}
                 ariaLabel={`View ${roomName} — photo ${index + 1}`}
               >
@@ -230,21 +317,11 @@ export function RoomImageCarousel({
       )}
 
       {showDots ? (
-        <div className="mt-3 flex justify-center gap-1.5">
-          {slides.map((img, index) => (
-            <button
-              key={img.id}
-              type="button"
-              aria-label={`Go to image ${index + 1}`}
-              aria-current={index === current ? "true" : undefined}
-              onClick={() => api?.scrollTo(index)}
-              className={cn(
-                "size-2 rounded-full transition-colors",
-                index === current ? "bg-primary" : "bg-muted-foreground/30",
-              )}
-            />
-          ))}
-        </div>
+        <CarouselDotNav
+          slides={slides}
+          current={current}
+          onSelect={(index) => api?.scrollTo(index)}
+        />
       ) : null}
     </div>
   )

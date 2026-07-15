@@ -20,6 +20,60 @@ type AuthPanelProps = {
   oauthProviders?: OAuthProvider[]
 }
 
+function AuthOAuthSection({
+  showGoogle,
+  showFacebook,
+  onOAuthSignIn,
+}: {
+  showGoogle: boolean
+  showFacebook: boolean
+  onOAuthSignIn: (provider: "google" | "facebook") => void
+}) {
+  if (!showGoogle && !showFacebook) return null
+
+  return (
+    <>
+      <div
+        className={
+          showGoogle && showFacebook
+            ? "grid gap-2 sm:grid-cols-2"
+            : "grid gap-2"
+        }
+      >
+        {showGoogle ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full cursor-pointer"
+            onClick={() => onOAuthSignIn("google")}
+          >
+            Continue with Google
+          </Button>
+        ) : null}
+        {showFacebook ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full cursor-pointer"
+            onClick={() => onOAuthSignIn("facebook")}
+          >
+            Continue with Facebook
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background text-muted-foreground px-2">or</span>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function AuthPanel({
   callbackUrl = "/account",
   onAuthenticated,
@@ -110,51 +164,14 @@ export function AuthPanel({
 
   const showGoogle = oauthEnabled && oauthProviders.includes("google")
   const showFacebook = oauthEnabled && oauthProviders.includes("facebook")
-  const showOAuth = showGoogle || showFacebook
 
   return (
     <div className={compact ? "space-y-4" : "space-y-6"}>
-      {showOAuth ? (
-        <>
-          <div
-            className={
-              showGoogle && showFacebook
-                ? "grid gap-2 sm:grid-cols-2"
-                : "grid gap-2"
-            }
-          >
-            {showGoogle ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full cursor-pointer"
-                onClick={() => oauthSignIn("google")}
-              >
-                Continue with Google
-              </Button>
-            ) : null}
-            {showFacebook ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full cursor-pointer"
-                onClick={() => oauthSignIn("facebook")}
-              >
-                Continue with Facebook
-              </Button>
-            ) : null}
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background text-muted-foreground px-2">or</span>
-            </div>
-          </div>
-        </>
-      ) : null}
+      <AuthOAuthSection
+        showGoogle={showGoogle}
+        showFacebook={showFacebook}
+        onOAuthSignIn={oauthSignIn}
+      />
 
       <Tabs defaultValue={defaultTab}>
         <TabsList className="grid w-full grid-cols-2">

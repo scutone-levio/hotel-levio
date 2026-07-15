@@ -1,7 +1,7 @@
-import type { RoomType } from "@prisma/client"
+import type { Prisma, RoomType } from "@prisma/client"
 import { startOfDay } from "date-fns"
 
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTransactionClient } from "@/lib/prisma"
 import { isRangeAvailable } from "@/lib/availability"
 import { quoteRange, type Quote } from "@/lib/pricing"
 import {
@@ -19,6 +19,8 @@ const inventoryInclude = {
   priceRules: true,
 } as const
 
+type DbClient = PrismaTransactionClient | typeof prisma
+
 export type InventoryUnit = Awaited<
   ReturnType<typeof getAvailableUnits>
 >[number]
@@ -31,8 +33,9 @@ export function inventoryRoomFilter() {
 async function assertRoomNumberAvailable(
   roomNumber: string,
   excludeRoomId?: string,
+  db: DbClient = prisma,
 ): Promise<void> {
-  const conflict = await prisma.room.findFirst({
+  const conflict = await db.room.findFirst({
     where: {
       roomNumber,
       ...(excludeRoomId ? { NOT: { id: excludeRoomId } } : {}),
@@ -168,9 +171,10 @@ async function subcategoryIdForNewUnit(
   type: RoomType,
   floor: number,
   indexOnFloor: number,
+  db: DbClient = prisma,
 ): Promise<string> {
   const name = subcategoryNameForInventoryRoom(floor, indexOnFloor)
-  const sub = await prisma.roomSubcategory.findFirst({
+  const sub = await db.roomSubcategory.findFirst({
     where: { roomType: type, name },
     select: { id: true },
   })
@@ -182,33 +186,29 @@ async function subcategoryIdForNewUnit(
   return sub.id
 }
 
-export async function syncTypeQuantity(type: RoomType, targetQty: number) {
-  if (!Number.isInteger(targetQty) || targetQty < 0) {
-    throw new Error("Quantity must be a non-negative integer")
-  }
+type CatalogRoom = Prisma.RoomGetPayload<{
+  include: { amenities: true; priceRules: true }
+}>
 
-  const current = await prisma.room.findMany({
-    where: { type, ...inventoryRoomFilter() },
-    include: { bookings: { where: { status: { in: ["PENDING", "CONFIRMED"] } } } },
-    orderBy: { roomNumber: "asc" },
-  })
-
-  if (targetQty > current.length) {
+async function addInventoryUnits(
+  type: RoomType,
+  count: number,
+  catalog: CatalogRoom,
+) {
+  await prisma.$transaction(async (tx) => {
     const taken = new Set(
-      (await prisma.room.findMany({ select: { roomNumber: true } })).map(
+      (await tx.room.findMany({ select: { roomNumber: true } })).map(
         (r) => r.roomNumber,
       ),
     )
-    const catalog = await prisma.room.findFirst({
-      where: { type, isCatalog: true },
-      include: { amenities: true, priceRules: true },
-    })
-    if (!catalog) throw new Error(`No catalog room for ${type}`)
+    const slots = suggestSlotsForType(type, count, taken)
+    if (slots.length !== count) {
+      throw new Error(
+        `Only ${slots.length} of ${count} room slots are available for ${type}`,
+      )
+    }
 
-    const toAdd = targetQty - current.length
-    const slots = suggestSlotsForType(type, toAdd, taken)
-
-    const existingOnFloor = await prisma.room.groupBy({
+    const existingOnFloor = await tx.room.groupBy({
       by: ["floor"],
       where: { type, isCatalog: false },
       _count: { _all: true },
@@ -218,9 +218,9 @@ export async function syncTypeQuantity(type: RoomType, targetQty: number) {
     )
 
     for (const slot of slots) {
-      await assertRoomNumberAvailable(slot.roomNumber)
+      await assertRoomNumberAvailable(slot.roomNumber, undefined, tx)
       const slug = `room-${slot.roomNumber}`
-      const slugConflict = await prisma.room.findUnique({ where: { slug } })
+      const slugConflict = await tx.room.findUnique({ where: { slug } })
       if (slugConflict) {
         throw new Error(`Room number ${slot.roomNumber} is already in use`)
       }
@@ -230,10 +230,11 @@ export async function syncTypeQuantity(type: RoomType, targetQty: number) {
         type,
         slot.floor,
         indexOnFloor,
+        tx,
       )
       countByFloor.set(slot.floor, indexOnFloor + 1)
 
-      await prisma.room.create({
+      await tx.room.create({
         data: {
           name: `${catalog.name} · ${slot.roomNumber}`,
           slug,
@@ -262,6 +263,28 @@ export async function syncTypeQuantity(type: RoomType, targetQty: number) {
         },
       })
     }
+  })
+}
+
+export async function syncTypeQuantity(type: RoomType, targetQty: number) {
+  if (!Number.isInteger(targetQty) || targetQty < 0) {
+    throw new Error("Quantity must be a non-negative integer")
+  }
+
+  const current = await prisma.room.findMany({
+    where: { type, ...inventoryRoomFilter() },
+    include: { bookings: { where: { status: { in: ["PENDING", "CONFIRMED"] } } } },
+    orderBy: { roomNumber: "asc" },
+  })
+
+  if (targetQty > current.length) {
+    const catalog = await prisma.room.findFirst({
+      where: { type, isCatalog: true },
+      include: { amenities: true, priceRules: true },
+    })
+    if (!catalog) throw new Error(`No catalog room for ${type}`)
+
+    await addInventoryUnits(type, targetQty - current.length, catalog)
     return
   }
 

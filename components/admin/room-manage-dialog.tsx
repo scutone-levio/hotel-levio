@@ -6,7 +6,7 @@ import { ImageIcon, Settings2, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import Image from "next/image"
 
-import type { RoomForAdmin, AmenityWithCount } from "@/lib/queries"
+import type { RoomWithDetails, AmenityWithCount } from "@/lib/queries"
 import { ROOM_TYPE_LABELS, WEEKDAYS, parseDollarsToCents } from "@/lib/rooms"
 import { ReservationsTable } from "@/components/admin/reservations-table"
 import {
@@ -31,13 +31,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { pluralize } from "@/lib/utils"
+
+function uploadHintMessage(
+  atLimit: boolean,
+  remaining: number,
+  imageCount: number,
+) {
+  if (atLimit) {
+    return "Maximum of 5 images reached. Delete one to upload a replacement."
+  }
+
+  const imageWord = pluralize(remaining, "image")
+  return `Upload up to ${remaining} more ${imageWord} (${imageCount}/5). The first image is the cover on room cards.`
+}
 
 function AmenitiesPanel({
   room,
   allAmenities,
   readOnly,
 }: {
-  room: RoomForAdmin
+  room: RoomWithDetails
   allAmenities: AmenityWithCount[]
   readOnly?: boolean
 }) {
@@ -100,7 +114,7 @@ function ImagesPanel({
   room,
   readOnly,
 }: {
-  room: RoomForAdmin
+  room: RoomWithDetails
   readOnly?: boolean
 }) {
   const [pending, startTransition] = React.useTransition()
@@ -159,9 +173,7 @@ function ImagesPanel({
       )}
 
       <p className="text-muted-foreground text-xs">
-        {atLimit
-          ? "Maximum of 5 images reached. Delete one to upload a replacement."
-          : `Upload up to ${remaining} more image${remaining === 1 ? "" : "s"} (${room.images.length}/5). The first image is the cover on room cards.`}
+        {uploadHintMessage(atLimit, remaining, room.images.length)}
       </p>
 
       {!atLimit ? (
@@ -200,7 +212,7 @@ function ImagesPanel({
   )
 }
 
-function BlackoutsPanel({ room }: { room: RoomForAdmin }) {
+function BlackoutsPanel({ room }: { room: RoomWithDetails }) {
   const [start, setStart] = React.useState("")
   const [end, setEnd] = React.useState("")
   const [reason, setReason] = React.useState("")
@@ -304,7 +316,7 @@ function BlackoutsPanel({ room }: { room: RoomForAdmin }) {
   )
 }
 
-function PricingPanel({ room }: { room: RoomForAdmin }) {
+function PricingPanel({ room }: { room: RoomWithDetails }) {
   const [base, setBase] = React.useState((room.basePrice / 100).toString())
   const [pending, startTransition] = React.useTransition()
   const ruleByDay = new Map(room.priceRules.map((r) => [r.dayOfWeek, r.price]))
@@ -416,7 +428,7 @@ function DayPriceRow({
 }
 
 type RoomManageDialogProps = {
-  room: RoomForAdmin
+  room: RoomWithDetails
   allAmenities: AmenityWithCount[]
   /** When true, amenities/images tabs are read-only (inventory units). */
   inventoryMode?: boolean

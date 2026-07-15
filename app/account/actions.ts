@@ -6,8 +6,12 @@ import { startOfDay } from "date-fns"
 import { auth } from "@/auth"
 import { registerSchema, profileSchema } from "@/lib/account-schemas"
 import {
-  buildDateChangeBookingUpdateData,
+  checkDateChangeRoomConflict,
+  parseReservationDateChangeRange,
+  persistReservationDateChange,
+  refundDateChangePaymentIntent,
   validateDateChangePaymentIntentUsage,
+  verifyDateChangePaymentIntent,
 } from "@/lib/account-date-change"
 import { prisma } from "@/lib/prisma"
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/password"
@@ -232,6 +236,116 @@ export type ChangeDatesResult =
     }
   | { ok: false; error: string }
 
+async function prepareDateChangePayment(
+  bookingId: string,
+  priceDiff: number,
+  newTotal: number,
+): Promise<ChangeDatesResult> {
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: priceDiff,
+    currency: "cad",
+    automatic_payment_methods: { enabled: true },
+    metadata: {
+      bookingId,
+      type: "date_change",
+    },
+  })
+  if (!paymentIntent.client_secret) {
+    return { ok: false, error: "Failed to prepare payment" }
+  }
+  return {
+    ok: true,
+    requiresPayment: true,
+    clientSecret: paymentIntent.client_secret,
+    priceDiff,
+    newTotal,
+  }
+}
+
+async function validateDateChangePayment(
+  stripePaymentIntentId: string,
+  bookingId: string,
+  priceDiff: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const existingBooking = await prisma.booking.findFirst({
+    where: { dateChangeStripePaymentId: stripePaymentIntentId },
+  })
+  const usageCheck = validateDateChangePaymentIntentUsage(existingBooking)
+  if (!usageCheck.ok) return usageCheck
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(
+    stripePaymentIntentId,
+  )
+  return verifyDateChangePaymentIntent(
+    paymentIntent,
+    bookingId,
+    priceDiff,
+  )
+}
+
+async function getConfirmedBookingForDateChange(
+  bookingId: string,
+  userId: string,
+) {
+  return prisma.booking.findFirst({
+    where: {
+      id: bookingId,
+      userId,
+      status: "CONFIRMED",
+      checkOut: { gte: startOfDay(new Date()) },
+    },
+    include: {
+      room: { include: { priceRules: true, blackouts: true } },
+    },
+  })
+}
+
+async function finalizeDateChange(input: {
+  bookingId: string
+  userId: string
+  checkIn: Date
+  checkOut: Date
+  quoteTotal: number
+  priceDiff: number
+  stripePaymentIntentId?: string
+}): Promise<ChangeDatesResult> {
+  try {
+    await persistReservationDateChange(input)
+  } catch (err) {
+    if (input.priceDiff > 0 && input.stripePaymentIntentId) {
+      await refundDateChangePaymentIntent(input.stripePaymentIntentId).catch(
+        (refundErr) => {
+          console.error("date change refund failed:", refundErr)
+        },
+      )
+    }
+    const safe = new Set([
+      "Reservation not found",
+      "Room not available for those dates",
+      "Quote no longer matches this reservation",
+      "Payment is required for this date change",
+      "Payment intent already used for a booking",
+    ])
+    const msg = err instanceof Error ? err.message : ""
+    return {
+      ok: false,
+      error: safe.has(msg) ? msg : "Failed to update reservation",
+    }
+  }
+
+  revalidatePath("/account/reservations")
+  revalidatePath(`/account/reservations/${input.bookingId}`)
+  revalidatePath("/admin")
+
+  return {
+    ok: true,
+    updated: true,
+    totalPrice: input.quoteTotal,
+    priceDiff: input.priceDiff,
+    refundPending: input.priceDiff < 0,
+  }
+}
+
 export async function changeReservationDates(input: {
   bookingId: string
   checkIn: string
@@ -242,147 +356,59 @@ export async function changeReservationDates(input: {
     const gate = await requireUserId()
     if (gate.ok === false) return { ok: false, error: gate.error }
 
-    const booking = await prisma.booking.findFirst({
-      where: {
-        id: input.bookingId,
-        userId: gate.userId,
-        status: "CONFIRMED",
-        checkOut: { gte: startOfDay(new Date()) },
-      },
-      include: {
-        room: { include: { priceRules: true, blackouts: true } },
-      },
-    })
+    const booking = await getConfirmedBookingForDateChange(
+      input.bookingId,
+      gate.userId,
+    )
     if (!booking) {
       return { ok: false, error: "Reservation not found" }
     }
 
-    const checkIn = startOfDay(new Date(input.checkIn))
-    const checkOut = startOfDay(new Date(input.checkOut))
-    const today = startOfDay(new Date())
+    const parsedDates = parseReservationDateChangeRange(
+      input.checkIn,
+      input.checkOut,
+    )
+    if (!parsedDates.ok) return parsedDates
 
-    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
-      return { ok: false, error: "Invalid dates" }
-    }
-    if (checkOut <= checkIn) {
-      return { ok: false, error: "Check-out must be after check-in" }
-    }
-    if (checkIn < today) {
-      return { ok: false, error: "Check-in cannot be in the past" }
-    }
+    const { checkIn, checkOut } = parsedDates
 
     if (!isRangeAvailable(booking.room.blackouts, checkIn, checkOut)) {
       return { ok: false, error: "Room not available for those dates" }
     }
 
+    const conflictCheck = await checkDateChangeRoomConflict({
+      roomId: booking.roomId,
+      bookingId: booking.id,
+      checkIn,
+      checkOut,
+    })
+    if (!conflictCheck.ok) return conflictCheck
+
     const quote = quoteInventoryUnit(booking.room, checkIn, checkOut)
     const priceDiff = quote.total - booking.totalPrice
 
     if (priceDiff > 0 && !input.stripePaymentIntentId) {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: priceDiff,
-        currency: "cad",
-        automatic_payment_methods: { enabled: true },
-        metadata: {
-          bookingId: booking.id,
-          type: "date_change",
-        },
-      })
-      if (!paymentIntent.client_secret) {
-        return { ok: false, error: "Failed to prepare payment" }
-      }
-      return {
-        ok: true,
-        requiresPayment: true,
-        clientSecret: paymentIntent.client_secret,
-        priceDiff,
-        newTotal: quote.total,
-      }
+      return prepareDateChangePayment(booking.id, priceDiff, quote.total)
     }
 
     if (priceDiff > 0 && input.stripePaymentIntentId) {
-      const existingBooking = await prisma.booking.findFirst({
-        where: { dateChangeStripePaymentId: input.stripePaymentIntentId },
-      })
-      const usageCheck = validateDateChangePaymentIntentUsage(existingBooking)
-      if (!usageCheck.ok) return usageCheck
-
-      const paymentIntent = await stripe.paymentIntents.retrieve(
+      const paymentCheck = await validateDateChangePayment(
         input.stripePaymentIntentId,
+        booking.id,
+        priceDiff,
       )
-      if (paymentIntent.status !== "succeeded") {
-        return { ok: false, error: "Payment has not completed successfully" }
-      }
-      if (paymentIntent.currency.toLowerCase() !== "cad") {
-        return { ok: false, error: "Payment currency must be CAD" }
-      }
-      if (paymentIntent.amount !== priceDiff) {
-        return {
-          ok: false,
-          error: "Payment amount does not match the price difference",
-        }
-      }
-      if (paymentIntent.metadata.bookingId !== booking.id) {
-        return { ok: false, error: "Payment does not match this reservation" }
-      }
-      if (paymentIntent.metadata.type !== "date_change") {
-        return { ok: false, error: "Invalid payment type for date change" }
-      }
+      if (!paymentCheck.ok) return paymentCheck
     }
 
-    const updatedBooking = await prisma.$transaction(async (tx) => {
-      const bookingForUpdate = await tx.booking.findFirst({
-        where: {
-          id: booking.id,
-          userId: gate.userId,
-          status: "CONFIRMED",
-          checkOut: { gte: startOfDay(new Date()) },
-        },
-      })
-      if (!bookingForUpdate) {
-        throw new Error("Reservation not found")
-      }
-
-      const conflict = await tx.booking.findFirst({
-        where: {
-          roomId: bookingForUpdate.roomId,
-          id: { not: bookingForUpdate.id },
-          status: { in: ["PENDING", "CONFIRMED"] },
-          checkIn: { lt: checkOut },
-          checkOut: { gt: checkIn },
-        },
-      })
-      if (conflict) {
-        throw new Error("Room not available for those dates")
-      }
-
-      return tx.booking.update({
-        where: { id: bookingForUpdate.id },
-        data: buildDateChangeBookingUpdateData(
-          bookingForUpdate,
-          priceDiff > 0 ? input.stripePaymentIntentId : undefined,
-          checkIn,
-          checkOut,
-          quote.total,
-        ),
-      })
-    })
-
-    if (!updatedBooking) {
-      return { ok: false, error: "Failed to update reservation" }
-    }
-
-    revalidatePath("/account/reservations")
-    revalidatePath(`/account/reservations/${booking.id}`)
-    revalidatePath("/admin")
-
-    return {
-      ok: true,
-      updated: true,
-      totalPrice: quote.total,
+    return finalizeDateChange({
+      bookingId: booking.id,
+      userId: gate.userId,
+      checkIn,
+      checkOut,
+      quoteTotal: quote.total,
       priceDiff,
-      refundPending: priceDiff < 0,
-    }
+      stripePaymentIntentId: input.stripePaymentIntentId,
+    })
   } catch (err) {
     console.error("changeReservationDates error:", err)
     const safe = new Set(["Reservation not found", "Room not available for those dates"])

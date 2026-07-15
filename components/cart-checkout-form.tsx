@@ -132,6 +132,129 @@ function PaymentStep({
   )
 }
 
+function CartCheckoutStepPanel({
+  step,
+  isAuthenticated,
+  oauthEnabled,
+  oauthProviders,
+  specialRequests,
+  setSpecialRequests,
+  setStep,
+  startPayment,
+  isPending,
+  clientSecret,
+  stripePromise,
+  items,
+  serverTotal,
+}: {
+  step: Step
+  isAuthenticated: boolean
+  oauthEnabled: boolean
+  oauthProviders: OAuthProvider[]
+  specialRequests: string
+  setSpecialRequests: (value: string) => void
+  setStep: (step: Step) => void
+  startPayment: () => void
+  isPending: boolean
+  clientSecret: string | null
+  stripePromise: ReturnType<typeof loadStripe>
+  items: CartItem[]
+  serverTotal: number
+}) {
+  if (step === "review") {
+    return (
+      <>
+        <section className="space-y-4">
+          <h2 className="text-lg">Review your stay</h2>
+          <p className="text-muted-foreground text-sm">
+            {isAuthenticated
+              ? "Add any special requests, then continue to payment."
+              : "Sign in or create an account before payment to complete your reservation."}
+          </p>
+        </section>
+        <Button
+          size="lg"
+          className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
+          onClick={() => setStep("account")}
+        >
+          {isAuthenticated ? "Continue →" : "Continue to sign in →"}
+        </Button>
+      </>
+    )
+  }
+
+  if (step === "account") {
+    return (
+      <>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg">Your account</h2>
+          <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
+            ← Back
+          </Button>
+        </div>
+        <AuthPanel
+          callbackUrl="/cart"
+          compact
+          oauthEnabled={oauthEnabled}
+          oauthProviders={oauthProviders}
+        />
+        {isAuthenticated ? (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="specialRequests">Special requests (optional)</Label>
+              <textarea
+                id="specialRequests"
+                rows={3}
+                placeholder="Early check-in, dietary needs…"
+                value={specialRequests}
+                onChange={(e) => setSpecialRequests(e.target.value)}
+                className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors focus-visible:ring-3"
+              />
+            </div>
+            <Button
+              size="lg"
+              className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
+              onClick={startPayment}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Preparing payment…
+                </>
+              ) : (
+                "Continue to payment →"
+              )}
+            </Button>
+          </>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg">Payment</h2>
+        <Button variant="ghost" size="sm" onClick={() => setStep("account")}>
+          ← Back
+        </Button>
+      </div>
+      {clientSecret && (
+        <Elements
+          stripe={stripePromise}
+          options={{ clientSecret, appearance: { theme: "stripe" } }}
+        >
+          <PaymentStep
+            items={items}
+            serverTotal={serverTotal}
+            specialRequests={specialRequests}
+          />
+        </Elements>
+      )}
+    </>
+  )
+}
+
 export function CartCheckoutForm({
   publishableKey,
   isAuthenticated: initialAuthenticated = false,
@@ -198,94 +321,21 @@ export function CartCheckoutForm({
   return (
     <div className="grid gap-10 lg:grid-cols-5">
       <div className="space-y-8 lg:col-span-3">
-        {step === "review" ? (
-          <>
-            <section className="space-y-4">
-              <h2 className="text-lg">Review your stay</h2>
-              <p className="text-muted-foreground text-sm">
-                {isAuthenticated
-                  ? "Add any special requests, then continue to payment."
-                  : "Sign in or create an account before payment to complete your reservation."}
-              </p>
-            </section>
-            <Button
-              size="lg"
-              className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
-              onClick={() => setStep("account")}
-            >
-              {isAuthenticated ? "Continue →" : "Continue to sign in →"}
-            </Button>
-          </>
-        ) : null}
-
-        {step === "account" ? (
-          <>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg">Your account</h2>
-              <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
-                ← Back
-              </Button>
-            </div>
-            <AuthPanel
-              callbackUrl="/cart"
-              compact
-              oauthEnabled={oauthEnabled}
-              oauthProviders={oauthProviders}
-            />
-            {isAuthenticated ? (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="specialRequests">Special requests (optional)</Label>
-                  <textarea
-                    id="specialRequests"
-                    rows={3}
-                    placeholder="Early check-in, dietary needs…"
-                    value={specialRequests}
-                    onChange={(e) => setSpecialRequests(e.target.value)}
-                    className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-colors focus-visible:ring-3"
-                  />
-                </div>
-                <Button
-                  size="lg"
-                  className={cn("w-full cursor-pointer", BOOKING_ACTION_BUTTON_CLASS)}
-                  onClick={startPayment}
-                  disabled={isPending}
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Preparing payment…
-                    </>
-                  ) : (
-                    "Continue to payment →"
-                  )}
-                </Button>
-              </>
-            ) : null}
-          </>
-        ) : null}
-
-        {step === "payment" ? (
-          <>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg">Payment</h2>
-              <Button variant="ghost" size="sm" onClick={() => setStep("account")}>
-                ← Back
-              </Button>
-            </div>
-            {clientSecret && (
-              <Elements
-                stripe={stripePromise}
-                options={{ clientSecret, appearance: { theme: "stripe" } }}
-              >
-                <PaymentStep
-                  items={items}
-                  serverTotal={serverTotal}
-                  specialRequests={specialRequests}
-                />
-              </Elements>
-            )}
-          </>
-        ) : null}
+        <CartCheckoutStepPanel
+          step={step}
+          isAuthenticated={isAuthenticated}
+          oauthEnabled={oauthEnabled}
+          oauthProviders={oauthProviders}
+          specialRequests={specialRequests}
+          setSpecialRequests={setSpecialRequests}
+          setStep={setStep}
+          startPayment={startPayment}
+          isPending={isPending}
+          clientSecret={clientSecret}
+          stripePromise={stripePromise}
+          items={items}
+          serverTotal={serverTotal}
+        />
       </div>
 
       <aside className="lg:col-span-2">

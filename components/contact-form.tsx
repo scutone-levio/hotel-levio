@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label"
 import { BOOKING_ACTION_BUTTON_CLASS } from "@/lib/rooms"
 import { cn } from "@/lib/utils"
 
+const EMAIL_PATTERN = /^[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}$/
+
 export function ContactForm() {
   const [state, setState] = React.useState<"idle" | "submitting" | "success">(
     "idle",
@@ -30,7 +32,7 @@ export function ContactForm() {
     if (!fields.name.trim()) next.name = "Name is required."
     if (!fields.email.trim()) {
       next.email = "Email address is required."
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
+    } else if (!EMAIL_PATTERN.test(fields.email)) {
       next.email = "Please enter a valid email address."
     }
     if (!fields.message.trim()) next.message = "Message is required."

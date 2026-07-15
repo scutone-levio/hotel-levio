@@ -526,6 +526,27 @@ const WEEKEND_DAYS = [5, 6] as const
 export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPricesResult> {
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      async function syncWeekendPriceRules(
+        roomId: string,
+        priceRules: { id: string; dayOfWeek: number }[],
+        weekendPrice: number,
+      ) {
+        for (const dayOfWeek of WEEKEND_DAYS) {
+          const existing = priceRules.find((rule) => rule.dayOfWeek === dayOfWeek)
+          if (existing) {
+            await tx.roomPriceRule.update({
+              where: { id: existing.id },
+              data: { price: weekendPrice },
+            })
+            continue
+          }
+
+          await tx.roomPriceRule.create({
+            data: { roomId, dayOfWeek, price: weekendPrice },
+          })
+        }
+      }
+
       const subcategories = await tx.roomSubcategory.findMany({
         where: { name: LAKE_VIEW_NAME },
       })
@@ -580,22 +601,7 @@ export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPrice
         })
 
         const weekendPrice = weekendPriceForBase(newSubBase)
-
-        for (const dayOfWeek of WEEKEND_DAYS) {
-          const existing = room.priceRules.find(
-            (r) => r.dayOfWeek === dayOfWeek,
-          )
-          if (existing) {
-            await tx.roomPriceRule.update({
-              where: { id: existing.id },
-              data: { price: weekendPrice },
-            })
-          } else {
-            await tx.roomPriceRule.create({
-              data: { roomId: room.id, dayOfWeek, price: weekendPrice },
-            })
-          }
-        }
+        await syncWeekendPriceRules(room.id, room.priceRules, weekendPrice)
 
         const entry = summary.find((s) => s.subcategoryId === subcategoryId)
         if (entry) entry.roomsUpdated += 1

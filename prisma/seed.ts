@@ -232,64 +232,72 @@ function weekendRules(basePrice: number) {
   ]
 }
 
+async function upsertFloorPlanSlot(
+  slot: (typeof DEFAULT_FLOOR_PLAN)[number],
+  amenityIdByName: Map<string, string>,
+): Promise<"created" | "updated"> {
+  const meta = roomTypeMeta[slot.type]
+  const amenityIds = amenitiesByType[slot.type].map((name) => ({
+    id: amenityIdByName.get(name)!,
+  }))
+  const isCatalog = isCatalogRoomNumber(slot.type, slot.roomNumber)
+  const slug = isCatalog ? catalogSlug(slot.type) : `room-${slot.roomNumber}`
+  const name = isCatalog ? meta.label : `${meta.label} · ${slot.roomNumber}`
+
+  const existing = await prisma.room.findUnique({
+    where: { roomNumber: slot.roomNumber },
+  })
+
+  if (existing) {
+    await prisma.room.update({
+      where: { id: existing.id },
+      data: {
+        floor: slot.floor,
+        roomNumber: slot.roomNumber,
+        type: slot.type,
+        isCatalog,
+        slug,
+        name,
+      },
+    })
+    return "updated"
+  }
+
+  await prisma.room.create({
+    data: {
+      name,
+      slug,
+      description: meta.description,
+      type: slot.type,
+      basePrice: meta.basePrice,
+      capacity: meta.capacity,
+      beds: meta.beds,
+      floor: slot.floor,
+      roomNumber: slot.roomNumber,
+      isCatalog,
+      amenities: { connect: amenityIds },
+      images: isCatalog
+        ? {
+            create: catalogImagesByType[slot.type].map((img, i) => ({
+              url: img.url,
+              sortOrder: i,
+            })),
+          }
+        : undefined,
+      priceRules: { create: weekendRules(meta.basePrice) },
+    },
+  })
+  return "created"
+}
+
 async function ensureInventory(amenityIdByName: Map<string, string>) {
   let created = 0
   let updated = 0
 
   for (const slot of DEFAULT_FLOOR_PLAN) {
-    const meta = roomTypeMeta[slot.type]
-    const amenityIds = amenitiesByType[slot.type].map((name) => ({
-      id: amenityIdByName.get(name)!,
-    }))
-    const isCatalog = isCatalogRoomNumber(slot.type, slot.roomNumber)
-    const slug = isCatalog ? catalogSlug(slot.type) : `room-${slot.roomNumber}`
-    const name = isCatalog ? meta.label : `${meta.label} · ${slot.roomNumber}`
-
-    const existing = await prisma.room.findUnique({
-      where: { roomNumber: slot.roomNumber },
-    })
-
-    if (existing) {
-      await prisma.room.update({
-        where: { id: existing.id },
-        data: {
-          floor: slot.floor,
-          roomNumber: slot.roomNumber,
-          type: slot.type,
-          isCatalog,
-          slug: isCatalog ? catalogSlug(slot.type) : `room-${slot.roomNumber}`,
-          name: isCatalog ? meta.label : `${meta.label} · ${slot.roomNumber}`,
-        },
-      })
-      updated += 1
-      continue
-    }
-
-    await prisma.room.create({
-      data: {
-        name,
-        slug,
-        description: meta.description,
-        type: slot.type,
-        basePrice: meta.basePrice,
-        capacity: meta.capacity,
-        beds: meta.beds,
-        floor: slot.floor,
-        roomNumber: slot.roomNumber,
-        isCatalog,
-        amenities: { connect: amenityIds },
-        images: isCatalog
-          ? {
-              create: catalogImagesByType[slot.type].map((img, i) => ({
-                url: img.url,
-                sortOrder: i,
-              })),
-            }
-          : undefined,
-        priceRules: { create: weekendRules(meta.basePrice) },
-      },
-    })
-    created += 1
+    const result = await upsertFloorPlanSlot(slot, amenityIdByName)
+    if (result === "created") created += 1
+    else updated += 1
   }
 
   for (const type of Object.keys(roomTypeMeta) as RoomType[]) {

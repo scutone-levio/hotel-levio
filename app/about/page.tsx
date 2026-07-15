@@ -124,7 +124,7 @@ export default function AboutPage() {
             {/* Eyebrow */}
             <p className="inline-flex items-center gap-3 text-[0.72rem] tracking-[0.24em] text-[#dcae70] uppercase">
               <span className="h-px w-9 bg-[#dcae70]/70" />
-              Boutique Hotel · Founded 2018
+              <span>Boutique Hotel · Founded 2018</span>
               <span className="h-px w-9 bg-[#dcae70]/70" />
             </p>
 
