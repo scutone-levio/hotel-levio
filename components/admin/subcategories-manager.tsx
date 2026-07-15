@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
 
 import type { RoomSubcategoryWithCount } from "@/lib/queries"
+import { SubcategoryManageDialog } from "@/components/admin/subcategory-manage-dialog"
 import { ROOM_TYPES, ROOM_TYPE_LABELS, centsToDollarsString, formatPrice, parseDollarsToCents } from "@/lib/rooms"
 import {
   bumpLakeViewSubcategoryPrices,
@@ -119,6 +120,10 @@ export function SubcategoriesManager({
   const [subcategories, setSubcategories] = React.useState<
     RoomSubcategoryWithCount[]
   >(initialSubcategories)
+
+  React.useEffect(() => {
+    setSubcategories(initialSubcategories)
+  }, [initialSubcategories])
   const [selectedType, setSelectedType] = React.useState<RoomType>("TWIN")
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [editName, setEditName] = React.useState("")
@@ -474,6 +479,10 @@ export function SubcategoriesManager({
                       <TableCell className="text-center">{sub._count.rooms}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <SubcategoryManageDialog
+                            subcategory={sub}
+                            roomType={selectedType}
+                          />
                           <button
                             onClick={() => {
                               setEditingId(sub.id)

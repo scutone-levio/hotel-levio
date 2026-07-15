@@ -1,16 +1,15 @@
 import type { NextConfig } from "next"
 
+import { ALLOWED_IMAGE_HOSTS } from "./lib/image-hosts"
+
 const nextConfig: NextConfig = {
   // Emit a standalone build so the Docker image can run without node_modules.
   output: "standalone",
   images: {
-    remotePatterns: [
-      // Sample room imagery.
-      { protocol: "https", hostname: "images.unsplash.com" },
-      // UploadThing-hosted room images.
-      { protocol: "https", hostname: "utfs.io" },
-      { protocol: "https", hostname: "*.ufs.sh" },
-    ],
+    remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+    })),
   },
 }
 

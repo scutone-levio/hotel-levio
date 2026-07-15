@@ -41,11 +41,25 @@ model RoomSubcategory {
   featured        Boolean   @default(false)
   rooms           Room[]
   bookings        Booking[]
+  images          SubcategoryImage[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@unique([roomType, name])
   @@index([roomType])
+}
+
+// Listing gallery images for a subcategory (e.g. Twin · City View).
+model SubcategoryImage {
+  id            String          @id @default(cuid())
+  subcategory   RoomSubcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+  subcategoryId String
+  url           String
+  key           String?
+  sortOrder     Int             @default(0)
+  createdAt     DateTime        @default(now())
+
+  @@index([subcategoryId])
 }
 
 model User {

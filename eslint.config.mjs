@@ -13,7 +13,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
-  ...sonarjs.configs["flat/recommended"],
+  sonarjs.configs.recommended,
   {
     rules: {
       "react/jsx-child-element-spacing": "error",

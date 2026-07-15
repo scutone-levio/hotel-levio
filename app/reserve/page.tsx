@@ -9,6 +9,7 @@ import { Footer } from "@/components/footer"
 import { ReserveForm } from "@/components/reserve-form"
 import { PageHeader } from "@/components/page-header"
 import { getOAuthProviders, isOAuthEnabled } from "@/lib/oauth"
+import { listingCoverImageUrl } from "@/lib/listing-images"
 import { auth } from "@/auth"
 
 export const metadata = { title: "Reserve — Hôtel Levio" }
@@ -36,9 +37,27 @@ export default async function ReservePage({
 
   const room = await prisma.room.findUnique({
     where: { id: roomId },
-    include: { priceRules: true, images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+    include: {
+      priceRules: true,
+      images: { orderBy: { sortOrder: "asc" } },
+      subcategory: {
+        include: { images: { orderBy: { sortOrder: "asc" } } },
+      },
+    },
   })
   if (!room) notFound()
+
+  const catalogRoom = room.isCatalog
+    ? room
+    : await prisma.room.findFirst({
+        where: { type: room.type, isCatalog: true },
+        include: { images: { orderBy: { sortOrder: "asc" } } },
+      })
+  const catalogImages = catalogRoom?.images.length ? catalogRoom.images : room.images
+  const listingImageUrl = listingCoverImageUrl(
+    catalogImages,
+    room.subcategory?.images,
+  )
 
   const quote = quoteRange(room.basePrice, room.priceRules, checkInDate, checkOutDate)
 
@@ -85,7 +104,7 @@ export default async function ReservePage({
             room={{
               id: room.id,
               name: room.name,
-              imageUrl: room.images[0]?.url ?? null,
+              imageUrl: listingImageUrl,
             }}
             checkIn={checkInDate.toISOString()}
             checkOut={checkOutDate.toISOString()}
