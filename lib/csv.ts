@@ -16,7 +16,7 @@ export function sanitizeCsvField(value: string | null | undefined): string {
 }
 
 export function buildCsvRow(fields: (string | null | undefined)[]): string {
-  return fields.filter(f => f != null).map(sanitizeCsvField).join(",")
+  return fields.map(sanitizeCsvField).join(",")
 }
 
 export function buildCsv(

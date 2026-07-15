@@ -74,7 +74,11 @@ describe("buildCsvRow", () => {
   })
 
   it("sanitizes each field", () => {
-    assert.equal(buildCsvRow(["=x", null, "y,z"]), "'=x,\"y,z\"")
+    assert.equal(buildCsvRow(["=x", null, "y,z"]), "'=x,,\"y,z\"")
+  })
+
+  it("serializes null field as empty string (preserving column count)", () => {
+    assert.equal(buildCsvRow(["Alice", null, "Montreal"]), "Alice,,Montreal")
   })
 })
 
