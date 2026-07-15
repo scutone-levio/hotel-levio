@@ -69,7 +69,7 @@ Use **bright, evenly lit** hotel photography where bedding, tile, furniture, and
 | `lib/twin-subcategory-images.ts` | Seed galleries for Twin subcategories (Lake View, City View, Lower Level) |
 | `lib/queen-subcategory-images.ts` | Seed galleries for Queen subcategories |
 | Admin → Catalog → subcategory **Manage** | Upload via UploadThing (`components/admin/subcategory-manage-dialog.tsx`) |
-| `prisma/seed.ts` → `ensureTwinSubcategoryImages()` | Replaces all subcategory images on seed from `twinSubcategoryImagesByName` |
+| `prisma/seed.ts` → `ensureTwinSubcategoryImages()` (and the Queen/King/Suite equivalents) | Seeds a subcategory from its `*SubcategoryImagesByName` map only if it has no images yet — non-destructive, never overwrites a populated gallery (seeded or admin-uploaded) |
 | `lib/listing-images.ts` | Guest UI uses subcategory images when present; otherwise catalog `RoomImage` fallback |
 
 After changing seed definitions, run `npm run db:seed` then `npx tsx scripts/check-images.ts` to confirm every URL returns HTTP 200.

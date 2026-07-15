@@ -8,11 +8,14 @@ import { twinSubcategoryImagesByName } from "../lib/twin-subcategory-images"
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"
 
+const FETCH_TIMEOUT_MS = 10_000
+
 async function checkUrl(url: string): Promise<number | "error"> {
   try {
     const res = await fetch(url, {
       method: "GET",
       redirect: "follow",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; HotelApp/1.0; +https://localhost)",

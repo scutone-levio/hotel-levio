@@ -132,7 +132,7 @@ export function SubcategoryManageDialog({
               endpoint="roomImage"
               onClientUploadComplete={(res) => {
                 refreshAfterMutation(async () => {
-                  let failed = false
+                  let failures = 0
                   let uploaded = 0
                   for (const f of res) {
                     const url =
@@ -143,13 +143,13 @@ export function SubcategoryManageDialog({
                       f.key,
                     )
                     if (!result.ok) {
-                      failed = true
+                      failures += 1
                       toast.error(result.error)
-                      break
+                      continue
                     }
                     uploaded += 1
                   }
-                  if (!failed && uploaded > 0) {
+                  if (failures === 0 && uploaded > 0) {
                     toast.success(
                       uploaded === 1
                         ? "1 image uploaded"

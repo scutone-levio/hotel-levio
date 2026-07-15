@@ -60,7 +60,7 @@ model SubcategoryImage {
 
 Add `images SubcategoryImage[]` to `RoomSubcategory`.
 
-No seed migration of images into subcategories. Empty subcategories continue showing catalog photos until admin uploads.
+`prisma/seed.ts` populates curated galleries for the public subcategories (Lake View, City View, Lower Level) the first time they have no images, and never touches a subcategory that already has images. The catalog-photo fallback only applies when a subcategory has neither seeded nor admin-uploaded images — e.g. a newly created custom subcategory.
 
 ### Image resolution
 
@@ -128,8 +128,8 @@ Add to `app/admin/actions.ts`:
 
 | Action | Behavior |
 |--------|----------|
-| `addSubcategoryImage(subcategoryId, url, key?)` | Count existing images; reject if ≥ 5; create with `sortOrder = count` |
-| `deleteSubcategoryImage(imageId)` | Delete row; best-effort UploadThing delete via `key` |
+| `addSubcategoryImage(subcategoryId, url, key?)` | Inside a transaction, row-locks the subcategory (`SELECT ... FOR UPDATE`), counts existing images, rejects if ≥ 5, creates with `sortOrder = count`; cleans up the orphaned UploadThing file on any failure |
+| `deleteSubcategoryImage(imageId)` | Row-locks the subcategory, deletes the row, re-compacts remaining images' `sortOrder` to stay contiguous, then best-effort UploadThing delete via `key` |
 
 Follow existing `{ ok: true } \| { ok: false; error }` pattern and admin auth guard used by other admin mutations.
 

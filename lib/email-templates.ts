@@ -75,6 +75,11 @@ function fmt(d: Date) { return format(d, "EEE, MMM d, yyyy") }
 function money(cents: number) {
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(cents / 100)
 }
+// Preserves exact cents (unlike money()) for admin ops emails where the amount
+// must match what a human manually enters as a refund in the Stripe Dashboard.
+function exactMoney(cents: number) {
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100)
+}
 function ref(id: string) { return id.slice(-8).toUpperCase() }
 function escapeHtml(value: string) {
   return value
@@ -349,7 +354,7 @@ export function adminDateChangeRefundFailedEmail(data: {
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       ${row("Booking reference", `#${escapeHtml(ref(data.bookingId))}`)}
       ${row("Stripe payment intent", escapeHtml(data.stripePaymentIntentId))}
-      ${row("Amount to refund (CAD)", escapeHtml(money(data.amount)))}
+      ${row("Amount to refund (CAD)", escapeHtml(exactMoney(data.amount)))}
       ${row("Date-change error", escapeHtml(data.persistError))}
       ${row("Refund error", escapeHtml(data.refundError))}
     </table>
@@ -365,7 +370,7 @@ export function adminDateChangeRefundFailedEmail(data: {
     ``,
     `Reference:      #${ref(data.bookingId)}`,
     `Payment intent: ${data.stripePaymentIntentId}`,
-    `Amount:         ${money(data.amount)}`,
+    `Amount:         ${exactMoney(data.amount)}`,
     `Date-change error: ${data.persistError}`,
     `Refund error:      ${data.refundError}`,
   ].join("\n")

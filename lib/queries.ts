@@ -13,6 +13,8 @@ import {
   subcategorySortIndex,
 } from "@/lib/subcategories"
 
+const SUBCATEGORY_IMAGES_INCLUDE = { orderBy: { sortOrder: "asc" } } as const
+
 const roomWithDetails = Prisma.validator<Prisma.RoomDefaultArgs>()({
   include: {
     images: { orderBy: { sortOrder: "asc" } },
@@ -22,7 +24,7 @@ const roomWithDetails = Prisma.validator<Prisma.RoomDefaultArgs>()({
     nearbyPlaces: { orderBy: { category: "asc" } },
     subcategory: {
       include: {
-        images: { orderBy: { sortOrder: "asc" } },
+        images: SUBCATEGORY_IMAGES_INCLUDE,
       },
     },
   },
@@ -71,7 +73,7 @@ export function getCatalogRoomBySlug(
 
     const subcategory = await prisma.roomSubcategory.findFirst({
       where: { id: subcategoryId, roomType: catalog.type },
-      include: { images: { orderBy: { sortOrder: "asc" } } },
+      include: { images: SUBCATEGORY_IMAGES_INCLUDE },
     })
     if (!subcategory) return catalog
 
@@ -92,7 +94,7 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     prisma.roomSubcategory.findMany({
       where: { name: { in: [...PUBLIC_SUBCATEGORY_NAMES] } },
       include: {
-        images: { orderBy: { sortOrder: "asc" } },
+        images: SUBCATEGORY_IMAGES_INCLUDE,
         _count: {
           select: {
             rooms: { where: { isCatalog: false } },
@@ -208,7 +210,7 @@ export function getSubcategoriesByType(roomType: RoomType) {
   return prisma.roomSubcategory.findMany({
     where: { roomType },
     include: {
-      images: { orderBy: { sortOrder: "asc" } },
+      images: SUBCATEGORY_IMAGES_INCLUDE,
       _count: { select: { rooms: true } },
     },
     orderBy: { name: "asc" },
@@ -222,7 +224,7 @@ export type RoomSubcategoryWithCount = Prisma.PromiseReturnType<
 export function getAllSubcategories() {
   return prisma.roomSubcategory.findMany({
     include: {
-      images: { orderBy: { sortOrder: "asc" } },
+      images: SUBCATEGORY_IMAGES_INCLUDE,
       _count: { select: { rooms: true } },
     },
     orderBy: [{ roomType: "asc" }, { name: "asc" }],

@@ -21,6 +21,7 @@ import {
   adminBookingModifiedEmail,
   adminBookingDeletedEmail,
 } from "@/lib/email-templates"
+import { isAllowedImageUrl } from "@/lib/image-hosts"
 import {
   LAKE_VIEW_NAME,
   LAKE_VIEW_PRICE_MULTIPLIER,
@@ -55,6 +56,11 @@ async function cleanupOrphanedUpload(key?: string | null) {
     console.error("Failed to clean up orphaned UploadThing file:", e)
   }
 }
+
+const imageUrlSchema = z
+  .string()
+  .url("A valid image URL is required")
+  .refine(isAllowedImageUrl, "Image URL host is not on the approved allowlist")
 
 function revalidate() {
   revalidatePath("/admin")
@@ -157,22 +163,49 @@ export async function setRoomAmenities(
 /*  Room images                                                                 */
 /* -------------------------------------------------------------------------- */
 
+const addRoomImageSchema = z.object({
+  roomId: z.string().min(1, "Room id is required"),
+  url: imageUrlSchema,
+  key: z.string().min(1).optional(),
+})
+
 export async function addRoomImage(
   roomId: string,
   url: string,
   key?: string,
 ): Promise<ActionResult> {
-  const count = await prisma.roomImage.count({ where: { roomId } })
-  if (count >= 5) {
+  const parsed = addRoomImageSchema.safeParse({ roomId, url, key })
+  if (!parsed.success) {
     await cleanupOrphanedUpload(key)
-    return { ok: false, error: "Maximum of 5 images per room type" }
+    return { ok: false, error: parsed.error.issues[0].message }
   }
   const result = await run(async () => {
-    await prisma.roomImage.create({
-      data: { roomId, url, key: key ?? null, sortOrder: count },
+    await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Room" WHERE id = ${parsed.data.roomId} FOR UPDATE
+      `
+      if (locked.length === 0) {
+        throw new Error("Room not found")
+      }
+
+      const count = await tx.roomImage.count({
+        where: { roomId: parsed.data.roomId },
+      })
+      if (count >= 5) {
+        throw new Error("Maximum of 5 images per room type")
+      }
+
+      await tx.roomImage.create({
+        data: {
+          roomId: parsed.data.roomId,
+          url: parsed.data.url,
+          key: parsed.data.key ?? null,
+          sortOrder: count,
+        },
+      })
     })
   })
-  if (!result.ok) await cleanupOrphanedUpload(key)
+  if (!result.ok) await cleanupOrphanedUpload(parsed.data.key)
   return result
 }
 
@@ -192,7 +225,7 @@ export async function deleteRoomImage(imageId: string): Promise<ActionResult> {
 
 const addSubcategoryImageSchema = z.object({
   subcategoryId: z.string().min(1, "Subcategory id is required"),
-  url: z.string().url("A valid image URL is required"),
+  url: imageUrlSchema,
   key: z.string().min(1).optional(),
 })
 
