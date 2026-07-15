@@ -8,7 +8,7 @@ export function sanitizeCsvField(value: string | null | undefined): string {
 
   // RFC 4180 quoting: wrap in double-quotes if the value contains a comma,
   // double-quote, or newline; escape internal double-quotes as ""
-  if (v.includes(",") || v.includes('"') || v.includes("\n")) {
+  if (v.includes(",") || v.includes('"') || v.includes("\n") || v.includes("\r")) {
     v = `"${v.replace(/"/g, '""')}"`
   }
 

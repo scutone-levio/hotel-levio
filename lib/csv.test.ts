@@ -54,6 +54,10 @@ describe("sanitizeCsvField", () => {
     assert.equal(sanitizeCsvField("line1\nline2"), '"line1\nline2"')
   })
 
+  it("wraps value containing bare carriage return in double-quotes", () => {
+    assert.equal(sanitizeCsvField("line1\rline2"), '"line1\rline2"')
+  })
+
   // Neutralization + quoting combined
   it("neutralizes formula AND quotes when value starts with = and contains comma", () => {
     assert.equal(sanitizeCsvField("=A1,B1"), '"\'=A1,B1"')
