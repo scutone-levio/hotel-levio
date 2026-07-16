@@ -1,13 +1,13 @@
-import { Prisma, RoomType } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
-import { TYPE_TOTALS } from "@/lib/floor-plan"
-import { inventoryRoomFilter } from "@/lib/inventory"
 import {
-  formatListingName,
-  pickSimilarRooms,
-  ROOM_TYPES,
-} from "@/lib/rooms"
+  activeInventoryRoomFilter,
+  activeSubcategoryFilter,
+  getActiveRoomTypes,
+  getAllRoomTypes,
+} from "@/lib/room-types"
+import { formatListingName, pickSimilarRooms } from "@/lib/rooms"
 import {
   PUBLIC_SUBCATEGORY_NAMES,
   subcategorySortIndex,
@@ -17,6 +17,7 @@ const SUBCATEGORY_IMAGES_INCLUDE = { orderBy: { sortOrder: "asc" } } as const
 
 const roomWithDetails = Prisma.validator<Prisma.RoomDefaultArgs>()({
   include: {
+    roomType: true,
     images: { orderBy: { sortOrder: "asc" } },
     amenities: { orderBy: { name: "asc" } },
     priceRules: { orderBy: { dayOfWeek: "asc" } },
@@ -38,8 +39,6 @@ export type PublicRoomListing = RoomWithDetails & {
   featured: boolean
 }
 
-const catalogOrder: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
-
 function withoutInventoryCount<T extends { _count: { rooms: number } }>(
   sub: T,
 ): Omit<T, "_count"> {
@@ -48,41 +47,64 @@ function withoutInventoryCount<T extends { _count: { rooms: number } }>(
   return subcategory as Omit<T, "_count">
 }
 
-export function getCatalogRooms(): Promise<RoomWithDetails[]> {
-  return prisma.room.findMany({
-    where: { isCatalog: true },
-    ...roomWithDetails,
-    orderBy: { type: "asc" },
-  }).then((rooms) =>
-    [...rooms].sort(
-      (a, b) => catalogOrder.indexOf(a.type) - catalogOrder.indexOf(b.type),
-    ),
+function sortByRoomTypeOrder<T extends { roomTypeId: string }>(
+  items: T[],
+  typeOrder: Map<string, number>,
+): T[] {
+  return [...items].sort(
+    (a, b) =>
+      (typeOrder.get(a.roomTypeId) ?? 999) -
+      (typeOrder.get(b.roomTypeId) ?? 999),
   )
+}
+
+export async function getCatalogRooms(): Promise<RoomWithDetails[]> {
+  const [roomTypes, rooms] = await Promise.all([
+    getActiveRoomTypes(),
+    prisma.room.findMany({
+      where: { isCatalog: true, archivedAt: null, roomType: { isActive: true } },
+      ...roomWithDetails,
+    }),
+  ])
+
+  const typeOrder = new Map(roomTypes.map((t) => [t.id, t.sortOrder]))
+  return sortByRoomTypeOrder(rooms, typeOrder)
 }
 
 export function getCatalogRoomBySlug(
   slug: string,
   subcategoryId?: string,
 ): Promise<RoomWithDetails | null> {
-  return prisma.room.findFirst({
-    where: { slug, isCatalog: true },
-    ...roomWithDetails,
-  }).then(async (catalog) => {
-    if (!catalog) return null
-    if (!subcategoryId) return catalog
-
-    const subcategory = await prisma.roomSubcategory.findFirst({
-      where: { id: subcategoryId, roomType: catalog.type },
-      include: { images: SUBCATEGORY_IMAGES_INCLUDE },
+  return prisma.room
+    .findFirst({
+      where: {
+        slug,
+        isCatalog: true,
+        archivedAt: null,
+        roomType: { isActive: true },
+      },
+      ...roomWithDetails,
     })
-    if (!subcategory) return catalog
+    .then(async (catalog) => {
+      if (!catalog) return null
+      if (!subcategoryId) return catalog
 
-    return {
-      ...catalog,
-      name: formatListingName(catalog.name, subcategory.name),
-      subcategory,
-    }
-  })
+      const subcategory = await prisma.roomSubcategory.findFirst({
+        where: {
+          id: subcategoryId,
+          roomTypeId: catalog.roomTypeId,
+          isActive: true,
+        },
+        include: { images: SUBCATEGORY_IMAGES_INCLUDE },
+      })
+      if (!subcategory) return catalog
+
+      return {
+        ...catalog,
+        name: formatListingName(catalog.name, subcategory.name),
+        subcategory,
+      }
+    })
 }
 
 /**
@@ -90,14 +112,20 @@ export function getCatalogRoomBySlug(
  * Only includes subcategories that have at least one assigned inventory unit.
  */
 export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
-  const [subcategories, catalogRooms] = await Promise.all([
+  const activeInventoryWhere = activeInventoryRoomFilter()
+
+  const [roomTypes, subcategories, catalogRooms] = await Promise.all([
+    getActiveRoomTypes(),
     prisma.roomSubcategory.findMany({
-      where: { name: { in: [...PUBLIC_SUBCATEGORY_NAMES] } },
+      where: {
+        name: { in: [...PUBLIC_SUBCATEGORY_NAMES] },
+        ...activeSubcategoryFilter(),
+      },
       include: {
         images: SUBCATEGORY_IMAGES_INCLUDE,
         _count: {
           select: {
-            rooms: { where: { isCatalog: false } },
+            rooms: { where: activeInventoryWhere },
           },
         },
       },
@@ -105,20 +133,22 @@ export async function getPublicRoomListings(): Promise<PublicRoomListing[]> {
     getCatalogRooms(),
   ])
 
-  const catalogByType = Object.fromEntries(
-    catalogRooms.map((room) => [room.type, room]),
-  ) as Partial<Record<RoomType, RoomWithDetails>>
+  const typeOrder = new Map(roomTypes.map((t) => [t.id, t.sortOrder]))
+  const catalogByTypeId = Object.fromEntries(
+    catalogRooms.map((room) => [room.roomTypeId, room]),
+  ) as Partial<Record<string, RoomWithDetails>>
 
   return subcategories
     .filter((sub) => sub._count.rooms > 0)
     .sort((a, b) => {
-      const typeOrder =
-        catalogOrder.indexOf(a.roomType) - catalogOrder.indexOf(b.roomType)
-      if (typeOrder !== 0) return typeOrder
+      const order =
+        (typeOrder.get(a.roomTypeId) ?? 999) -
+        (typeOrder.get(b.roomTypeId) ?? 999)
+      if (order !== 0) return order
       return subcategorySortIndex(a.name) - subcategorySortIndex(b.name)
     })
     .flatMap((sub) => {
-      const catalog = catalogByType[sub.roomType]
+      const catalog = catalogByTypeId[sub.roomTypeId]
       if (!catalog) return []
       const subcategory = withoutInventoryCount(sub)
       return [
@@ -153,35 +183,50 @@ export async function getSimilarRooms(
 }
 
 export function getCatalogRoomsForAdmin(): Promise<RoomWithDetails[]> {
-  return getCatalogRooms()
+  return prisma.room.findMany({
+    where: { isCatalog: true, archivedAt: null },
+    ...roomWithDetails,
+    orderBy: [{ roomType: { sortOrder: "asc" } }, { name: "asc" }],
+  })
 }
 
-export function getInventoryUnitsForAdmin(): Promise<RoomWithDetails[]> {
+export function getInventoryUnitsForAdmin(options?: {
+  includeArchived?: boolean
+}): Promise<RoomWithDetails[]> {
   return prisma.room.findMany({
-    where: { ...inventoryRoomFilter(), isCatalog: false },
+    where: {
+      isCatalog: false,
+      ...(options?.includeArchived ? {} : { archivedAt: null }),
+    },
     ...roomWithDetails,
     orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
   })
 }
 
 export async function getInventoryByType() {
-  const rooms = await prisma.room.findMany({
-    where: inventoryRoomFilter(),
-    select: { type: true, roomNumber: true },
-    orderBy: { roomNumber: "asc" },
-  })
+  const [roomTypes, rooms] = await Promise.all([
+    getAllRoomTypes(true),
+    // Not filtered by room-type isActive: archived types still need an
+    // accurate inventory summary in the admin catalog manager.
+    prisma.room.findMany({
+      where: { isCatalog: false, archivedAt: null },
+      select: { roomTypeId: true, roomNumber: true },
+      orderBy: { roomNumber: "asc" },
+    }),
+  ])
 
   const result = {} as Record<
-    RoomType,
-    { count: number; roomNumbers: string[]; total: number }
+    string,
+    { count: number; roomNumbers: string[] }
   >
 
-  for (const type of ROOM_TYPES) {
-    const numbers = rooms.filter((r) => r.type === type).map((r) => r.roomNumber!)
-    result[type] = {
+  for (const type of roomTypes) {
+    const numbers = rooms
+      .filter((r) => r.roomTypeId === type.id)
+      .map((r) => r.roomNumber)
+    result[type.id] = {
       count: numbers.length,
       roomNumbers: numbers,
-      total: TYPE_TOTALS[type],
     }
   }
 
@@ -199,19 +244,33 @@ export type AmenityWithCount = Prisma.PromiseReturnType<
   typeof getAmenities
 >[number]
 
-export function getCatalogRoomForType(type: RoomType) {
+export function getCatalogRoomForType(roomTypeId: string) {
   return prisma.room.findFirst({
-    where: { type, isCatalog: true },
+    where: {
+      roomTypeId,
+      isCatalog: true,
+      archivedAt: null,
+      roomType: { isActive: true },
+    },
     ...roomWithDetails,
   })
 }
 
-export function getSubcategoriesByType(roomType: RoomType) {
+export function getSubcategoriesByType(
+  roomTypeId: string,
+  options?: { includeArchived?: boolean },
+) {
   return prisma.roomSubcategory.findMany({
-    where: { roomType },
+    where: {
+      roomTypeId,
+      ...(options?.includeArchived ? {} : { isActive: true }),
+    },
     include: {
+      roomType: true,
       images: SUBCATEGORY_IMAGES_INCLUDE,
-      _count: { select: { rooms: true } },
+      _count: {
+        select: { rooms: { where: { archivedAt: null, isCatalog: false } } },
+      },
     },
     orderBy: { name: "asc" },
   })
@@ -221,12 +280,27 @@ export type RoomSubcategoryWithCount = Prisma.PromiseReturnType<
   typeof getSubcategoriesByType
 >[number]
 
-export function getAllSubcategories() {
-  return prisma.roomSubcategory.findMany({
+export async function getAllSubcategories(options?: {
+  includeArchived?: boolean
+}) {
+  const roomTypes = await getActiveRoomTypes()
+  const typeOrder = new Map(roomTypes.map((t) => [t.id, t.sortOrder]))
+
+  const subcategories = await prisma.roomSubcategory.findMany({
+    where: options?.includeArchived ? undefined : { isActive: true },
     include: {
+      roomType: true,
       images: SUBCATEGORY_IMAGES_INCLUDE,
-      _count: { select: { rooms: true } },
+      _count: {
+        select: { rooms: { where: { archivedAt: null, isCatalog: false } } },
+      },
     },
-    orderBy: [{ roomType: "asc" }, { name: "asc" }],
+  })
+
+  return subcategories.sort((a, b) => {
+    const order =
+      (typeOrder.get(a.roomTypeId) ?? 999) - (typeOrder.get(b.roomTypeId) ?? 999)
+    if (order !== 0) return order
+    return a.name.localeCompare(b.name)
   })
 }

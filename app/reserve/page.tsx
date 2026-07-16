@@ -38,6 +38,7 @@ export default async function ReservePage({
   const room = await prisma.room.findUnique({
     where: { id: roomId },
     include: {
+      roomType: { select: { isActive: true } },
       priceRules: true,
       images: { orderBy: { sortOrder: "asc" } },
       subcategory: {
@@ -45,12 +46,14 @@ export default async function ReservePage({
       },
     },
   })
-  if (!room) notFound()
+  if (!room || room.archivedAt) notFound()
+  if (!room.roomType.isActive) notFound()
+  if (room.subcategory && !room.subcategory.isActive) notFound()
 
   const catalogRoom = room.isCatalog
     ? room
     : await prisma.room.findFirst({
-        where: { type: room.type, isCatalog: true },
+        where: { roomTypeId: room.roomTypeId, isCatalog: true, archivedAt: null },
         include: { images: { orderBy: { sortOrder: "asc" } } },
       })
   const catalogImages = catalogRoom?.images.length ? catalogRoom.images : room.images

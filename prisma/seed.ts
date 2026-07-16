@@ -1,11 +1,10 @@
-import { Role, RoomType } from "@prisma/client"
+import { Role } from "@prisma/client"
 import { addDays, startOfDay } from "date-fns"
 
 import { prisma } from "../lib/prisma"
 import { hashPassword } from "../lib/password"
 import {
   assignSubcategoryNamesForRooms,
-  CATALOG_BASE_PRICES,
   PUBLIC_SUBCATEGORY_NAMES,
   SEED_FEATURED_SUBCATEGORY_NAME,
   subcategoryPriceForType,
@@ -15,211 +14,53 @@ import {
   recomputeAllSubcategoryPricing,
   syncMismatchedInventoryBases,
 } from "../lib/subcategory-pricing"
-import {
-  CATALOG_ROOM_NUMBERS,
-  DEFAULT_FLOOR_PLAN,
-  catalogSlug,
-  isCatalogRoomNumber,
-} from "../lib/floor-plan"
-import { catalogImagesByType, coverImageForType } from "../lib/room-type-images"
+import { CATALOG_ROOM_NUMBERS, isCatalogRoomNumber } from "../lib/floor-plan"
+import { catalogImagesByType } from "../lib/room-type-images"
 import { kingSubcategoryImagesByName } from "../lib/king-subcategory-images"
 import { queenSubcategoryImagesByName } from "../lib/queen-subcategory-images"
 import { suiteSubcategoryImagesByName } from "../lib/suite-subcategory-images"
 import { twinSubcategoryImagesByName } from "../lib/twin-subcategory-images"
+import {
+  amenitiesByType,
+  buildSeedFloorPlan,
+  nearbyPlacesByType,
+  roomTypeMeta,
+  SEED_TYPE_IDS,
+  SEED_TYPE_SLUGS,
+  type SeedTypeSlug,
+} from "../lib/seed-types"
 
-const nearbyPlacesByType: Record<
-  RoomType,
-  { name: string; category: string; distance: string }[]
-> = {
-  TWIN: [
-    {
-      name: "Old Port Montréal",
-      category: "attraction",
-      distance: "5 min walk",
-    },
-    { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    {
-      name: "STM Champ-de-Mars",
-      category: "transport",
-      distance: "3 min walk",
-    },
-    {
-      name: "Marché Bonsecours",
-      category: "attraction",
-      distance: "8 min walk",
-    },
-  ],
-  QUEEN: [
-    {
-      name: "Old Port Montréal",
-      category: "attraction",
-      distance: "5 min walk",
-    },
-    { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    {
-      name: "STM Champ-de-Mars",
-      category: "transport",
-      distance: "3 min walk",
-    },
-    {
-      name: "Marché Bonsecours",
-      category: "attraction",
-      distance: "8 min walk",
-    },
-    { name: "L'Avenue Bistro", category: "restaurant", distance: "2 min walk" },
-  ],
-  KING: [
-    {
-      name: "Old Port Montréal",
-      category: "attraction",
-      distance: "5 min walk",
-    },
-    { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    {
-      name: "STM Champ-de-Mars",
-      category: "transport",
-      distance: "3 min walk",
-    },
-    { name: "Spa & Fitness Centre", category: "wellness", distance: "Floor 2" },
-    {
-      name: "Marché Bonsecours",
-      category: "attraction",
-      distance: "8 min walk",
-    },
-  ],
-  SUITE: [
-    {
-      name: "Old Port Montréal",
-      category: "attraction",
-      distance: "5 min walk",
-    },
-    { name: "Brasserie Levio", category: "restaurant", distance: "On-site" },
-    {
-      name: "STM Champ-de-Mars",
-      category: "transport",
-      distance: "3 min walk",
-    },
-    { name: "Spa & Fitness Centre", category: "wellness", distance: "Floor 2" },
-    { name: "Rooftop Lounge", category: "bar", distance: "Floor 12" },
-    {
-      name: "Marché Bonsecours",
-      category: "attraction",
-      distance: "8 min walk",
-    },
-  ],
-}
+const DEFAULT_FLOOR_PLAN = buildSeedFloorPlan()
 
-const amenitiesByType: Record<RoomType, string[]> = {
-  TWIN: [
-    "Two single mattresses",
-    "Free high-speed Wi-Fi",
-    "Flat-screen television",
-    "Writing desk with chair",
-    "Mini-refrigerator",
-    "In-room coffee maker",
-    "Electronic laptop safe",
-    "Private en-suite bathroom",
-    "Complimentary basic toiletries",
-    "Individual climate control",
-  ],
-  QUEEN: [
-    "Two queen mattresses",
-    "Free high-speed Wi-Fi",
-    "Large flat-screen television",
-    "Work desk with ergonomic chair",
-    "Mini-refrigerator",
-    "Microwave",
-    "Premium coffee station",
-    "Iron and ironing board",
-    "Spacious full bathroom",
-    "Hairdryer and toiletries",
-  ],
-  KING: [
-    "One king mattress",
-    "Free high-speed Wi-Fi",
-    "Smart flat-screen television",
-    "Sofa bed or armchair",
-    "Executive work desk",
-    "Mini-refrigerator",
-    "Nespresso coffee machine",
-    "Bathrobes and slippers",
-    "Luxury walk-in shower",
-    "Electronic safe",
-  ],
-  SUITE: [
-    "Two king mattresses",
-    "Separate living area",
-    "Multiple smart televisions",
-    "Free premium Wi-Fi",
-    "Wet bar and kitchenette",
-    "Full-sized refrigerator",
-    "Dining table and chairs",
-    "Luxury bathrobes and slippers",
-    "Master bathroom with soaking tub",
-    "Powder room for guests",
-  ],
-}
-
-const roomTypeMeta: Record<
-  RoomType,
-  {
-    label: string
-    description: string
-    basePrice: number
-    capacity: number
-    beds: number
-    image: string
+async function ensureRoomTypeDefinitions() {
+  for (const [index, slug] of SEED_TYPE_SLUGS.entries()) {
+    const meta = roomTypeMeta[slug]
+    await prisma.roomTypeDefinition.upsert({
+      where: { id: SEED_TYPE_IDS[slug] },
+      create: {
+        id: SEED_TYPE_IDS[slug],
+        slug,
+        name: meta.label,
+        description: meta.description,
+        capacity: meta.capacity,
+        beds: meta.beds,
+        basePrice: meta.basePrice,
+        sortOrder: index,
+        isActive: true,
+      },
+      update: {},
+    })
   }
-> = {
-  TWIN: {
-    label: "Twin Room",
-    description:
-      "A comfortable room with two single beds — ideal for friends or colleagues travelling together.",
-    basePrice: CATALOG_BASE_PRICES.TWIN,
-    capacity: 2,
-    beds: 2,
-    image: coverImageForType("TWIN"),
-  },
-  QUEEN: {
-    label: "Queen Room",
-    description:
-      "A spacious room with two queen beds, comfortably sleeping up to four guests.",
-    basePrice: CATALOG_BASE_PRICES.QUEEN,
-    capacity: 4,
-    beds: 2,
-    image: coverImageForType("QUEEN"),
-  },
-  KING: {
-    label: "King Room",
-    description:
-      "An elegant room anchored by a plush king bed and a luxury walk-in shower.",
-    basePrice: CATALOG_BASE_PRICES.KING,
-    capacity: 2,
-    beds: 1,
-    image: coverImageForType("KING"),
-  },
-  SUITE: {
-    label: "Suite",
-    description:
-      "A two-bedroom suite with two king beds, a separate living area, and a whirlpool bath.",
-    basePrice: CATALOG_BASE_PRICES.SUITE,
-    capacity: 4,
-    beds: 2,
-    image: coverImageForType("SUITE"),
-  },
 }
 
 async function ensureAmenities() {
   const amenityIdByName = new Map<string, string>()
 
-  for (const [type, names] of Object.entries(amenitiesByType) as [
-    RoomType,
-    string[],
-  ][]) {
-    for (const name of names) {
+  for (const slug of SEED_TYPE_SLUGS) {
+    for (const name of amenitiesByType[slug]) {
       const amenity = await prisma.amenity.upsert({
         where: { name },
-        create: { name, category: roomTypeMeta[type].label },
+        create: { name, category: roomTypeMeta[slug].label },
         update: {},
       })
       amenityIdByName.set(name, amenity.id)
@@ -240,12 +81,12 @@ async function upsertFloorPlanSlot(
   slot: (typeof DEFAULT_FLOOR_PLAN)[number],
   amenityIdByName: Map<string, string>,
 ): Promise<"created" | "updated"> {
-  const meta = roomTypeMeta[slot.type]
-  const amenityIds = amenitiesByType[slot.type].map((name) => ({
+  const meta = roomTypeMeta[slot.slug]
+  const amenityIds = amenitiesByType[slot.slug].map((name) => ({
     id: amenityIdByName.get(name)!,
   }))
-  const isCatalog = isCatalogRoomNumber(slot.type, slot.roomNumber)
-  const slug = isCatalog ? catalogSlug(slot.type) : `room-${slot.roomNumber}`
+  const isCatalog = isCatalogRoomNumber(slot.slug, slot.roomNumber)
+  const slug = isCatalog ? slot.slug : `room-${slot.roomNumber}`
   const name = isCatalog ? meta.label : `${meta.label} · ${slot.roomNumber}`
 
   const existing = await prisma.room.findUnique({
@@ -258,7 +99,7 @@ async function upsertFloorPlanSlot(
       data: {
         floor: slot.floor,
         roomNumber: slot.roomNumber,
-        type: slot.type,
+        roomTypeId: slot.roomTypeId,
         isCatalog,
         slug,
         name,
@@ -272,7 +113,7 @@ async function upsertFloorPlanSlot(
       name,
       slug,
       description: meta.description,
-      type: slot.type,
+      roomTypeId: slot.roomTypeId,
       basePrice: meta.basePrice,
       capacity: meta.capacity,
       beds: meta.beds,
@@ -282,7 +123,7 @@ async function upsertFloorPlanSlot(
       amenities: { connect: amenityIds },
       images: isCatalog
         ? {
-            create: catalogImagesByType[slot.type].map((img, i) => ({
+            create: catalogImagesByType[slot.slug].map((img, i) => ({
               url: img.url,
               sortOrder: i,
             })),
@@ -298,24 +139,28 @@ async function ensureInventory(amenityIdByName: Map<string, string>) {
   let created = 0
   let updated = 0
 
+  await ensureRoomTypeDefinitions()
+
   for (const slot of DEFAULT_FLOOR_PLAN) {
     const result = await upsertFloorPlanSlot(slot, amenityIdByName)
     if (result === "created") created += 1
     else updated += 1
   }
 
-  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
-    const catalogNumber = CATALOG_ROOM_NUMBERS[type]
+  for (const slug of SEED_TYPE_SLUGS) {
+    const roomTypeId = SEED_TYPE_IDS[slug]
+    const catalogNumber = CATALOG_ROOM_NUMBERS[slug]
     await prisma.room.updateMany({
-      where: { type, isCatalog: true, NOT: { roomNumber: catalogNumber } },
+      where: { roomTypeId, isCatalog: true, NOT: { roomNumber: catalogNumber } },
       data: { isCatalog: false },
     })
     await prisma.room.updateMany({
       where: { roomNumber: catalogNumber },
       data: {
         isCatalog: true,
-        slug: catalogSlug(type),
-        name: roomTypeMeta[type].label,
+        slug,
+        name: roomTypeMeta[slug].label,
+        roomTypeId,
       },
     })
   }
@@ -325,9 +170,9 @@ async function ensureInventory(amenityIdByName: Map<string, string>) {
 
 async function ensureCatalogImages() {
   let added = 0
-  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
+  for (const slug of SEED_TYPE_SLUGS) {
     const catalog = await prisma.room.findFirst({
-      where: { type, isCatalog: true },
+      where: { roomTypeId: SEED_TYPE_IDS[slug], isCatalog: true },
       include: { images: { orderBy: { sortOrder: "asc" } } },
     })
     if (!catalog) continue
@@ -336,7 +181,7 @@ async function ensureCatalogImages() {
     let nextSortOrder =
       catalog.images.reduce((max, img) => Math.max(max, img.sortOrder), -1) + 1
 
-    for (const img of catalogImagesByType[type]) {
+    for (const img of catalogImagesByType[slug]) {
       if (existingUrls.has(img.url)) continue
       await prisma.roomImage.create({
         data: {
@@ -352,23 +197,19 @@ async function ensureCatalogImages() {
   return added
 }
 
-/**
- * Seed curated listing galleries for subcategories that don't have images yet.
- * Skips subcategories that already have images so this never clobbers
- * admin-curated galleries on repeat seed runs.
- */
 async function ensureSubcategoryImagesForType(
-  roomType: RoomType,
+  slug: SeedTypeSlug,
   imagesByName: Record<
     (typeof PUBLIC_SUBCATEGORY_NAMES)[number],
     { url: string; caption: string }[]
   >,
 ) {
   let seeded = 0
+  const roomTypeId = SEED_TYPE_IDS[slug]
   for (const name of PUBLIC_SUBCATEGORY_NAMES) {
     const images = imagesByName[name]
     const subcategory = await prisma.roomSubcategory.findUnique({
-      where: { roomType_name: { roomType, name } },
+      where: { roomTypeId_name: { roomTypeId, name } },
       select: { id: true, _count: { select: { images: true } } },
     })
     if (!subcategory || subcategory._count.images > 0) continue
@@ -390,25 +231,24 @@ async function ensureSubcategoryImagesForType(
 }
 
 async function ensureTwinSubcategoryImages() {
-  return ensureSubcategoryImagesForType("TWIN", twinSubcategoryImagesByName)
+  return ensureSubcategoryImagesForType("twin", twinSubcategoryImagesByName)
 }
 
 async function ensureQueenSubcategoryImages() {
-  return ensureSubcategoryImagesForType("QUEEN", queenSubcategoryImagesByName)
+  return ensureSubcategoryImagesForType("queen", queenSubcategoryImagesByName)
 }
 
 async function ensureKingSubcategoryImages() {
-  return ensureSubcategoryImagesForType("KING", kingSubcategoryImagesByName)
+  return ensureSubcategoryImagesForType("king", kingSubcategoryImagesByName)
 }
 
 async function ensureSuiteSubcategoryImages() {
-  return ensureSubcategoryImagesForType("SUITE", suiteSubcategoryImagesByName)
+  return ensureSubcategoryImagesForType("suite", suiteSubcategoryImagesByName)
 }
 
 const RETIRED_COFFEE_BEANS_URL =
   "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=1200&q=80"
 
-/** Previously seeded URLs that returned 404 from Unsplash. */
 const BROKEN_CATALOG_IMAGE_URLS = [
   "https://images.unsplash.com/photo-1591088397095-6934fac65a5a?auto=format&fit=crop&w=1200&q=80",
   "https://images.unsplash.com/photo-1578500136244-a842057b4051?auto=format&fit=crop&w=1200&q=80",
@@ -416,14 +256,14 @@ const BROKEN_CATALOG_IMAGE_URLS = [
 
 async function replaceRetiredCatalogImageUrls() {
   let replaced = 0
-  for (const type of ["TWIN", "QUEEN"] as RoomType[]) {
+  for (const slug of ["twin", "queen"] as SeedTypeSlug[]) {
     const catalog = await prisma.room.findFirst({
-      where: { type, isCatalog: true },
+      where: { roomTypeId: SEED_TYPE_IDS[slug], isCatalog: true },
       select: { id: true },
     })
     if (!catalog) continue
 
-    const newUrl = catalogImagesByType[type][3].url
+    const newUrl = catalogImagesByType[slug][3].url
     const staleUrls = [RETIRED_COFFEE_BEANS_URL, ...BROKEN_CATALOG_IMAGE_URLS]
 
     const result = await prisma.roomImage.updateMany({
@@ -438,12 +278,12 @@ async function replaceRetiredCatalogImageUrls() {
 async function ensureNearbyPlaces() {
   const rooms = await prisma.room.findMany({
     where: { isCatalog: true },
-    select: { id: true, type: true },
+    select: { id: true, roomType: { select: { slug: true } } },
   })
   let upserted = 0
 
   for (const room of rooms) {
-    const places = nearbyPlacesByType[room.type] ?? []
+    const places = nearbyPlacesByType[room.roomType.slug as SeedTypeSlug] ?? []
     for (const place of places) {
       await prisma.nearbyPlace.upsert({
         where: { roomId_name: { roomId: room.id, name: place.name } },
@@ -460,24 +300,27 @@ async function ensureNearbyPlaces() {
 async function ensureSubcategories() {
   let created = 0
 
-  for (const type of Object.keys(roomTypeMeta) as RoomType[]) {
+  for (const slug of SEED_TYPE_SLUGS) {
+    const roomTypeId = SEED_TYPE_IDS[slug]
+    const typeBasePrice = roomTypeMeta[slug].basePrice
     for (const name of PUBLIC_SUBCATEGORY_NAMES) {
-      const basePrice = subcategoryPriceForType(type, name)
+      const basePrice = subcategoryPriceForType(typeBasePrice, name)
       const featured = name === SEED_FEATURED_SUBCATEGORY_NAME
 
       const before = await prisma.roomSubcategory.findUnique({
-        where: { roomType_name: { roomType: type, name } },
+        where: { roomTypeId_name: { roomTypeId, name } },
         select: { id: true },
       })
 
       await prisma.roomSubcategory.upsert({
-        where: { roomType_name: { roomType: type, name } },
+        where: { roomTypeId_name: { roomTypeId, name } },
         create: {
           name,
-          roomType: type,
+          roomTypeId,
           basePrice,
           featured,
           fromPriceCents: basePrice,
+          isActive: true,
         },
         update: { basePrice, featured },
       })
@@ -489,12 +332,12 @@ async function ensureSubcategories() {
   const subcategoryIdByTypeAndName = new Map<string, string>()
   const allSubs = await prisma.roomSubcategory.findMany()
   for (const sub of allSubs) {
-    subcategoryIdByTypeAndName.set(`${sub.roomType}:${sub.name}`, sub.id)
+    subcategoryIdByTypeAndName.set(`${sub.roomTypeId}:${sub.name}`, sub.id)
   }
 
   const inventoryRooms = await prisma.room.findMany({
-    where: { isCatalog: false },
-    select: { id: true, type: true, floor: true, roomNumber: true },
+    where: { isCatalog: false, archivedAt: null },
+    select: { id: true, roomTypeId: true, floor: true, roomNumber: true },
     orderBy: { roomNumber: "asc" },
   })
 
@@ -504,7 +347,7 @@ async function ensureSubcategories() {
 
   for (const { room, subcategoryName } of assignments) {
     const subcategoryId = subcategoryIdByTypeAndName.get(
-      `${room.type}:${subcategoryName}`,
+      `${room.roomTypeId}:${subcategoryName}`,
     )
     if (!subcategoryId) continue
 
@@ -573,7 +416,7 @@ async function ensureUsers() {
     const checkOut = startOfDay(addDays(new Date(), 16))
 
     const candidates = await prisma.room.findMany({
-      where: { isCatalog: false },
+      where: { isCatalog: false, archivedAt: null },
       orderBy: { roomNumber: "asc" },
     })
     const overlapping = await prisma.booking.findMany({
@@ -593,6 +436,7 @@ async function ensureUsers() {
         data: {
           userId: customer.id,
           roomId: unit.id,
+          roomTypeId: unit.roomTypeId,
           subcategoryId: unit.subcategoryId,
           checkIn,
           checkOut,
@@ -629,38 +473,18 @@ async function main() {
     console.log(`  • ${imagesAdded} catalog image(s) added`)
   }
 
-  const inventoryTotal = await prisma.room.count()
-  const catalogTotal = await prisma.room.count({ where: { isCatalog: true } })
+  const nearbyUpserted = await ensureNearbyPlaces()
+  console.log(`  • ${nearbyUpserted} nearby places ensured`)
+
+  const subResult = await ensureSubcategories()
   console.log(
-    `  • ${inventoryTotal} inventory units · ${catalogTotal} catalog rooms`,
+    `  • Subcategories: ${subResult.created} created, ${subResult.assigned} rooms assigned`,
   )
-
-  const placesUpserted = await ensureNearbyPlaces()
-  console.log(`  • ${placesUpserted} nearby place entries ensured`)
-
-  const {
-    created: subCreated,
-    assigned: subAssigned,
-    assignedByName,
-    basesSynced,
-    orphansDeleted,
-  } = await ensureSubcategories()
-  if (subCreated > 0) {
-    console.log(`  • ${subCreated} subcategory(ies) created`)
+  if (subResult.basesSynced > 0) {
+    console.log(`  • ${subResult.basesSynced} inventory base price(s) synced`)
   }
-  if (subAssigned > 0) {
-    console.log(`  • ${subAssigned} room(s) assigned to subcategories`)
-    for (const [name, count] of Object.entries(assignedByName)) {
-      console.log(`    – ${name}: ${count}`)
-    }
-  }
-  if (basesSynced > 0) {
-    console.log(
-      `  • ${basesSynced} inventory base price(s) synced to subcategory`,
-    )
-  }
-  if (orphansDeleted > 0) {
-    console.log(`  • ${orphansDeleted} orphan subcategory(ies) removed`)
+  if (subResult.orphansDeleted > 0) {
+    console.log(`  • ${subResult.orphansDeleted} orphan subcategory(ies) removed`)
   }
 
   const twinSubGalleries = await ensureTwinSubcategoryImages()
@@ -691,8 +515,16 @@ async function main() {
     )
   }
 
-  await ensureUsers()
-  console.log("  • Demo users ensured (admin@hotel.test, customer@hotel.test)")
+  const { admin, customer } = await ensureUsers()
+  console.log(`  • Users: ${admin.email}, ${customer.email}`)
+
+  const catalogTotal = await prisma.room.count({ where: { isCatalog: true } })
+  const inventoryTotal = await prisma.room.count({
+    where: { isCatalog: false, archivedAt: null },
+  })
+  console.log(
+    `  • Totals: ${catalogTotal} catalog room(s), ${inventoryTotal} inventory unit(s)`,
+  )
 
   console.log("✅ Seed complete.")
 }

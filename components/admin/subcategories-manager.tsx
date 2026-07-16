@@ -1,26 +1,25 @@
 "use client"
 
 import * as React from "react"
-import type { RoomType } from "@prisma/client"
 import { toast } from "sonner"
-import { Trash2, Plus, Edit2, Check, X } from "lucide-react"
+import { Archive, Plus, Edit2, Check, X, RotateCcw } from "lucide-react"
 
 import type { RoomSubcategoryWithCount } from "@/lib/queries"
+import type { RoomTypeRecord } from "@/lib/room-types"
+import { roomTypeLabel } from "@/lib/room-type-labels"
 import { SubcategoryManageDialog } from "@/components/admin/subcategory-manage-dialog"
-import { ROOM_TYPES, ROOM_TYPE_LABELS, centsToDollarsString, formatPrice, parseDollarsToCents } from "@/lib/rooms"
 import {
-  bumpLakeViewSubcategoryPrices,
+  centsToDollarsString,
+  formatPrice,
+  parseDollarsToCents,
+} from "@/lib/rooms"
+import {
   createRoomSubcategory,
   updateRoomSubcategory,
-  deleteRoomSubcategory,
+  archiveRoomSubcategory,
+  restoreRoomSubcategory,
   setSubcategoryFeatured,
 } from "@/app/admin/actions"
-import {
-  LAKE_VIEW_NAME,
-  applyPricePremium,
-  LAKE_VIEW_PRICE_MULTIPLIER,
-  weekendPriceForBase,
-} from "@/lib/subcategories"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,15 +39,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-
 function FeaturedToggle({
   subcategoryId,
   initialFeatured,
@@ -89,42 +79,38 @@ function FeaturedToggle({
       checked={featured}
       disabled={disabled || pending}
       onCheckedChange={toggle}
+      aria-label={
+        featured ? "Remove featured status" : "Mark subcategory as featured"
+      }
       data-testid={`featured-toggle-${subcategoryId}`}
     />
   )
 }
 
-function lakeViewPreviewRows(
-  subcategories: RoomSubcategoryWithCount[],
-) {
-  return subcategories
-    .filter((s) => s.name === LAKE_VIEW_NAME)
-    .sort((a, b) => ROOM_TYPES.indexOf(a.roomType) - ROOM_TYPES.indexOf(b.roomType))
-    .map((sub) => {
-      const newBase = applyPricePremium(sub.basePrice, LAKE_VIEW_PRICE_MULTIPLIER)
-      return {
-        sub,
-        newBase,
-        newWeekend: weekendPriceForBase(newBase),
-      }
-    })
-}
-
 interface SubcategoriesManagerProps {
+  roomTypes: RoomTypeRecord[]
   initialSubcategories: RoomSubcategoryWithCount[]
 }
 
 export function SubcategoriesManager({
+  roomTypes,
   initialSubcategories,
 }: SubcategoriesManagerProps) {
   const [subcategories, setSubcategories] = React.useState<
     RoomSubcategoryWithCount[]
   >(initialSubcategories)
+  const [archiveFilter, setArchiveFilter] = React.useState<"active" | "archived">(
+    "active",
+  )
 
   React.useEffect(() => {
     setSubcategories(initialSubcategories)
   }, [initialSubcategories])
-  const [selectedType, setSelectedType] = React.useState<RoomType>("TWIN")
+
+  const activeTypes = roomTypes.filter((t) => t.isActive)
+  const [selectedTypeId, setSelectedTypeId] = React.useState(
+    () => activeTypes[0]?.id ?? "",
+  )
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [editName, setEditName] = React.useState("")
   const [editPrice, setEditPrice] = React.useState("")
@@ -132,22 +118,19 @@ export function SubcategoriesManager({
   const [newName, setNewName] = React.useState("")
   const [newPrice, setNewPrice] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [bumpOpen, setBumpOpen] = React.useState(false)
-  const [bumpPending, startBumpTransition] = React.useTransition()
-
-  const lakeViewSubs = React.useMemo(
-    () => subcategories.filter((s) => s.name === LAKE_VIEW_NAME),
-    [subcategories],
-  )
-  const bumpPreview = React.useMemo(
-    () => lakeViewPreviewRows(subcategories),
-    [subcategories],
-  )
+  React.useEffect(() => {
+    if (!activeTypes.some((t) => t.id === selectedTypeId)) {
+      setSelectedTypeId(activeTypes[0]?.id ?? "")
+    }
+  }, [activeTypes, selectedTypeId])
 
   const filteredSubs = React.useMemo(
     () =>
-      subcategories.filter((s) => s.roomType === selectedType),
-    [subcategories, selectedType],
+      subcategories.filter((s) => {
+        if (s.roomTypeId !== selectedTypeId) return false
+        return archiveFilter === "archived" ? !s.isActive : s.isActive
+      }),
+    [subcategories, selectedTypeId, archiveFilter],
   )
 
   function handleFeaturedChange(subcategoryId: string, featured: boolean) {
@@ -157,7 +140,7 @@ export function SubcategoriesManager({
   }
 
   const handleCreate = async () => {
-    if (!newName || !newPrice) {
+    if (!newName || !newPrice || !selectedTypeId) {
       toast.error("Fill in all fields")
       return
     }
@@ -171,7 +154,7 @@ export function SubcategoriesManager({
     setIsSubmitting(true)
     try {
       const result = await createRoomSubcategory(
-        selectedType,
+        selectedTypeId,
         newName,
         basePriceCents,
       )
@@ -180,7 +163,6 @@ export function SubcategoriesManager({
         setNewName("")
         setNewPrice("")
         setIsCreating(false)
-        // Refetch subcategories
         window.location.reload()
       } else {
         toast.error(result.error)
@@ -221,48 +203,43 @@ export function SubcategoriesManager({
     }
   }
 
-  function handleBumpLakeView() {
-    startBumpTransition(async () => {
-      try {
-        const result = await bumpLakeViewSubcategoryPrices()
-        if (!result.ok) {
-          toast.error(result.error)
-          return
-        }
-        setBumpOpen(false)
-        toast.success(
-          `Lake View prices updated (${result.updated.reduce((n, u) => n + u.roomsUpdated, 0)} rooms synced)`,
-        )
-        window.location.reload()
-      } catch {
-        toast.error("Failed to update Lake View prices")
-      }
-    })
-  }
-
-  const handleDelete = async (id: string, name: string, count: number) => {
-    if (count > 0) {
-      toast.error(`Cannot delete: ${count} room(s) assigned`)
-      return
-    }
-
-    if (!confirm(`Delete "${name}"?`)) return
+  const handleArchive = async (id: string, name: string) => {
+    if (!confirm(`Archive "${name}"?`)) return
 
     setIsSubmitting(true)
     try {
-      const result = await deleteRoomSubcategory(id)
+      const result = await archiveRoomSubcategory(id)
       if (result.ok) {
-        toast.success("Deleted successfully")
+        toast.success("Subcategory archived")
         window.location.reload()
       } else {
         toast.error(result.error)
       }
     } catch {
-      toast.error("Failed to delete subcategory")
+      toast.error("Failed to archive subcategory")
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const handleRestore = async (id: string) => {
+    setIsSubmitting(true)
+    try {
+      const result = await restoreRoomSubcategory(id)
+      if (result.ok) {
+        toast.success("Subcategory restored")
+        window.location.reload()
+      } else {
+        toast.error(result.error)
+      }
+    } catch {
+      toast.error("Failed to restore subcategory")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const selectedType = activeTypes.find((t) => t.id === selectedTypeId)
 
   return (
     <div className="space-y-6">
@@ -271,38 +248,48 @@ export function SubcategoriesManager({
           <Label className="text-xs font-semibold uppercase text-muted-foreground">
             Room Type
           </Label>
-          <Select value={selectedType} onValueChange={(v) => setSelectedType(v as RoomType)}>
+          <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
             <SelectTrigger className="h-9 mt-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ROOM_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {ROOM_TYPE_LABELS[type]}
+              {activeTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {roomTypeLabel(type)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          {lakeViewSubs.length > 0 ? (
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex gap-1 rounded-full border bg-white p-0.5">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setBumpOpen(true)}
-              data-testid="bump-lake-view-prices"
-              className="w-full sm:w-auto"
+              type="button"
+              variant={archiveFilter === "active" ? "default" : "ghost"}
+              size="xs"
+              className="rounded-full"
+              onClick={() => setArchiveFilter("active")}
             >
-              Increase Lake View prices by 25%
+              Active
             </Button>
-          ) : null}
-          {!isCreating ? (
+            <Button
+              type="button"
+              variant={archiveFilter === "archived" ? "default" : "ghost"}
+              size="xs"
+              className="rounded-full"
+              onClick={() => setArchiveFilter("archived")}
+            >
+              Archived
+            </Button>
+          </div>
+          {archiveFilter === "active" && !isCreating ? (
             <Button
               onClick={() => setIsCreating(true)}
               variant="outline"
               size="sm"
               className="w-full sm:w-auto"
+              disabled={!selectedTypeId}
             >
               <Plus className="size-4 mr-1" /> New Subcategory
             </Button>
@@ -310,46 +297,9 @@ export function SubcategoriesManager({
         </div>
       </div>
 
-      <Dialog open={bumpOpen} onOpenChange={setBumpOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Increase Lake View prices by 25%?</DialogTitle>
-            <DialogDescription>
-              Updates all Lake View subcategory base prices, syncs inventory room
-              base prices, and recalculates Friday/Saturday rules from the new
-              base. Rounds up to the next whole dollar. Existing bookings are not
-              affected. Running this again will apply another 25% increase.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 text-sm">
-            {bumpPreview.map(({ sub, newBase, newWeekend }) => (
-              <div key={sub.id} className="flex justify-between gap-4 border-b py-2">
-                <span>{ROOM_TYPE_LABELS[sub.roomType]}</span>
-                <span className="text-muted-foreground text-right">
-                  {formatPrice(sub.basePrice, "CAD")} → {formatPrice(newBase, "CAD")}
-                  <br />
-                  Fri/Sat: {formatPrice(newWeekend, "CAD")}
-                  <br />
-                  {sub._count.rooms} room{sub._count.rooms === 1 ? "" : "s"}
-                </span>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBumpOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleBumpLakeView} disabled={bumpPending}>
-              {bumpPending ? "Updating…" : "Confirm increase"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create form */}
-      {isCreating && (
+      {isCreating && archiveFilter === "active" && (
         <div className="rounded-lg border bg-card p-4">
-          <h3 className="mb-4">New Subcategory</h3>
+          <h3 className="mb-4">New Subcategory — {selectedType?.name}</h3>
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Name</Label>
@@ -398,7 +348,6 @@ export function SubcategoriesManager({
         </div>
       )}
 
-      {/* Subcategories table */}
       <div className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
@@ -414,7 +363,7 @@ export function SubcategoriesManager({
             {filteredSubs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                  No subcategories for this room type
+                  No {archiveFilter} subcategories for this room type
                 </TableCell>
               </TableRow>
             ) : (
@@ -444,16 +393,20 @@ export function SubcategoriesManager({
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <button
+                            type="button"
                             onClick={() => handleEdit(sub.id)}
                             disabled={isSubmitting}
-                            className="p-1.5 hover:bg-muted rounded"
+                            aria-label={`Save changes to ${sub.name}`}
+                            className="p-1.5 hover:bg-muted rounded cursor-pointer"
                           >
                             <Check className="size-4 text-green-600" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setEditingId(null)}
                             disabled={isSubmitting}
-                            className="p-1.5 hover:bg-muted rounded"
+                            aria-label="Cancel editing subcategory"
+                            className="p-1.5 hover:bg-muted rounded cursor-pointer"
                           >
                             <X className="size-4 text-muted-foreground" />
                           </button>
@@ -464,14 +417,18 @@ export function SubcategoriesManager({
                     <>
                       <TableCell className="font-medium">{sub.name}</TableCell>
                       <TableCell className="text-center">
-                        <FeaturedToggle
-                          subcategoryId={sub.id}
-                          initialFeatured={sub.featured}
-                          disabled={isSubmitting}
-                          onFeaturedChange={(featured) =>
-                            handleFeaturedChange(sub.id, featured)
-                          }
-                        />
+                        {sub.isActive ? (
+                          <FeaturedToggle
+                            subcategoryId={sub.id}
+                            initialFeatured={sub.featured}
+                            disabled={isSubmitting}
+                            onFeaturedChange={(featured) =>
+                              handleFeaturedChange(sub.id, featured)
+                            }
+                          />
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-sm">
                         {formatPrice(sub.basePrice, "CAD")}
@@ -479,30 +436,43 @@ export function SubcategoriesManager({
                       <TableCell className="text-center">{sub._count.rooms}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <SubcategoryManageDialog
-                            subcategory={sub}
-                            roomType={selectedType}
-                          />
-                          <button
-                            onClick={() => {
-                              setEditingId(sub.id)
-                              setEditName(sub.name)
-                              setEditPrice(centsToDollarsString(sub.basePrice))
-                            }}
-                            disabled={isSubmitting}
-                            className="p-1.5 hover:bg-muted rounded"
-                          >
-                            <Edit2 className="size-4 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDelete(sub.id, sub.name, sub._count.rooms)
-                            }
-                            disabled={isSubmitting || sub._count.rooms > 0}
-                            className="p-1.5 hover:bg-muted rounded disabled:opacity-50"
-                          >
-                            <Trash2 className="size-4 text-destructive" />
-                          </button>
+                          {sub.isActive ? (
+                            <>
+                              <SubcategoryManageDialog subcategory={sub} />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(sub.id)
+                                  setEditName(sub.name)
+                                  setEditPrice(centsToDollarsString(sub.basePrice))
+                                }}
+                                disabled={isSubmitting}
+                                aria-label={`Edit ${sub.name}`}
+                                className="p-1.5 hover:bg-muted rounded cursor-pointer"
+                              >
+                                <Edit2 className="size-4 text-muted-foreground" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleArchive(sub.id, sub.name)}
+                                disabled={isSubmitting}
+                                className="p-1.5 hover:bg-muted rounded cursor-pointer"
+                                title="Archive subcategory"
+                              >
+                                <Archive className="size-4 text-muted-foreground" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRestore(sub.id)}
+                              disabled={isSubmitting}
+                              className="p-1.5 hover:bg-muted rounded cursor-pointer"
+                              title="Restore subcategory"
+                            >
+                              <RotateCcw className="size-4 text-muted-foreground" />
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </>

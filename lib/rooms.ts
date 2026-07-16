@@ -1,22 +1,4 @@
-import type { RoomType } from "@prisma/client"
-
-// Display helpers and constants shared across the app.
-
-export const ROOM_TYPE_LABELS: Record<RoomType, string> = {
-  TWIN: "Twin Room (2 twin beds)",
-  QUEEN: "Queen Room (2 queen beds)",
-  KING: "King Room (1 king bed)",
-  SUITE: "Suite (2 king beds + whirlpool)",
-}
-
-export const ROOM_TYPES: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
-
-export const ROOM_TYPE_SHORT_LABELS: Record<RoomType, string> = {
-  TWIN: "Twin Room",
-  QUEEN: "Queen Room",
-  KING: "King Room",
-  SUITE: "Suite",
-}
+// Display helpers shared across the app.
 
 /** Navy/gold styling shared by primary booking CTAs (add to cart, book now, continue to payment). */
 export const BOOKING_ACTION_BUTTON_CLASS =
@@ -105,7 +87,7 @@ export function formatPrice(cents: number, currency = "USD") {
 
 /** Rank listings by similarity to `current` and return up to `limit` matches. Callers should exclude the current listing from `candidates`. */
 type SimilarListing = {
-  type: RoomType
+  roomTypeId: string
   basePrice: number
   subcategory?: { basePrice: number } | null
   capacity: number
@@ -126,7 +108,7 @@ export function pickSimilarRooms<C extends SimilarListing>(
     .map((room) => {
       let score = 0
 
-      if (room.type === current.type) score += 100
+      if (room.roomTypeId === current.roomTypeId) score += 100
 
       const sharedAmenities = room.amenities.filter((a) =>
         currentAmenityIds.has(a.id),

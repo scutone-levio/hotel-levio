@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache"
 import { startOfDay, differenceInCalendarDays } from "date-fns"
-import type { RoomType, RoomSubcategory } from "@prisma/client"
+import type { RoomSubcategory } from "@prisma/client"
 
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTransactionClient } from "@/lib/prisma"
 import {
   getAvailableUnits,
   quoteInventoryUnit,
   resolveBookingRoom,
 } from "@/lib/inventory"
+import { activeInventoryRoomFilter } from "@/lib/room-types"
 import { stripe } from "@/lib/stripe"
 import { sendMail } from "@/lib/mailer"
 import {
@@ -162,15 +163,58 @@ async function assertPaymentIntentReady(
 
 /** Resolve subcategory for a catalog listing; scoped to the catalog room type. */
 async function resolveListingSubcategory(
-  catalog: { type: RoomType; subcategory: RoomSubcategory | null },
+  catalog: { roomTypeId: string; subcategory: RoomSubcategory | null },
   subcategoryId?: string,
 ): Promise<RoomSubcategory | null> {
   if (subcategoryId) {
     return prisma.roomSubcategory.findFirst({
-      where: { id: subcategoryId, roomType: catalog.type },
+      where: {
+        id: subcategoryId,
+        roomTypeId: catalog.roomTypeId,
+        isActive: true,
+      },
     })
   }
   return catalog.subcategory
+}
+
+// Lock the room row, plus its room-type and subcategory rows (the same rows
+// archiveRoomType()/archiveSubcategory() lock with FOR UPDATE), so none of
+// those archive operations can commit between this recheck and the booking
+// insert that follows it in the same transaction.
+async function lockAndValidateActiveUnit(
+  tx: PrismaTransactionClient,
+  unit: { id: string; roomTypeId: string; subcategoryId: string | null },
+): Promise<void> {
+  const unavailableError = new Error(
+    "Quoted room is no longer available. Please restart checkout.",
+  )
+
+  const lockedRoom = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Room" WHERE id = ${unit.id} FOR UPDATE
+  `
+  if (lockedRoom.length === 0) throw unavailableError
+
+  const lockedType = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "RoomTypeDefinition" WHERE id = ${unit.roomTypeId} FOR UPDATE
+  `
+  if (lockedType.length === 0) throw unavailableError
+
+  if (unit.subcategoryId) {
+    const lockedSubcategory = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "RoomSubcategory" WHERE id = ${unit.subcategoryId} FOR UPDATE
+    `
+    if (lockedSubcategory.length === 0) throw unavailableError
+  }
+
+  const activeUnit = await tx.room.findFirst({
+    where: {
+      id: unit.id,
+      ...activeInventoryRoomFilter(),
+    },
+    select: { id: true },
+  })
+  if (!activeUnit) throw unavailableError
 }
 
 type AssignedUnit = NonNullable<Awaited<ReturnType<typeof resolveBookingRoom>>>
@@ -193,18 +237,19 @@ async function resolveAndQuoteListing(input: {
     where: { id: input.roomId },
     select: {
       id: true,
-      type: true,
+      roomTypeId: true,
       name: true,
       isCatalog: true,
+      archivedAt: true,
       subcategory: true,
     },
   })
-  if (!catalog) {
+  if (!catalog || catalog.archivedAt) {
     return { ok: false, error: "Room not found" }
   }
 
   const subcategory = await resolveListingSubcategory(
-    { type: catalog.type, subcategory: catalog.subcategory },
+    { roomTypeId: catalog.roomTypeId, subcategory: catalog.subcategory },
     input.subcategoryId,
   )
   if (input.subcategoryId && !subcategory) {
@@ -294,7 +339,7 @@ export type AvailabilityCount = { available: number; total: number }
 
 export type ListingAvailabilityInput = {
   roomId: string
-  type: RoomType
+  roomTypeId: string
   subcategoryId: string
 }
 
@@ -338,12 +383,17 @@ export async function getAvailabilityCountsByListing(
       const [total, available] = await Promise.all([
         prisma.room.count({
           where: {
-            type: listing.type,
+            roomTypeId: listing.roomTypeId,
             subcategoryId: listing.subcategoryId,
-            isCatalog: false,
+            ...activeInventoryRoomFilter(),
           },
         }),
-        getAvailableUnits(listing.type, from, to, listing.subcategoryId),
+        getAvailableUnits(
+          listing.roomTypeId,
+          from,
+          to,
+          listing.subcategoryId,
+        ),
       ])
       return [key, { available: available.length, total }] as const
     }),
@@ -352,29 +402,37 @@ export async function getAvailabilityCountsByListing(
   return Object.fromEntries(entries)
 }
 
-/** @deprecated Use getAvailabilityCountsByListing for homepage listings. */
+/** @deprecated Legacy type-keyed availability; prefer getAvailabilityCountsByListing. */
 export async function getAvailabilityCountsByType(
   checkIn: string,
   checkOut: string,
-): Promise<Record<RoomType, AvailabilityCount>> {
+): Promise<Record<string, AvailabilityCount>> {
   const from = startOfDay(new Date(checkIn))
   const to = startOfDay(new Date(checkOut))
 
   const totals = await prisma.room.groupBy({
-    by: ["type"],
-    where: { isCatalog: false },
+    by: ["roomTypeId"],
+    where: activeInventoryRoomFilter(),
     _count: { _all: true },
   })
-  const totalByType = Object.fromEntries(
-    totals.map((t) => [t.type, t._count._all]),
-  ) as Record<RoomType, number>
+  const totalByTypeId = Object.fromEntries(
+    totals.map((t) => [t.roomTypeId, t._count._all]),
+  ) as Record<string, number>
 
-  const result = {} as Record<RoomType, AvailabilityCount>
-  for (const type of ["TWIN", "QUEEN", "KING", "SUITE"] as RoomType[]) {
-    const available = await getAvailableUnits(type, from, to)
-    result[type] = {
-      available: available.length,
-      total: totalByType[type] ?? 0,
+  const result: Record<string, AvailabilityCount> = {}
+  const roomTypeIds = Object.keys(totalByTypeId)
+  const availability = await Promise.all(
+    roomTypeIds.map((roomTypeId) =>
+      getAvailableUnits(roomTypeId, from, to).then((units) => ({
+        roomTypeId,
+        available: units.length,
+      })),
+    ),
+  )
+  for (const { roomTypeId, available } of availability) {
+    result[roomTypeId] = {
+      available,
+      total: totalByTypeId[roomTypeId] ?? 0,
     }
   }
   return result
@@ -411,7 +469,7 @@ export async function finalizeBooking(input: {
 
     const catalog = await prisma.room.findUnique({
       where: { id: input.roomId },
-      select: { id: true, name: true, type: true },
+      select: { id: true, name: true, roomTypeId: true },
     })
     if (!catalog) return { ok: false, error: "Room not found" }
 
@@ -453,6 +511,7 @@ export async function finalizeBooking(input: {
     const booking = await prisma.booking.create({
       data: {
         roomId: result.unit.id,
+        roomTypeId: result.unit.roomTypeId,
         subcategoryId: result.subcategoryId,
         userId: user.id,
         checkIn,
@@ -548,6 +607,7 @@ export async function createBooking(input: {
     const booking = await prisma.booking.create({
       data: {
         roomId: result.unit.id,
+        roomTypeId: result.unit.roomTypeId,
         subcategoryId: result.subcategoryId,
         userId: guest.id,
         checkIn,
@@ -769,9 +829,10 @@ export async function finalizeCartBookings(input: {
             select: { id: true, name: true },
           }),
           prisma.room.findUnique({
-            where: { id: quoted.unitId },
+            where: { id: quoted.unitId, archivedAt: null },
             select: {
               id: true,
+              roomTypeId: true,
               roomNumber: true,
               capacity: true,
               subcategoryId: true,
@@ -804,8 +865,13 @@ export async function finalizeCartBookings(input: {
     )
 
     const bookingIds = await prisma.$transaction(async (tx) => {
-      const ids: string[] = []
-      for (const [index, p] of prepared.entries()) {
+      const idsByIndex: string[] = new Array(prepared.length)
+      const lockOrder = [...prepared.keys()].sort((a, b) =>
+        prepared[a].unit.id.localeCompare(prepared[b].unit.id),
+      )
+
+      for (const index of lockOrder) {
+        const p = prepared[index]
         const quoted = quotedItems[index]
         if (
           quoted.roomId !== p.catalog.id ||
@@ -819,6 +885,8 @@ export async function finalizeCartBookings(input: {
         ) {
           throw new Error("Cart contents changed. Please restart checkout.")
         }
+
+        await lockAndValidateActiveUnit(tx, p.unit)
 
         const conflicting = await tx.booking.findFirst({
           where: {
@@ -836,6 +904,7 @@ export async function finalizeCartBookings(input: {
         const b = await tx.booking.create({
           data: {
             roomId: p.unit.id,
+            roomTypeId: p.unit.roomTypeId,
             subcategoryId: p.subcategoryId,
             userId: user.id,
             checkIn: p.checkIn,
@@ -850,9 +919,9 @@ export async function finalizeCartBookings(input: {
             specialRequests: input.specialRequests || null,
           },
         })
-        ids.push(b.id)
+        idsByIndex[index] = b.id
       }
-      return ids
+      return idsByIndex
     })
 
     revalidatePath("/admin")

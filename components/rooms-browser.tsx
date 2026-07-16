@@ -2,18 +2,14 @@
 
 import * as React from "react"
 import { Loader2, SlidersHorizontal } from "lucide-react"
-import type { RoomType } from "@prisma/client"
 import { format } from "date-fns"
 
 import type { PublicRoomListing } from "@/lib/queries"
 import type { AvailabilityCount } from "@/app/actions"
 import { MIN_GUESTS, useDateRange } from "@/lib/date-range"
-import {
-  listingAvailabilityKey,
-  listingFromPriceCents,
-  ROOM_TYPE_LABELS,
-  ROOM_TYPE_SHORT_LABELS,
-} from "@/lib/rooms"
+import { listingAvailabilityKey, listingFromPriceCents } from "@/lib/rooms"
+import type { RoomTypeRecord } from "@/lib/room-types"
+import { roomTypeLabel, roomTypeTabLabel } from "@/lib/room-type-labels"
 import { subcategorySortIndex } from "@/lib/subcategories"
 import { RoomCard } from "@/components/room-card"
 import { Button } from "@/components/ui/button"
@@ -79,8 +75,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
-const CATALOG_ORDER: RoomType[] = ["TWIN", "QUEEN", "KING", "SUITE"]
-
 // Re-themes the sort/page-size/filter controls to sit on the section's fixed
 // cream background — their dropdown panels are portaled and intentionally
 // left in the app's default theme (see BookingPicker for the same tradeoff).
@@ -100,6 +94,7 @@ const listingsControlsTheme = {
 
 type Props = {
   rooms: PublicRoomListing[]
+  roomTypes: RoomTypeRecord[]
   /** Listing availability keys (`roomId:subcategoryId`) with stock for the selected dates. Null = no date filter. */
   availableIds?: Set<string> | null
   availabilityCounts?: Record<string, AvailabilityCount> | null
@@ -110,6 +105,7 @@ type Props = {
 
 export function RoomsBrowser({
   rooms,
+  roomTypes,
   availableIds = null,
   availabilityCounts = null,
   isCheckingAvailability = false,
@@ -117,16 +113,35 @@ export function RoomsBrowser({
 }: Readonly<Props>) {
   const { dateRange } = useDateRange()
   const [open, setOpen] = React.useState(false)
-  const [types, setTypes] = React.useState<Set<RoomType>>(new Set())
+  const [selectedTypeIds, setSelectedTypeIds] = React.useState<Set<string>>(
+    new Set(),
+  )
   const [amenityIds, setAmenityIds] = React.useState<Set<string>>(new Set())
   const [sort, setSort] = React.useState<SortKey>("featured")
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState<PageSize>(10)
 
-  const availableTypes = React.useMemo(
-    () => [...new Set(rooms.map((r) => r.type))],
-    [rooms],
+  const typeOrder = React.useMemo(
+    () => new Map(roomTypes.map((t) => [t.id, t.sortOrder])),
+    [roomTypes],
   )
+
+  const typeById = React.useMemo(
+    () => new Map(roomTypes.map((t) => [t.id, t])),
+    [roomTypes],
+  )
+
+  const availableTypes = React.useMemo(() => {
+    const ids = [...new Set(rooms.map((r) => r.roomTypeId))]
+    return ids
+      .map((id) => typeById.get(id))
+      .filter((t): t is RoomTypeRecord => t != null)
+      .sort(
+        (a, b) =>
+          (typeOrder.get(a.id) ?? 999) - (typeOrder.get(b.id) ?? 999),
+      )
+  }, [rooms, typeById, typeOrder])
+
   const availableAmenities = React.useMemo(() => {
     const map = new Map<string, string>()
     for (const r of rooms) for (const a of r.amenities) map.set(a.id, a.name)
@@ -146,7 +161,8 @@ export function RoomsBrowser({
         }
       }
       if (r.capacity < minGuests) return false
-      const typeOk = types.size === 0 || types.has(r.type)
+      const typeOk =
+        selectedTypeIds.size === 0 || selectedTypeIds.has(r.roomTypeId)
       const roomAmenities = new Set(r.amenities.map((a) => a.id))
       const amenityOk =
         amenityIds.size === 0 ||
@@ -188,7 +204,7 @@ export function RoomsBrowser({
           )
         })
     }
-  }, [rooms, types, amenityIds, sort, availableIds, minGuests])
+  }, [rooms, selectedTypeIds, amenityIds, sort, availableIds, minGuests])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -199,21 +215,23 @@ export function RoomsBrowser({
   }, [filtered, currentPage, pageSize])
 
   const grouped = React.useMemo(() => {
-    const byType = new Map<RoomType, PublicRoomListing[]>()
+    const byTypeId = new Map<string, PublicRoomListing[]>()
     for (const room of paginated) {
-      const list = byType.get(room.type) ?? []
+      const list = byTypeId.get(room.roomTypeId) ?? []
       list.push(room)
-      byType.set(room.type, list)
+      byTypeId.set(room.roomTypeId, list)
     }
-    return CATALOG_ORDER.filter((type) => byType.has(type)).map((type) => ({
-      type,
-      rooms: byType.get(type)!,
-    }))
-  }, [paginated])
+    return availableTypes
+      .filter((type) => byTypeId.has(type.id))
+      .map((type) => ({
+        type,
+        rooms: byTypeId.get(type.id)!,
+      }))
+  }, [paginated, availableTypes])
 
   React.useEffect(() => {
     setPage(1)
-  }, [types, amenityIds, sort, availableIds, pageSize, minGuests])
+  }, [selectedTypeIds, amenityIds, sort, availableIds, pageSize, minGuests])
 
   React.useEffect(() => {
     if (page > totalPages) setPage(totalPages)
@@ -223,7 +241,7 @@ export function RoomsBrowser({
     filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const rangeEnd = Math.min(currentPage * pageSize, filtered.length)
 
-  const activeCount = types.size + amenityIds.size
+  const activeCount = selectedTypeIds.size + amenityIds.size
   const hasDates = dateRange?.from && dateRange?.to
 
   function subtitle() {
@@ -238,11 +256,11 @@ export function RoomsBrowser({
     return "Handpicked stays for every kind of traveller."
   }
 
-  function toggleType(t: RoomType) {
-    setTypes((prev) => {
+  function toggleType(roomTypeId: string) {
+    setSelectedTypeIds((prev) => {
       const next = new Set(prev)
-      if (next.has(t)) next.delete(t)
-      else next.add(t)
+      if (next.has(roomTypeId)) next.delete(roomTypeId)
+      else next.add(roomTypeId)
       return next
     })
   }
@@ -257,7 +275,7 @@ export function RoomsBrowser({
   }
 
   function clearAll() {
-    setTypes(new Set())
+    setSelectedTypeIds(new Set())
     setAmenityIds(new Set())
   }
 
@@ -300,9 +318,9 @@ export function RoomsBrowser({
           aria-busy={isCheckingAvailability}
         >
           {grouped.map(({ type, rooms: sectionRooms }) => (
-            <section key={type}>
+            <section key={type.id}>
               <h3 className="text-primary-foreground mb-4 text-xl">
-                {ROOM_TYPE_SHORT_LABELS[type]}
+                {roomTypeTabLabel(type)}
               </h3>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {sectionRooms.map((room) => (
@@ -449,12 +467,12 @@ export function RoomsBrowser({
                 <section className="space-y-2">
                   <h3 className="text-sm">Room type</h3>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {availableTypes.map((t) => (
+                    {availableTypes.map((type) => (
                       <CheckboxRow
-                        key={t}
-                        label={ROOM_TYPE_LABELS[t]}
-                        checked={types.has(t)}
-                        onChange={() => toggleType(t)}
+                        key={type.id}
+                        label={roomTypeLabel(type)}
+                        checked={selectedTypeIds.has(type.id)}
+                        onChange={() => toggleType(type.id)}
                       />
                     ))}
                   </div>

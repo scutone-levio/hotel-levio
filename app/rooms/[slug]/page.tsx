@@ -27,12 +27,8 @@ import {
 } from "lucide-react"
 
 import { getCatalogRoomBySlug, getSimilarRooms } from "@/lib/queries"
-import { TYPE_TOTALS } from "@/lib/floor-plan"
-import {
-  isListingFeatured,
-  listingAvailabilityKey,
-  ROOM_TYPE_LABELS,
-} from "@/lib/rooms"
+import { countActiveInventoryForType, roomTypeLabel } from "@/lib/room-types"
+import { isListingFeatured, listingAvailabilityKey } from "@/lib/rooms"
 import { resolveListingImagesForRoom } from "@/lib/listing-images"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -116,6 +112,8 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
   const similarRooms = await getSimilarRooms(room, 3)
   const featured = isListingFeatured(room)
   const listingImages = resolveListingImagesForRoom(room)
+  const inventoryCount = await countActiveInventoryForType(room.roomTypeId)
+  const typeLabel = roomTypeLabel(room.roomType)
 
   return (
     <div className="bg-background flex min-h-screen flex-col">
@@ -143,9 +141,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
               {/* Header */}
               <div>
                 <div className="flex flex-wrap gap-2 mb-3">
-                  <Badge variant="secondary">
-                    {ROOM_TYPE_LABELS[room.type]}
-                  </Badge>
+                  <Badge variant="secondary">{typeLabel}</Badge>
                   {room.subcategory && (
                     <Badge variant="outline">
                       {room.subcategory.name}
@@ -156,7 +152,7 @@ export default async function RoomPage({ params, searchParams }: PageProps) {
                   {room.name}
                 </h1>
                 <p className="text-muted-foreground mt-2 text-sm">
-                  {TYPE_TOTALS[room.type]} {room.type.toLowerCase()} rooms in the hotel
+                  {inventoryCount} {room.roomType.name.toLowerCase()} rooms in the hotel
                 </p>
                 <div className="text-muted-foreground mt-3 flex flex-wrap gap-4 text-sm">
                   <span className="flex items-center gap-1.5">

@@ -1,5 +1,3 @@
-import type { RoomType } from "@prisma/client"
-
 export const LOWER_LEVEL_NAME = "Lower Level"
 export const LAKE_VIEW_NAME = "Lake View"
 export const CITY_VIEW_NAME = "City View"
@@ -17,14 +15,6 @@ export type PublicSubcategoryName = (typeof PUBLIC_SUBCATEGORY_NAMES)[number]
 
 const LOWER_LEVEL_PRICE = 11900
 
-/** Catalog base prices per room type (cents). */
-export const CATALOG_BASE_PRICES: Record<RoomType, number> = {
-  TWIN: 12900,
-  QUEEN: 18900,
-  KING: 22900,
-  SUITE: 39900,
-}
-
 export const LAKE_VIEW_PRICE_MULTIPLIER = 1.25
 export const WEEKEND_PRICE_MULTIPLIER = 1.25
 
@@ -39,17 +29,14 @@ export function weekendPriceForBase(baseCents: number): number {
 }
 
 export function subcategoryPriceForType(
-  type: RoomType,
+  typeBasePrice: number,
   name: string,
 ): number {
   if (name === LOWER_LEVEL_NAME) return LOWER_LEVEL_PRICE
   if (name === LAKE_VIEW_NAME) {
-    return applyPricePremium(
-      CATALOG_BASE_PRICES[type],
-      LAKE_VIEW_PRICE_MULTIPLIER,
-    )
+    return applyPricePremium(typeBasePrice, LAKE_VIEW_PRICE_MULTIPLIER)
   }
-  return CATALOG_BASE_PRICES[type]
+  return typeBasePrice
 }
 
 /** Subcategory name for a non-catalog room based on floor and index within (type, floor). */
@@ -67,16 +54,15 @@ export function subcategorySortIndex(name: string): number {
 }
 
 type InventoryRoomRef = {
-  type: RoomType
+  roomTypeId: string
   floor: number | null
   roomNumber: string
 }
 
-function typeFloorKey(type: RoomType, floor: number) {
-  return `${type}:${floor}`
+function typeFloorKey(roomTypeId: string, floor: number) {
+  return `${roomTypeId}:${floor}`
 }
 
-/** Group inventory rooms by (type, floor), sorted by roomNumber within each group. */
 export function groupInventoryByTypeAndFloor<T extends InventoryRoomRef>(
   rooms: T[],
 ): Map<string, T[]> {
@@ -84,7 +70,7 @@ export function groupInventoryByTypeAndFloor<T extends InventoryRoomRef>(
 
   for (const room of rooms) {
     const floor = room.floor ?? Number.parseInt(room.roomNumber.slice(0, -2), 10)
-    const key = typeFloorKey(room.type, floor)
+    const key = typeFloorKey(room.roomTypeId, floor)
     const list = groups.get(key) ?? []
     list.push(room)
     groups.set(key, list)

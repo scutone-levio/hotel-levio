@@ -12,7 +12,8 @@ import {
 import { ArrowUpDown } from "lucide-react"
 
 import { type RoomWithDetails } from "@/lib/queries"
-import { ROOM_TYPE_LABELS, formatPrice } from "@/lib/rooms"
+import { roomTypeLabel } from "@/lib/room-type-labels"
+import { formatPrice } from "@/lib/rooms"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -42,10 +43,10 @@ const columns: ColumnDef<RoomWithDetails>[] = [
     ),
   },
   {
-    accessorKey: "type",
+    id: "roomType",
     header: "Type",
     cell: ({ row }) => (
-      <Badge variant="secondary">{ROOM_TYPE_LABELS[row.original.type]}</Badge>
+      <Badge variant="secondary">{roomTypeLabel(row.original.roomType)}</Badge>
     ),
   },
   {

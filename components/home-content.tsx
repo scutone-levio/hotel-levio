@@ -4,6 +4,7 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { MapPin } from "lucide-react"
 import type { PublicRoomListing } from "@/lib/queries"
+import type { RoomTypeRecord } from "@/lib/room-types"
 import {
   getAvailableRoomIds,
   getAvailabilityCountsByListing,
@@ -14,7 +15,13 @@ import { useDateRange } from "@/lib/date-range"
 import { HeroSearchBar } from "@/components/hero-search-bar"
 import { RoomsBrowser } from "@/components/rooms-browser"
 
-export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
+export function HomeContent({
+  rooms,
+  roomTypes,
+}: {
+  rooms: PublicRoomListing[]
+  roomTypes: RoomTypeRecord[]
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const { dateRange, isHydrated, guests } = useDateRange()
@@ -25,7 +32,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
         .filter((room) => room.subcategory?.id)
         .map((room) => ({
           roomId: room.id,
-          type: room.type,
+          roomTypeId: room.roomTypeId,
           subcategoryId: room.subcategory!.id,
         })),
     [rooms],
@@ -124,6 +131,7 @@ export function HomeContent({ rooms }: { rooms: PublicRoomListing[] }) {
         <div className="mx-auto max-w-6xl px-6">
           <RoomsBrowser
             rooms={rooms}
+            roomTypes={roomTypes}
             availableIds={availableListingKeys}
             availabilityCounts={availabilityCounts}
             isCheckingAvailability={isPending}

@@ -2,12 +2,11 @@
 
 import { revalidatePath } from "next/cache"
 import { differenceInCalendarDays } from "date-fns"
-import type { RoomType } from "@prisma/client"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { UTApi } from "uploadthing/server"
 
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTransactionClient } from "@/lib/prisma"
 import { quoteRange } from "@/lib/pricing"
 import { syncTypeQuantity, updateRoomInventory } from "@/lib/inventory"
 import {
@@ -23,28 +22,18 @@ import {
 } from "@/lib/email-templates"
 import { isAllowedImageUrl } from "@/lib/image-hosts"
 import {
-  LAKE_VIEW_NAME,
-  LAKE_VIEW_PRICE_MULTIPLIER,
-  applyPricePremium,
-  weekendPriceForBase,
-} from "@/lib/subcategories"
+  archiveRoom,
+  archiveRoomType,
+  archiveSubcategory,
+  restoreRoom,
+  restoreRoomType,
+  restoreSubcategory,
+} from "@/lib/room-archive"
+import { suggestNextRoomNumbers } from "@/lib/floor-plan"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
-
-export type BumpLakeViewPricesResult =
-  | {
-      ok: true
-      updated: Array<{
-        roomType: RoomType
-        subcategoryId: string
-        oldPrice: number
-        newPrice: number
-        roomsUpdated: number
-      }>
-    }
-  | { ok: false; error: string }
 
 // Best-effort cleanup of an UploadThing file that was uploaded client-side
 // but whose metadata failed to persist, so it doesn't stay orphaned in storage.
@@ -87,7 +76,10 @@ async function run(fn: () => Promise<void>): Promise<ActionResult> {
         return { ok: false, error: "That room number is already in use" }
       }
       if (target.includes("slug")) {
-        return { ok: false, error: "That room number is already in use" }
+        return {
+          ok: false,
+          error: "That slug is already in use. Choose a different slug.",
+        }
       }
     }
     const message = err instanceof Error ? err.message : "Something went wrong"
@@ -426,25 +418,214 @@ export async function setPriceRule(
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Room types                                                                */
+/* -------------------------------------------------------------------------- */
+
+const roomTypeSlugSchema = z
+  .string()
+  .trim()
+  .min(2, "Slug must be at least 2 characters")
+  .regex(
+    /^[a-z0-9-]+$/,
+    "Slug must be lowercase letters, numbers, and hyphens only",
+  )
+
+const roomTypeSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  slug: roomTypeSlugSchema,
+  description: z.string().trim().min(10, "Description must be at least 10 characters"),
+  capacity: z.coerce.number().int().min(1, "Capacity must be at least 1"),
+  beds: z.coerce.number().int().min(1, "Beds must be at least 1"),
+  basePriceCents: z.coerce
+    .number()
+    .int()
+    .min(0, "Price must be non-negative"),
+})
+
+async function nextCatalogRoomNumber(
+  db: PrismaTransactionClient | typeof prisma = prisma,
+): Promise<string> {
+  // Include archived rooms so their numbers aren't handed out to new units.
+  const taken = new Set(
+    (await db.room.findMany({ select: { roomNumber: true } })).map(
+      (r) => r.roomNumber,
+    ),
+  )
+
+  for (let n = 900; n <= 999; n++) {
+    const candidate = String(n)
+    if (!taken.has(candidate)) return candidate
+  }
+
+  const [slot] = suggestNextRoomNumbers(1, taken)
+  if (!slot) throw new Error("No available room numbers for catalog room")
+  return slot.roomNumber
+}
+
+export async function createRoomType(input: {
+  name: string
+  slug: string
+  description: string
+  capacity: number
+  beds: number
+  basePriceCents: number
+}): Promise<ActionResult> {
+  const parsed = roomTypeSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
+
+  return run(async () => {
+    await prisma.$transaction(async (tx) => {
+      const maxSort = await tx.roomTypeDefinition.aggregate({
+        _max: { sortOrder: true },
+      })
+      const sortOrder = (maxSort._max.sortOrder ?? -1) + 1
+
+      const type = await tx.roomTypeDefinition.create({
+        data: {
+          name: parsed.data.name,
+          slug: parsed.data.slug,
+          description: parsed.data.description,
+          capacity: parsed.data.capacity,
+          beds: parsed.data.beds,
+          basePrice: parsed.data.basePriceCents,
+          sortOrder,
+        },
+      })
+
+      const roomNumber = await nextCatalogRoomNumber(tx)
+      const floor = Number.parseInt(roomNumber.slice(0, -2), 10)
+
+      await tx.room.create({
+        data: {
+          name: type.name,
+          slug: type.slug,
+          description: type.description,
+          roomTypeId: type.id,
+          basePrice: type.basePrice,
+          capacity: type.capacity,
+          beds: type.beds,
+          floor,
+          roomNumber,
+          isCatalog: true,
+          priceRules: {
+            create: [
+              { dayOfWeek: 5, price: Math.round(type.basePrice * 1.25) },
+              { dayOfWeek: 6, price: Math.round(type.basePrice * 1.25) },
+            ],
+          },
+        },
+      })
+    })
+  })
+}
+
+export async function updateRoomType(
+  id: string,
+  input: {
+    name: string
+    slug: string
+    description: string
+    capacity: number
+    beds: number
+    basePriceCents: number
+  },
+): Promise<ActionResult> {
+  const parsed = roomTypeSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message }
+  }
+
+  return run(async () => {
+    await prisma.$transaction(async (tx) => {
+      const type = await tx.roomTypeDefinition.update({
+        where: { id },
+        data: {
+          name: parsed.data.name,
+          slug: parsed.data.slug,
+          description: parsed.data.description,
+          capacity: parsed.data.capacity,
+          beds: parsed.data.beds,
+          basePrice: parsed.data.basePriceCents,
+        },
+      })
+
+      const catalog = await tx.room.findFirst({
+        where: { roomTypeId: id, isCatalog: true, archivedAt: null },
+      })
+      if (catalog) {
+        await tx.room.update({
+          where: { id: catalog.id },
+          data: {
+            name: type.name,
+            slug: type.slug,
+            description: type.description,
+            basePrice: type.basePrice,
+            capacity: type.capacity,
+            beds: type.beds,
+          },
+        })
+      }
+    })
+  })
+}
+
+export async function archiveRoomTypeAction(
+  roomTypeId: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    await archiveRoomType(roomTypeId)
+  })
+}
+
+export async function restoreRoomTypeAction(
+  roomTypeId: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    await restoreRoomType(roomTypeId)
+  })
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Inventory                                                                 */
 /* -------------------------------------------------------------------------- */
 
 export async function syncTypeQuantityAction(
-  type: RoomType,
+  roomTypeId: string,
   quantity: number,
 ): Promise<ActionResult> {
   return run(async () => {
-    await syncTypeQuantity(type, quantity)
-    await recomputeAllSubcategoryPricing()
+    await prisma.$transaction(async (tx) => {
+      await syncTypeQuantity(roomTypeId, quantity, tx)
+      await recomputeAllSubcategoryPricing(tx)
+    })
   })
 }
 
 export async function updateRoomInventoryAction(
   roomId: string,
-  input: { floor?: number; roomNumber?: string; type?: RoomType },
+  input: {
+    floor?: number
+    roomNumber?: string
+    roomTypeId?: string
+    subcategoryId?: string | null
+  },
 ): Promise<ActionResult> {
   return run(async () => {
     await updateRoomInventory(roomId, input)
+  })
+}
+
+export async function archiveRoomAction(roomId: string): Promise<ActionResult> {
+  return run(async () => {
+    await archiveRoom(roomId)
+  })
+}
+
+export async function restoreRoomAction(roomId: string): Promise<ActionResult> {
+  return run(async () => {
+    await restoreRoom(roomId)
   })
 }
 
@@ -465,7 +646,12 @@ export type BookingRow = {
   guestPhone: string | null
   specialRequests: string | null
   createdAt: Date
-  room: { id: string; name: string; roomNumber: string | null; type: RoomType }
+  room: {
+    id: string
+    name: string
+    roomNumber: string | null
+    roomType: { id: string; name: string; slug: string }
+  }
   user: { name: string | null; email: string }
 }
 
@@ -499,7 +685,12 @@ export async function getBookings(params: {
       take: pageSize,
       include: {
         room: {
-          select: { id: true, name: true, roomNumber: true, type: true },
+          select: {
+            id: true,
+            name: true,
+            roomNumber: true,
+            roomType: { select: { id: true, name: true, slug: true } },
+          },
         },
         user: { select: { name: true, email: true } },
       },
@@ -610,19 +801,19 @@ export async function deleteBooking(id: string): Promise<ActionResult> {
 }
 
 export async function createRoomSubcategory(
-  roomType: string,
+  roomTypeId: string,
   name: string,
   basePriceCents: number,
 ): Promise<ActionResult> {
   return run(async () => {
     const schema = z.object({
-      roomType: z.enum(["TWIN", "QUEEN", "KING", "SUITE"]),
-      name: z.string().min(1, "Name is required"),
+      roomTypeId: z.string().min(1, "Room type is required"),
+      name: z.string().trim().min(1, "Name is required"),
       basePrice: z.number().int().min(0, "Price must be non-negative"),
     })
 
     const parsed = schema.safeParse({
-      roomType,
+      roomTypeId,
       name,
       basePrice: basePriceCents,
     })
@@ -630,11 +821,21 @@ export async function createRoomSubcategory(
       throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
     }
 
-    await prisma.roomSubcategory.create({
-      data: {
-        ...parsed.data,
-        fromPriceCents: parsed.data.basePrice,
-      },
+    await prisma.$transaction(async (tx) => {
+      const type = await tx.roomTypeDefinition.findFirst({
+        where: { id: parsed.data.roomTypeId, isActive: true },
+        select: { id: true },
+      })
+      if (!type) throw new Error("Room type not found")
+
+      await tx.roomSubcategory.create({
+        data: {
+          roomTypeId: parsed.data.roomTypeId,
+          name: parsed.data.name,
+          basePrice: parsed.data.basePrice,
+          fromPriceCents: parsed.data.basePrice,
+        },
+      })
     })
   })
 }
@@ -666,135 +867,25 @@ export async function updateRoomSubcategory(
   })
 }
 
-const WEEKEND_DAYS = [5, 6] as const
-
-export async function bumpLakeViewSubcategoryPrices(): Promise<BumpLakeViewPricesResult> {
-  try {
-    const updated = await prisma.$transaction(async (tx) => {
-      async function syncWeekendPriceRules(
-        roomId: string,
-        priceRules: { id: string; dayOfWeek: number }[],
-        weekendPrice: number,
-      ) {
-        for (const dayOfWeek of WEEKEND_DAYS) {
-          const existing = priceRules.find((rule) => rule.dayOfWeek === dayOfWeek)
-          if (existing) {
-            await tx.roomPriceRule.update({
-              where: { id: existing.id },
-              data: { price: weekendPrice },
-            })
-            continue
-          }
-
-          await tx.roomPriceRule.create({
-            data: { roomId, dayOfWeek, price: weekendPrice },
-          })
-        }
-      }
-
-      const subcategories = await tx.roomSubcategory.findMany({
-        where: { name: LAKE_VIEW_NAME },
-      })
-
-      if (subcategories.length === 0) {
-        throw new Error("No Lake View subcategories found")
-      }
-
-      const priceBySubcategoryId = new Map<string, number>()
-      const summary: Extract<
-        BumpLakeViewPricesResult,
-        { ok: true }
-      >["updated"] = []
-
-      for (const sub of subcategories) {
-        const newPrice = applyPricePremium(
-          sub.basePrice,
-          LAKE_VIEW_PRICE_MULTIPLIER,
-        )
-        await tx.roomSubcategory.update({
-          where: { id: sub.id },
-          data: { basePrice: newPrice },
-        })
-        priceBySubcategoryId.set(sub.id, newPrice)
-        summary.push({
-          roomType: sub.roomType,
-          subcategoryId: sub.id,
-          oldPrice: sub.basePrice,
-          newPrice,
-          roomsUpdated: 0,
-        })
-      }
-
-      const lakeViewRooms = await tx.room.findMany({
-        where: {
-          isCatalog: false,
-          subcategory: { name: LAKE_VIEW_NAME },
-        },
-        include: { priceRules: true, subcategory: true },
-      })
-
-      for (const room of lakeViewRooms) {
-        const subcategoryId = room.subcategoryId
-        if (!subcategoryId) continue
-
-        const newSubBase = priceBySubcategoryId.get(subcategoryId)
-        if (newSubBase == null) continue
-
-        await tx.room.update({
-          where: { id: room.id },
-          data: { basePrice: newSubBase },
-        })
-
-        const weekendPrice = weekendPriceForBase(newSubBase)
-        await syncWeekendPriceRules(room.id, room.priceRules, weekendPrice)
-
-        const entry = summary.find((s) => s.subcategoryId === subcategoryId)
-        if (entry) entry.roomsUpdated += 1
-      }
-
-      for (const sub of subcategories) {
-        await recomputeSubcategoryPricing(sub.id, tx)
-      }
-
-      return summary
-    })
-
-    revalidate()
-    return { ok: true, updated }
-  } catch (err) {
-    if (
-      err instanceof Error &&
-      err.message === "No Lake View subcategories found"
-    ) {
-      return { ok: false, error: err.message }
-    }
-    return {
-      ok: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to update Lake View prices",
-    }
-  }
+export async function archiveRoomSubcategory(
+  id: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    await archiveSubcategory(id)
+  })
 }
 
-export async function deleteRoomSubcategory(id: string): Promise<ActionResult> {
+export async function restoreRoomSubcategory(
+  id: string,
+): Promise<ActionResult> {
   return run(async () => {
-    // Check if any rooms are using this subcategory
-    const roomCount = await prisma.room.count({
-      where: { subcategoryId: id },
-    })
-
-    if (roomCount > 0) {
-      throw new Error(
-        `Cannot delete: ${roomCount} room(s) are assigned to this subcategory`,
-      )
-    }
-
-    await prisma.roomSubcategory.delete({
-      where: { id },
-    })
+    await restoreSubcategory(id)
   })
+}
+
+/** @deprecated Use archiveRoomSubcategory — archives instead of deleting. */
+export async function deleteRoomSubcategory(id: string): Promise<ActionResult> {
+  return archiveRoomSubcategory(id)
 }
 
 export async function assignRoomToSubcategory(

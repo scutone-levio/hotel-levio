@@ -50,25 +50,38 @@ async function collectAllUrls(): Promise<Map<string, string>> {
   addGalleryUrls(urls, suiteSubcategoryImagesByName, "suite-sub")
 
   const roomImages = await prisma.roomImage.findMany({
-    select: { url: true, room: { select: { type: true, isCatalog: true } } },
+    select: {
+      url: true,
+      room: {
+        select: {
+          isCatalog: true,
+          roomType: { select: { slug: true } },
+        },
+      },
+    },
   })
   for (const img of roomImages) {
     urls.set(
       img.url,
-      `db:room:${img.room.type}${img.room.isCatalog ? ":catalog" : ""}`,
+      `db:room:${img.room.roomType.slug}${img.room.isCatalog ? ":catalog" : ""}`,
     )
   }
 
   const subImages = await prisma.subcategoryImage.findMany({
     select: {
       url: true,
-      subcategory: { select: { roomType: true, name: true } },
+      subcategory: {
+        select: {
+          name: true,
+          roomType: { select: { slug: true } },
+        },
+      },
     },
   })
   for (const img of subImages) {
     urls.set(
       img.url,
-      `db:sub:${img.subcategory.roomType}:${img.subcategory.name}`,
+      `db:sub:${img.subcategory.roomType.slug}:${img.subcategory.name}`,
     )
   }
 
