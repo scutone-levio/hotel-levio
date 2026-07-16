@@ -91,7 +91,10 @@ function ReservationsTabPanel({
     startTransition,
   } = tabState
 
+  const requestIdRef = React.useRef(0)
+
   const load = React.useCallback(() => {
+    const requestId = ++requestIdRef.current
     startTransition(async () => {
       setLoading(true)
       const result = await getAccountBookings({
@@ -99,6 +102,7 @@ function ReservationsTabPanel({
         page: state.page,
         pageSize: state.pageSize,
       })
+      if (requestId !== requestIdRef.current) return
       if (result.ok) {
         setData({ bookings: result.bookings, total: result.total })
       } else {
@@ -160,10 +164,10 @@ export function ReservationsList() {
   const upcoming = useTabPagination()
   const past = useTabPagination()
 
-  function tabCount(tab: TabKey) {
+  function tabCount(tab: TabKey): string {
     const tabState = tab === "upcoming" ? upcoming : past
-    if (tabState.loading && !tabState.data) return 0
-    return tabState.total
+    if (!tabState.data) return "…"
+    return String(tabState.total)
   }
 
   return (

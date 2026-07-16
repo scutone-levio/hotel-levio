@@ -434,7 +434,20 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
     setPage(1)
   }
 
+  // Clamp to the last valid page (e.g. after a delete shrinks the total)
+  // so the next load() query uses a page that actually has results.
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(Math.max(page, 1), totalPages)
+
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage)
+  }, [page, currentPage])
+
+  const requestIdRef = React.useRef(0)
+
   const load = React.useCallback(() => {
+    const requestId = ++requestIdRef.current
     startTransition(async () => {
       setLoading(true)
       const result = await getBookings({
@@ -444,6 +457,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
         status: statusFilter,
         search: debouncedSearch,
       })
+      if (requestId !== requestIdRef.current) return
       setData(result)
       setLoading(false)
     })
@@ -616,9 +630,9 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
 
       <div className="mt-4">
         <AdminPagination
-          page={page}
+          page={currentPage}
           pageSize={pageSize}
-          total={data?.total ?? 0}
+          total={total}
           onPageChange={setPage}
           onPageSizeChange={handlePageSizeChange}
         />
