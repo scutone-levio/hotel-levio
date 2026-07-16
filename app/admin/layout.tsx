@@ -1,9 +1,11 @@
 import Image from "next/image"
 import Link from "next/link"
+import Script from "next/script"
 import { auth } from "@/auth"
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav"
 import { AdminNav } from "@/components/admin/admin-nav"
 import { AdminProfileDropdown } from "@/components/admin/admin-profile-dropdown"
+import { AdminThemeScope } from "@/components/admin/admin-theme-scope"
 
 export default async function AdminLayout({
   children,
@@ -21,7 +23,12 @@ export default async function AdminLayout({
     .toUpperCase()
 
   return (
-    <div className="bg-muted/30 min-h-screen flex flex-col">
+    <>
+      <Script id="admin-theme-init" strategy="beforeInteractive">
+        {`document.documentElement.classList.add("admin-theme")`}
+      </Script>
+      <div className="admin-theme bg-muted/30 min-h-screen flex flex-col">
+        <AdminThemeScope />
       {/* Top bar */}
       <header className="bg-background border-b relative flex items-center justify-between px-5 py-[10px] shrink-0 z-10">
         <div className="flex items-center gap-2">
@@ -70,5 +77,6 @@ export default async function AdminLayout({
         </main>
       </div>
     </div>
+    </>
   )
 }

@@ -158,7 +158,7 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
           </div>
         </div>
 
-        <Button type="submit" disabled={pending} className="cursor-pointer">
+        <Button type="submit" variant="blue" disabled={pending}>
           {pending ? "Saving…" : "Save profile"}
         </Button>
       </form>
@@ -198,7 +198,6 @@ export function ProfileForm({ user }: { user: ProfileUser }) {
             type="submit"
             variant="outline"
             disabled={passwordPending}
-            className="cursor-pointer"
           >
             {passwordPending ? "Updating…" : "Update password"}
           </Button>

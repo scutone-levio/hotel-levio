@@ -67,7 +67,7 @@ function DateChangePaymentForm({
   return (
     <form onSubmit={handlePay} className="space-y-3 rounded-xl border p-4">
       <PaymentElement />
-      <Button type="submit" disabled={!stripe || pending} className="cursor-pointer">
+      <Button variant="action" type="submit" disabled={!stripe || pending}>
         {pending ? "Processing…" : "Pay price difference"}
       </Button>
     </form>
@@ -208,7 +208,6 @@ export function ReservationDetail({
             <Button
               onClick={() => applyDateChange()}
               disabled={pending}
-              className="cursor-pointer"
             >
               {pending ? "Updating…" : "Update dates"}
             </Button>
@@ -238,10 +237,9 @@ export function ReservationDetail({
               />
             </div>
             <Button
-              variant="outline"
+              variant="action"
               onClick={handleSaveRequests}
               disabled={pending}
-              className="cursor-pointer"
             >
               Save requests
             </Button>
@@ -252,7 +250,6 @@ export function ReservationDetail({
               variant="destructive"
               onClick={handleCancel}
               disabled={pending}
-              className="cursor-pointer"
             >
               Cancel reservation
             </Button>

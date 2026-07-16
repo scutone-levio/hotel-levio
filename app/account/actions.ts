@@ -195,8 +195,8 @@ export async function getAccountBookings(params: {
 
     const orderBy =
       params.tab === "upcoming"
-        ? ([{ checkIn: "asc" }, { id: "asc" }] as const)
-        : ([{ checkIn: "desc" }, { id: "desc" }] as const)
+        ? [{ checkIn: "asc" as const }, { id: "asc" as const }]
+        : [{ checkIn: "desc" as const }, { id: "desc" as const }]
 
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
