@@ -199,13 +199,13 @@ export function ReservationsList() {
       <TabsList className="border bg-white p-0.5">
         <TabsTrigger
           value="upcoming"
-          className="data-active:bg-[#0f2a3d] data-active:text-white"
+          className="data-[state=active]:bg-[#0f2a3d] data-[state=active]:text-white"
         >
           Upcoming ({tabCount("upcoming")})
         </TabsTrigger>
         <TabsTrigger
           value="past"
-          className="data-active:bg-[#0f2a3d] data-active:text-white"
+          className="data-[state=active]:bg-[#0f2a3d] data-[state=active]:text-white"
         >
           Past ({tabCount("past")})
         </TabsTrigger>
