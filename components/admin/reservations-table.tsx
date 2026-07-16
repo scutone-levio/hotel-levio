@@ -446,21 +446,92 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
   const totalPages = data ? Math.ceil(data.total / pageSize) : 1
 
   const showRoomColumn = !roomId
+  const columnCount = showRoomColumn ? 7 : 6
+  const hasResults = (data?.bookings.length ?? 0) > 0
+  const exportDisabled =
+    isExporting || loading || (data?.total ?? 0) === 0
 
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-muted-foreground size-6 animate-spin" />
-      </div>
-    )
-  }
+  function renderTableBody() {
+    if (loading && !data) {
+      return (
+        <tr>
+          <td colSpan={columnCount} className="px-3 py-12 text-center">
+            <Loader2 className="text-muted-foreground mx-auto size-6 animate-spin" />
+          </td>
+        </tr>
+      )
+    }
+    if (!hasResults) {
+      return (
+        <tr>
+          <td
+            colSpan={columnCount}
+            className="text-muted-foreground px-3 py-8 text-center text-sm"
+          >
+            No reservations found.
+          </td>
+        </tr>
+      )
+    }
+    return data!.bookings.map((b) => {
+      const isExpanded = expandedId === b.id
+      return (
+        <React.Fragment key={b.id}>
+          <tr
+            className="bg-white hover:bg-muted/30 border-b cursor-pointer transition-colors"
+            onClick={() => setExpandedId(isExpanded ? null : b.id)}
+          >
+            <td className="px-3 py-2.5 text-muted-foreground">
+              {isExpanded ? (
+                <ChevronDown className="size-4" />
+              ) : (
+                <ChevronRight className="size-4" />
+              )}
+            </td>
+            <td className="px-3 py-2.5">
+              <p className="font-medium leading-none">
+                {b.guestName ?? b.user.name ?? "—"}
+              </p>
+              <p className="text-muted-foreground text-xs mt-0.5">
+                #{b.id.slice(-8).toUpperCase()}
+              </p>
+            </td>
+            {showRoomColumn && (
+              <td className="px-3 py-2.5 text-muted-foreground">
+                {b.room.roomNumber
+                  ? `${b.room.name} · Room ${b.room.roomNumber}`
+                  : b.room.name}
+              </td>
+            )}
+            <td className="px-3 py-2.5 whitespace-nowrap">
+              {format(new Date(b.checkIn), "MMM d, yyyy")}
+            </td>
+            <td className="px-3 py-2.5 whitespace-nowrap">
+              {format(new Date(b.checkOut), "MMM d, yyyy")}
+            </td>
+            <td className="px-3 py-2.5">
+              <Badge
+                variant={STATUS_VARIANT[b.status] ?? "secondary"}
+                className="text-xs"
+              >
+                {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
+              </Badge>
+            </td>
+            <td className="px-3 py-2.5 text-right font-medium whitespace-nowrap">
+              {formatPrice(b.totalPrice, "CAD")}
+            </td>
+          </tr>
 
-  if (!data || data.bookings.length === 0) {
-    return (
-      <p className="text-muted-foreground py-8 text-center text-sm">
-        No reservations found.
-      </p>
-    )
+          {isExpanded && (
+            <ExpandedRow
+              booking={b}
+              onEdit={() => setEditTarget(b)}
+              onDelete={() => setDeleteTarget(b)}
+            />
+          )}
+        </React.Fragment>
+      )
+    })
   }
 
   return (
@@ -474,7 +545,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
               placeholder="Search guest or room…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className="bg-white pl-8 h-8 text-sm"
             />
           </div>
           <div className="flex gap-1.5">
@@ -485,7 +556,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   statusFilter === f.value
                     ? "bg-primary text-primary-foreground"
-                    : "border text-muted-foreground hover:bg-muted"
+                    : "border bg-white text-muted-foreground hover:bg-white hover:text-foreground"
                 }`}
               >
                 {f.label}
@@ -496,7 +567,8 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
             variant="outline"
             size="sm"
             onClick={handleExport}
-            disabled={isExporting}
+            disabled={exportDisabled}
+            className="bg-white hover:bg-white"
           >
             <Download className="size-4" />
             {isExporting ? "Exporting…" : "Export CSV"}
@@ -520,75 +592,13 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
                 <th className="px-3 py-2.5 font-medium text-right">Total</th>
               </tr>
             </thead>
-            <tbody>
-              {data.bookings.map((b) => {
-                const isExpanded = expandedId === b.id
-                return (
-                  <React.Fragment key={b.id}>
-                    <tr
-                      className="bg-white hover:bg-muted/30 border-b cursor-pointer transition-colors"
-                      onClick={() =>
-                        setExpandedId(isExpanded ? null : b.id)
-                      }
-                    >
-                      <td className="px-3 py-2.5 text-muted-foreground">
-                        {isExpanded ? (
-                          <ChevronDown className="size-4" />
-                        ) : (
-                          <ChevronRight className="size-4" />
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <p className="font-medium leading-none">
-                          {b.guestName ?? b.user.name ?? "—"}
-                        </p>
-                        <p className="text-muted-foreground text-xs mt-0.5">
-                          #{b.id.slice(-8).toUpperCase()}
-                        </p>
-                      </td>
-                      {showRoomColumn && (
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          {b.room.roomNumber
-                            ? `${b.room.name} · Room ${b.room.roomNumber}`
-                            : b.room.name}
-                        </td>
-                      )}
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {format(new Date(b.checkIn), "MMM d, yyyy")}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {format(new Date(b.checkOut), "MMM d, yyyy")}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Badge
-                          variant={STATUS_VARIANT[b.status] ?? "secondary"}
-                          className="text-xs"
-                        >
-                          {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-medium whitespace-nowrap">
-                        {formatPrice(b.totalPrice, "CAD")}
-                      </td>
-                    </tr>
-
-                    {isExpanded && (
-                      <ExpandedRow
-                        booking={b}
-                        onEdit={() => setEditTarget(b)}
-                        onDelete={() => setDeleteTarget(b)}
-                      />
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </tbody>
+            <tbody>{renderTableBody()}</tbody>
           </table>
         </div>
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {data && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between text-sm">
           <p className="text-muted-foreground">
             {data.total} reservation{data.total !== 1 ? "s" : ""} ·{" "}
