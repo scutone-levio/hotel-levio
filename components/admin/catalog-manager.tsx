@@ -71,9 +71,13 @@ export function CatalogManager({
         value={activeType}
         onValueChange={(v) => setActiveType(v as RoomType)}
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-4 bg-white">
           {ROOM_TYPES.map((type) => (
-            <TabsTrigger key={type} value={type}>
+            <TabsTrigger
+              key={type}
+              value={type}
+              className="data-active:bg-[#0f2a3d] data-active:text-white"
+            >
               {type.charAt(0) + type.slice(1).toLowerCase()}
             </TabsTrigger>
           ))}
