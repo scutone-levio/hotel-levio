@@ -23,11 +23,7 @@ export default async function AdminLayout({
 
   return (
     <div className="admin-theme bg-muted/30 min-h-screen flex flex-col">
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `document.documentElement.classList.add("admin-theme")`,
-        }}
-      />
+      <script>{`document.documentElement.classList.add("admin-theme")`}</script>
       <AdminThemeScope />
       {/* Top bar */}
       <header className="bg-background border-b relative flex items-center justify-between px-5 py-[10px] shrink-0 z-10">
