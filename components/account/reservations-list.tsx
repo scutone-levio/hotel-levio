@@ -9,6 +9,12 @@ import { getAccountBookings } from "@/app/account/actions"
 import type { BookingListRow } from "@/lib/account-bookings"
 import { formatPrice } from "@/lib/rooms"
 import {
+  LISTING_CARD_HOVER_LIFT_CLASS,
+  LISTING_CARD_SHADOW_CLASS,
+  LISTING_CARD_SHADOW_HOVER_CLASS,
+} from "@/lib/listing-card-shadow"
+import { cn } from "@/lib/utils"
+import {
   AdminPagination,
   type AdminPageSize,
 } from "@/components/admin/admin-pagination"
@@ -190,9 +196,19 @@ export function ReservationsList() {
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as TabKey)}
     >
-      <TabsList>
-        <TabsTrigger value="upcoming">Upcoming ({tabCount("upcoming")})</TabsTrigger>
-        <TabsTrigger value="past">Past ({tabCount("past")})</TabsTrigger>
+      <TabsList className="border bg-white p-0.5">
+        <TabsTrigger
+          value="upcoming"
+          className="data-[state=active]:bg-[#0f2a3d] data-[state=active]:text-white"
+        >
+          Upcoming ({tabCount("upcoming")})
+        </TabsTrigger>
+        <TabsTrigger
+          value="past"
+          className="data-[state=active]:bg-[#0f2a3d] data-[state=active]:text-white"
+        >
+          Past ({tabCount("past")})
+        </TabsTrigger>
       </TabsList>
 
       <ReservationsTabPanel
@@ -213,7 +229,12 @@ function ReservationCard({ booking }: { booking: BookingListRow }) {
   return (
     <Link
       href={`/account/reservations/${booking.id}`}
-      className="hover:bg-muted/40 block rounded-xl border p-4 transition-colors"
+      className={cn(
+        "block rounded-xl border bg-white p-4",
+        LISTING_CARD_SHADOW_CLASS,
+        LISTING_CARD_SHADOW_HOVER_CLASS,
+        LISTING_CARD_HOVER_LIFT_CLASS,
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div>

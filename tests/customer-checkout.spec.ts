@@ -72,7 +72,7 @@ test.describe("Customer checkout", () => {
     await page
       .locator("form")
       .filter({ has: payButton })
-      .evaluate((form) => form.requestSubmit())
+      .evaluate((form) => (form as HTMLFormElement).requestSubmit())
 
     await expect(page).toHaveURL(/\/cart\/confirmation\?ids=/, {
       timeout: 90_000,

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { cn } from "@/lib/utils"
+import { LISTING_CARD_SHADOW_CLASS } from "@/lib/listing-card-shadow"
 
 const links = [
   { href: "/account", label: "Profile", exact: true },
@@ -27,8 +28,8 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
               className={cn(
                 "block rounded-lg px-3 py-2 text-sm transition-colors",
                 active
-                  ? "bg-muted font-medium"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  ? "bg-[#c69456] font-medium text-[#0f2a3d]"
+                  : "text-[#0f2a3d]/70 hover:bg-[#0f2a3d] hover:text-white",
               )}
             >
               {link.label}
@@ -36,7 +37,14 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           )
         })}
       </nav>
-      <div>{children}</div>
+      <div
+        className={cn(
+          "rounded-2xl border bg-white p-6 lg:p-8",
+          LISTING_CARD_SHADOW_CLASS,
+        )}
+      >
+        {children}
+      </div>
     </div>
   )
 }

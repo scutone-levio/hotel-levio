@@ -85,10 +85,10 @@ const listingsControlsTheme = {
   "--border": "rgba(15, 42, 61, 0.25)",
   "--muted": "rgba(15, 42, 61, 0.06)",
   "--muted-foreground": "rgba(15, 42, 61, 0.55)",
-  "--ring": "#a9793c",
-  "--accent": "rgba(169, 121, 60, 0.12)",
+  "--ring": "#c69456",
+  "--accent": "rgba(198, 148, 86, 0.12)",
   "--accent-foreground": "#0f2a3d",
-  "--primary": "#a9793c",
+  "--primary": "#c69456",
   "--primary-foreground": "#fbf8ee",
 } as React.CSSProperties
 
@@ -501,7 +501,7 @@ export function RoomsBrowser({
                 >
                   Clear all
                 </Button>
-                <Button onClick={() => setOpen(false)}>
+                <Button variant="action" onClick={() => setOpen(false)}>
                   Show {filtered.length} room{filtered.length === 1 ? "" : "s"}
                 </Button>
               </DialogFooter>

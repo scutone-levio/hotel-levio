@@ -14,12 +14,12 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel"
 import { cn } from "@/lib/utils"
+import {
+  LISTING_CARD_SHADOW_CLASS,
+} from "@/lib/listing-card-shadow"
 
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"
-
-const LISTING_SHADOW =
-  "shadow-[0_1px_2px_rgba(15,42,61,0.07),0_18px_34px_-18px_rgba(15,42,61,0.32)]"
 
 type GalleryImage = { id: string; url: string }
 
@@ -203,7 +203,7 @@ export function RoomImageCarousel({
     ? "aspect-[4/3] sm:aspect-[21/9] rounded-2xl"
     : "aspect-[4/3]"
   const heroShadowWrap = isHero
-    ? cn("rounded-2xl", LISTING_SHADOW)
+    ? cn("rounded-2xl", LISTING_CARD_SHADOW_CLASS)
     : undefined
   const heroClipWrap = isHero ? "relative overflow-hidden rounded-2xl" : undefined
 

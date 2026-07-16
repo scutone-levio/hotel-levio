@@ -10,6 +10,11 @@ import {
   listingFromPriceCents,
   roomPath,
 } from "@/lib/rooms"
+import {
+  LISTING_CARD_SHADOW_CLASS,
+  ROOM_CARD_HOVER_LIFT_CLASS,
+  LISTING_CARD_SHADOW_HOVER_CLASS,
+} from "@/lib/listing-card-shadow"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +43,12 @@ export function RoomCard({
 
   return (
     <Card
-      className="flex flex-col overflow-hidden pt-0 shadow-[0_1px_2px_rgba(15,42,61,0.07),0_18px_34px_-18px_rgba(15,42,61,0.32)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,42,61,0.08),0_26px_42px_-16px_rgba(15,42,61,0.38)]"
+      className={cn(
+        "flex flex-col overflow-hidden pt-0",
+        LISTING_CARD_SHADOW_CLASS,
+        LISTING_CARD_SHADOW_HOVER_CLASS,
+        ROOM_CARD_HOVER_LIFT_CLASS,
+      )}
       data-testid="room-card"
       data-featured={isListingFeatured(room) ? "true" : "false"}
     >
