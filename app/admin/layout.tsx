@@ -1,7 +1,9 @@
 import Image from "next/image"
 import Link from "next/link"
 import { auth } from "@/auth"
+import { AdminMobileNav } from "@/components/admin/admin-mobile-nav"
 import { AdminNav } from "@/components/admin/admin-nav"
+import { AdminProfileDropdown } from "@/components/admin/admin-profile-dropdown"
 
 export default async function AdminLayout({
   children,
@@ -10,6 +12,7 @@ export default async function AdminLayout({
 }) {
   const session = await auth()
   const name = session?.user?.name ?? session?.user?.email ?? "Admin"
+  const email = session?.user?.email
   const initials = name
     .split(" ")
     .map((w: string) => w[0])
@@ -20,7 +23,7 @@ export default async function AdminLayout({
   return (
     <div className="bg-muted/30 min-h-screen flex flex-col">
       {/* Top bar */}
-      <header className="bg-background border-b flex items-center justify-between px-5 py-[10px] shrink-0 z-10">
+      <header className="bg-background border-b relative flex items-center justify-between px-5 py-[10px] shrink-0 z-10">
         <div className="flex items-center gap-2">
           <Link
             href="/admin"
@@ -43,9 +46,15 @@ export default async function AdminLayout({
           <span className="text-muted-foreground text-sm hidden sm:block">
             {name}
           </span>
-          <div className="bg-primary text-primary-foreground size-8 rounded-full flex items-center justify-center text-xs font-bold">
+          <div className="md:hidden bg-primary text-primary-foreground size-8 rounded-full flex items-center justify-center text-xs font-bold">
             {initials}
           </div>
+          <AdminProfileDropdown
+            name={name}
+            email={email}
+            initials={initials}
+          />
+          <AdminMobileNav />
         </div>
       </header>
 
