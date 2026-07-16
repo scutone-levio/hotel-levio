@@ -94,35 +94,48 @@ export async function archiveRoom(roomId: string, db: DbClient = prisma): Promis
 }
 
 export async function restoreRoom(roomId: string, db: DbClient = prisma): Promise<void> {
-  const room = await db.room.findUnique({
-    where: { id: roomId },
-    select: {
-      id: true,
-      roomNumber: true,
-      roomType: { select: { isActive: true } },
-    },
-  })
-  if (!room) throw new Error("Room not found")
-  if (!room.roomType.isActive) {
-    throw new Error("Cannot restore room: room type is archived")
+  const doRestore = async (tx: DbClient) => {
+    const room = await tx.room.findUnique({
+      where: { id: roomId },
+      select: {
+        id: true,
+        roomNumber: true,
+        subcategoryId: true,
+        roomType: { select: { isActive: true } },
+        subcategory: { select: { isActive: true } },
+      },
+    })
+    if (!room) throw new Error("Room not found")
+    if (!room.roomType.isActive) {
+      throw new Error("Cannot restore room: room type is archived")
+    }
+    if (room.subcategoryId && room.subcategory && !room.subcategory.isActive) {
+      throw new Error("Cannot restore room: subcategory is archived")
+    }
+
+    const conflict = await tx.room.findFirst({
+      where: {
+        roomNumber: room.roomNumber,
+        archivedAt: null,
+        NOT: { id: roomId },
+      },
+      select: { id: true },
+    })
+    if (conflict) {
+      throw new Error(`Room number ${room.roomNumber} is already in use`)
+    }
+
+    await tx.room.update({
+      where: { id: roomId },
+      data: { archivedAt: null },
+    })
   }
 
-  const conflict = await db.room.findFirst({
-    where: {
-      roomNumber: room.roomNumber,
-      archivedAt: null,
-      NOT: { id: roomId },
-    },
-    select: { id: true },
-  })
-  if (conflict) {
-    throw new Error(`Room number ${room.roomNumber} is already in use`)
+  if (db === prisma) {
+    await prisma.$transaction((tx) => doRestore(tx))
+  } else {
+    await doRestore(db)
   }
-
-  await db.room.update({
-    where: { id: roomId },
-    data: { archivedAt: null },
-  })
 }
 
 export async function archiveRoomType(roomTypeId: string): Promise<void> {

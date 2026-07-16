@@ -38,6 +38,7 @@ export default async function ReservePage({
   const room = await prisma.room.findUnique({
     where: { id: roomId },
     include: {
+      roomType: { select: { isActive: true } },
       priceRules: true,
       images: { orderBy: { sortOrder: "asc" } },
       subcategory: {
@@ -46,6 +47,8 @@ export default async function ReservePage({
     },
   })
   if (!room || room.archivedAt) notFound()
+  if (!room.roomType.isActive) notFound()
+  if (room.subcategory && !room.subcategory.isActive) notFound()
 
   const catalogRoom = room.isCatalog
     ? room

@@ -381,10 +381,18 @@ export async function getAvailabilityCountsByType(
   ) as Record<string, number>
 
   const result: Record<string, AvailabilityCount> = {}
-  for (const roomTypeId of Object.keys(totalByTypeId)) {
-    const available = await getAvailableUnits(roomTypeId, from, to)
+  const roomTypeIds = Object.keys(totalByTypeId)
+  const availability = await Promise.all(
+    roomTypeIds.map((roomTypeId) =>
+      getAvailableUnits(roomTypeId, from, to).then((units) => ({
+        roomTypeId,
+        available: units.length,
+      })),
+    ),
+  )
+  for (const { roomTypeId, available } of availability) {
     result[roomTypeId] = {
-      available: available.length,
+      available,
       total: totalByTypeId[roomTypeId] ?? 0,
     }
   }
@@ -782,7 +790,7 @@ export async function finalizeCartBookings(input: {
             select: { id: true, name: true },
           }),
           prisma.room.findUnique({
-            where: { id: quoted.unitId },
+            where: { id: quoted.unitId, archivedAt: null },
             select: {
               id: true,
               roomTypeId: true,
@@ -832,6 +840,28 @@ export async function finalizeCartBookings(input: {
           quoted.nights !== p.quote.nights
         ) {
           throw new Error("Cart contents changed. Please restart checkout.")
+        }
+
+        // Lock the room row so a concurrent archive (which takes the same
+        // FOR UPDATE lock) can't race this booking's commit, then recheck
+        // the same active-unit predicates used to originally offer it.
+        const locked = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Room" WHERE id = ${p.unit.id} FOR UPDATE
+        `
+        if (locked.length === 0) {
+          throw new Error("Quoted room is no longer available. Please restart checkout.")
+        }
+
+        const activeUnit = await tx.room.findFirst({
+          where: {
+            id: p.unit.id,
+            ...activeInventoryRoomFilter(),
+            OR: [{ subcategoryId: null }, { subcategory: { isActive: true } }],
+          },
+          select: { id: true },
+        })
+        if (!activeUnit) {
+          throw new Error("Quoted room is no longer available. Please restart checkout.")
         }
 
         const conflicting = await tx.booking.findFirst({

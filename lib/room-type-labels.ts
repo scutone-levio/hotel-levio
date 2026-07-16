@@ -1,5 +1,3 @@
-/** Client-safe room type display helpers (no Prisma). */
-
 export type RoomTypeLabelInput = {
   name: string
   beds: number

@@ -83,11 +83,15 @@ export async function recomputeSubcategoryPricingForRoom(
   }
 }
 
-export async function recomputeAllSubcategoryPricing(): Promise<void> {
-  const subcategories = await prisma.roomSubcategory.findMany({
+export async function recomputeAllSubcategoryPricing(
+  tx: PrismaDb = prisma,
+): Promise<void> {
+  const subcategories = await tx.roomSubcategory.findMany({
     select: { id: true },
   })
-  await Promise.all(subcategories.map((sub) => recomputeSubcategoryPricing(sub.id)))
+  for (const sub of subcategories) {
+    await recomputeSubcategoryPricing(sub.id, tx)
+  }
 }
 
 /** Set each inventory room basePrice to the subcategory default. */

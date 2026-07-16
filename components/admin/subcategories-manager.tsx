@@ -79,6 +79,9 @@ function FeaturedToggle({
       checked={featured}
       disabled={disabled || pending}
       onCheckedChange={toggle}
+      aria-label={
+        featured ? "Remove featured status" : "Mark subcategory as featured"
+      }
       data-testid={`featured-toggle-${subcategoryId}`}
     />
   )
@@ -393,6 +396,7 @@ export function SubcategoriesManager({
                             type="button"
                             onClick={() => handleEdit(sub.id)}
                             disabled={isSubmitting}
+                            aria-label={`Save changes to ${sub.name}`}
                             className="p-1.5 hover:bg-muted rounded cursor-pointer"
                           >
                             <Check className="size-4 text-green-600" />
@@ -401,6 +405,7 @@ export function SubcategoriesManager({
                             type="button"
                             onClick={() => setEditingId(null)}
                             disabled={isSubmitting}
+                            aria-label="Cancel editing subcategory"
                             className="p-1.5 hover:bg-muted rounded cursor-pointer"
                           >
                             <X className="size-4 text-muted-foreground" />
@@ -442,6 +447,7 @@ export function SubcategoriesManager({
                                   setEditPrice(centsToDollarsString(sub.basePrice))
                                 }}
                                 disabled={isSubmitting}
+                                aria-label={`Edit ${sub.name}`}
                                 className="p-1.5 hover:bg-muted rounded cursor-pointer"
                               >
                                 <Edit2 className="size-4 text-muted-foreground" />

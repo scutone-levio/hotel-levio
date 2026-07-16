@@ -183,7 +183,9 @@ function InventoryRow({
   const [pending, startTransition] = React.useTransition()
 
   const typeSubcategories = subcategories.filter(
-    (s) => s.roomTypeId === roomTypeId && s.isActive,
+    (s) =>
+      s.roomTypeId === roomTypeId &&
+      (s.isActive || s.id === room.subcategoryId),
   )
 
   // Selectable options are restricted to active types, but the room's
@@ -202,11 +204,18 @@ function InventoryRow({
       return
     }
     startTransition(async () => {
-      const result = await updateRoomInventoryAction(room.id, {
-        roomNumber: normalized,
-        roomTypeId,
-        subcategoryId: subcategoryId === "none" ? null : subcategoryId,
-      })
+      const payload: {
+        roomNumber: string
+        roomTypeId?: string
+        subcategoryId?: string | null
+      } = { roomNumber: normalized }
+      if (roomTypeId !== room.roomTypeId) payload.roomTypeId = roomTypeId
+      const nextSubcategoryId = subcategoryId === "none" ? null : subcategoryId
+      const currentSubcategoryId = room.subcategoryId ?? null
+      if (nextSubcategoryId !== currentSubcategoryId) {
+        payload.subcategoryId = nextSubcategoryId
+      }
+      const result = await updateRoomInventoryAction(room.id, payload)
       if (result.ok) {
         setRoomNumber(normalized)
         toast.success("Room updated")

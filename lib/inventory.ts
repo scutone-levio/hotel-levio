@@ -151,9 +151,16 @@ export async function resolveBookingRoom(input: {
 
   const room = await prisma.room.findUnique({
     where: { id: input.roomId },
-    include: inventoryInclude,
+    include: {
+      ...inventoryInclude,
+      subcategory: { select: { isActive: true } },
+    },
   })
   if (!room?.roomNumber || room.archivedAt) return null
+  if (!room.roomType.isActive) return null
+  if (room.subcategoryId && room.subcategory && !room.subcategory.isActive) {
+    return null
+  }
 
   if (!isRangeAvailable(room.blackouts, input.checkIn, input.checkOut)) {
     return null
@@ -281,12 +288,16 @@ async function addInventoryUnits(
   }
 }
 
-export async function syncTypeQuantity(roomTypeId: string, targetQty: number) {
+export async function syncTypeQuantity(
+  roomTypeId: string,
+  targetQty: number,
+  outerTx?: PrismaTransactionClient,
+) {
   if (!Number.isInteger(targetQty) || targetQty < 0) {
     throw new Error("Quantity must be a non-negative integer")
   }
 
-  await prisma.$transaction(async (tx) => {
+  const run = async (tx: PrismaTransactionClient) => {
     const roomType = await tx.roomTypeDefinition.findUnique({
       where: { id: roomTypeId },
       select: { isActive: true },
@@ -332,7 +343,43 @@ export async function syncTypeQuantity(roomTypeId: string, targetQty: number) {
         await archiveRoom(room.id, tx)
       }
     }
+  }
+
+  if (outerTx) return run(outerTx)
+  return prisma.$transaction(run)
+}
+
+async function assertInventoryAssignmentValid(
+  tx: PrismaTransactionClient,
+  room: { roomTypeId: string; subcategoryId: string | null },
+  input: {
+    roomTypeId?: string
+    subcategoryId?: string | null
+  },
+  roomTypeId: string,
+  subcategoryId: string | null,
+): Promise<void> {
+  if (roomTypeId !== room.roomTypeId) {
+    const type = await tx.roomTypeDefinition.findFirst({
+      where: { id: roomTypeId, isActive: true },
+      select: { id: true },
+    })
+    if (!type) throw new Error("Room type not found or is archived")
+  }
+
+  if (!subcategoryId) return
+
+  const sub = await tx.roomSubcategory.findFirst({
+    where: { id: subcategoryId, roomTypeId },
   })
+  if (!sub) throw new Error("Subcategory does not match room type")
+
+  const subcategoryChanged =
+    input.subcategoryId !== undefined &&
+    input.subcategoryId !== room.subcategoryId
+  if (subcategoryChanged && !sub.isActive) {
+    throw new Error("Subcategory is archived")
+  }
 }
 
 export async function updateRoomInventory(
@@ -344,60 +391,60 @@ export async function updateRoomInventory(
     subcategoryId?: string | null
   },
 ) {
-  const room = await prisma.room.findUnique({ where: { id: roomId } })
-  if (!room) throw new Error("Room not found")
-  if (room.isCatalog) throw new Error("Catalog rooms cannot be edited here")
+  await prisma.$transaction(async (tx) => {
+    const room = await tx.room.findUnique({ where: { id: roomId } })
+    if (!room) throw new Error("Room not found")
+    if (room.isCatalog) throw new Error("Catalog rooms cannot be edited here")
 
-  const roomTypeId = input.roomTypeId ?? room.roomTypeId
-  const subcategoryId =
-    input.subcategoryId === undefined ? room.subcategoryId : input.subcategoryId
+    const roomTypeId = input.roomTypeId ?? room.roomTypeId
+    const subcategoryId =
+      input.subcategoryId === undefined ? room.subcategoryId : input.subcategoryId
 
-  if (
-    input.roomTypeId !== undefined && input.roomTypeId !== room.roomTypeId ||
-    input.subcategoryId !== undefined && input.subcategoryId !== room.subcategoryId
-  ) {
-    await assertRoomHasNoActiveBookings(roomId, "change")
-  }
+    const assignmentChanged =
+      (input.roomTypeId !== undefined && input.roomTypeId !== room.roomTypeId) ||
+      (input.subcategoryId !== undefined &&
+        input.subcategoryId !== room.subcategoryId)
+    if (assignmentChanged) {
+      await assertRoomHasNoActiveBookings(roomId, "change", tx)
+    }
 
-  const roomNumber = normalizeRoomNumber(input.roomNumber ?? room.roomNumber)
-  const formatError = validateRoomNumber(roomNumber)
-  if (formatError) throw new Error(formatError)
+    await assertInventoryAssignmentValid(tx, room, input, roomTypeId, subcategoryId)
 
-  const floor = input.floor ?? parseRoomNumber(roomNumber).floor
+    const roomNumber = normalizeRoomNumber(input.roomNumber ?? room.roomNumber)
+    const formatError = validateRoomNumber(roomNumber)
+    if (formatError) throw new Error(formatError)
 
-  await assertRoomNumberAvailable(roomNumber, roomId)
+    const floor = input.floor ?? parseRoomNumber(roomNumber).floor
 
-  const slug = `room-${roomNumber}`
-  const slugConflict = await prisma.room.findFirst({
-    where: { slug, NOT: { id: roomId } },
-  })
-  if (slugConflict) {
-    throw new Error(`Room number ${roomNumber} is already in use`)
-  }
+    await assertRoomNumberAvailable(roomNumber, roomId, tx)
 
-  if (subcategoryId) {
-    const sub = await prisma.roomSubcategory.findFirst({
-      where: { id: subcategoryId, roomTypeId, isActive: true },
+    const slug = `room-${roomNumber}`
+    const slugConflict = await tx.room.findFirst({
+      where: { slug, NOT: { id: roomId } },
     })
-    if (!sub) throw new Error("Subcategory does not match room type")
-  }
+    if (slugConflict) {
+      throw new Error(`Room number ${roomNumber} is already in use`)
+    }
 
-  const catalog = await prisma.room.findFirst({
-    where: { roomTypeId, isCatalog: true },
-    select: { name: true },
-  })
-  const baseName = catalog?.name ?? room.name.split(" · ")[0]
+    const catalog = await tx.room.findFirst({
+      where: { roomTypeId, isCatalog: true, archivedAt: null },
+      select: { name: true },
+    })
+    if (!catalog) {
+      throw new Error("No active catalog room for the selected room type")
+    }
 
-  await prisma.room.update({
-    where: { id: roomId },
-    data: {
-      roomTypeId,
-      subcategoryId,
-      floor,
-      roomNumber,
-      slug,
-      name: `${baseName} · ${roomNumber}`,
-    },
+    await tx.room.update({
+      where: { id: roomId },
+      data: {
+        roomTypeId,
+        subcategoryId,
+        floor,
+        roomNumber,
+        slug,
+        name: `${catalog.name} · ${roomNumber}`,
+      },
+    })
   })
 }
 

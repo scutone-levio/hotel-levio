@@ -127,8 +127,10 @@ export function CatalogManager({
                     className="h-8 w-20"
                     disabled={pending}
                     onBlur={(e) => {
-                      const next = Number.parseInt(e.target.value, 10)
-                      if (Number.isFinite(next) && next !== inventoryInfo.count) {
+                      const raw = e.target.value.trim()
+                      if (!/^\d+$/.test(raw)) return
+                      const next = Number.parseInt(raw, 10)
+                      if (next >= 0 && next !== inventoryInfo.count) {
                         saveQuantity(next)
                       }
                     }}

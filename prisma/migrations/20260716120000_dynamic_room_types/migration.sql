@@ -86,8 +86,25 @@ ALTER TABLE "Room" DROP COLUMN "type";
 
 DROP TYPE "RoomType";
 
+-- Keep at most one active catalog room per room type.
+WITH ranked AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY "roomTypeId"
+      ORDER BY CASE WHEN "archivedAt" IS NULL THEN 0 ELSE 1 END, "createdAt" ASC, id ASC
+    ) AS rn
+  FROM "Room"
+  WHERE "isCatalog" = true
+)
+UPDATE "Room" r
+SET "archivedAt" = COALESCE(r."archivedAt", CURRENT_TIMESTAMP)
+FROM ranked
+WHERE r.id = ranked.id AND ranked.rn > 1;
+
 CREATE INDEX "Room_roomTypeId_idx" ON "Room"("roomTypeId");
 CREATE INDEX "Room_archivedAt_idx" ON "Room"("archivedAt");
+CREATE UNIQUE INDEX "Room_catalog_roomTypeId_key" ON "Room"("roomTypeId") WHERE "isCatalog" = true AND "archivedAt" IS NULL;
 CREATE UNIQUE INDEX "RoomSubcategory_roomTypeId_name_key" ON "RoomSubcategory"("roomTypeId", "name");
 CREATE INDEX "RoomSubcategory_roomTypeId_idx" ON "RoomSubcategory"("roomTypeId");
 CREATE INDEX "Booking_roomTypeId_idx" ON "Booking"("roomTypeId");

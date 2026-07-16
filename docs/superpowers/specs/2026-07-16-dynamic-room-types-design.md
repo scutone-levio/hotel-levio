@@ -57,7 +57,7 @@ Catalog room: exactly one per type (`isCatalog: true`), created automatically wh
 |--------|---------|
 | Remove | `roomType RoomType` enum field |
 | Add | `roomTypeId String` FK → `RoomTypeDefinition` |
-| Add | `isActive Boolean @default(true)` | `false` = archived subcategory |
+| Add | `isActive Boolean @default(true)` — `false` = archived subcategory |
 
 Unique constraint: `@@unique([roomTypeId, name])`.
 
@@ -65,7 +65,7 @@ Unique constraint: `@@unique([roomTypeId, name])`.
 
 | Change | Details |
 |--------|---------|
-| Add | `roomTypeId String?` FK → `RoomTypeDefinition` | Snapshot at booking creation for history when type is archived |
+| Add | `roomTypeId String?` FK → `RoomTypeDefinition` — snapshot at booking creation for history when type is archived |
 
 Existing `subcategoryId` continues to snapshot subcategory at booking time.
 

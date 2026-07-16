@@ -3,7 +3,7 @@ import {
   getAmenities,
   getAllSubcategories,
 } from "@/lib/queries"
-import { getActiveRoomTypes } from "@/lib/room-types"
+import { getAllRoomTypes } from "@/lib/room-types"
 import { InventoryManager } from "@/components/admin/inventory-manager"
 
 export const metadata = { title: "Rooms — Hôtel Levio Admin" }
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
 
 export default async function AdminRoomsPage() {
   const [roomTypes, subcategories, rooms, amenities] = await Promise.all([
-    getActiveRoomTypes(),
+    getAllRoomTypes(true),
     getAllSubcategories({ includeArchived: true }),
     getInventoryUnitsForAdmin({ includeArchived: true }),
     getAmenities(),

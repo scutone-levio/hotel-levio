@@ -48,15 +48,7 @@ async function ensureRoomTypeDefinitions() {
         sortOrder: index,
         isActive: true,
       },
-      update: {
-        slug,
-        name: meta.label,
-        description: meta.description,
-        capacity: meta.capacity,
-        beds: meta.beds,
-        basePrice: meta.basePrice,
-        sortOrder: index,
-      },
+      update: {},
     })
   }
 }
@@ -111,7 +103,6 @@ async function upsertFloorPlanSlot(
         isCatalog,
         slug,
         name,
-        archivedAt: null,
       },
     })
     return "updated"

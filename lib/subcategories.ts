@@ -63,7 +63,6 @@ function typeFloorKey(roomTypeId: string, floor: number) {
   return `${roomTypeId}:${floor}`
 }
 
-/** Group inventory rooms by (roomTypeId, floor), sorted by roomNumber within each group. */
 export function groupInventoryByTypeAndFloor<T extends InventoryRoomRef>(
   rooms: T[],
 ): Map<string, T[]> {

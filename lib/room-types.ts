@@ -21,6 +21,7 @@ export function activeInventoryRoomFilter(): Prisma.RoomWhereInput {
     isCatalog: false,
     archivedAt: null,
     roomType: { isActive: true },
+    OR: [{ subcategoryId: null }, { subcategory: { isActive: true } }],
   }
 }
 

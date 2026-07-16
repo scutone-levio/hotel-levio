@@ -18,7 +18,7 @@ function collectViolations(
 
   for (const type of roomTypes) {
     const catalog = catalogRooms.find((r) => r.roomTypeId === type.id)
-    if (!catalog) {
+    if (!catalog && type.isActive) {
       violations.push(`type "${type.slug}" has no catalog room`)
     }
     if (!inventory[type.id] && type.isActive) {

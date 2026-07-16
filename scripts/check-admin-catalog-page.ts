@@ -52,13 +52,14 @@ async function main() {
   }
 
   if (status !== 200 || hasErrorOverlay || errors.length) {
+    await browser.close()
     process.exit(1)
   }
 
   await browser.close()
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error(e)
   process.exit(1)
 })

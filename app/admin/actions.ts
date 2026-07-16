@@ -76,7 +76,10 @@ async function run(fn: () => Promise<void>): Promise<ActionResult> {
         return { ok: false, error: "That room number is already in use" }
       }
       if (target.includes("slug")) {
-        return { ok: false, error: "That room number is already in use" }
+        return {
+          ok: false,
+          error: "That slug is already in use. Choose a different slug.",
+        }
       }
     }
     const message = err instanceof Error ? err.message : "Something went wrong"
@@ -593,8 +596,10 @@ export async function syncTypeQuantityAction(
   quantity: number,
 ): Promise<ActionResult> {
   return run(async () => {
-    await syncTypeQuantity(roomTypeId, quantity)
-    await recomputeAllSubcategoryPricing()
+    await prisma.$transaction(async (tx) => {
+      await syncTypeQuantity(roomTypeId, quantity, tx)
+      await recomputeAllSubcategoryPricing(tx)
+    })
   })
 }
 
@@ -803,7 +808,7 @@ export async function createRoomSubcategory(
   return run(async () => {
     const schema = z.object({
       roomTypeId: z.string().min(1, "Room type is required"),
-      name: z.string().min(1, "Name is required"),
+      name: z.string().trim().min(1, "Name is required"),
       basePrice: z.number().int().min(0, "Price must be non-negative"),
     })
 
