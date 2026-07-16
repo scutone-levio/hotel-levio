@@ -23,7 +23,7 @@ Same interaction model as `components/mobile-nav.tsx`:
 - Panel stays mounted; closed state uses `inert` + `pointer-events-none`
 - Closes on toggle or link click
 
-**Light admin styling:** `bg-background`, standard borders and text, `hover:bg-muted` on links.
+**Light admin styling:** `bg-background`, standard borders and text. Inactive nav links, View site, and Sign out use navy hover (`hover:bg-[#0f2a3d] hover:text-white`) on both the mobile flyout and desktop sidebar; active nav links keep the gold primary style.
 
 **Content:** admin nav links → divider → View site → Sign out.
 
