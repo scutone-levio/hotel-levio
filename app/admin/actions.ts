@@ -821,19 +821,21 @@ export async function createRoomSubcategory(
       throw new Error(parsed.error.issues.map((e) => e.message).join("; "))
     }
 
-    const type = await prisma.roomTypeDefinition.findFirst({
-      where: { id: parsed.data.roomTypeId, isActive: true },
-      select: { id: true },
-    })
-    if (!type) throw new Error("Room type not found")
+    await prisma.$transaction(async (tx) => {
+      const type = await tx.roomTypeDefinition.findFirst({
+        where: { id: parsed.data.roomTypeId, isActive: true },
+        select: { id: true },
+      })
+      if (!type) throw new Error("Room type not found")
 
-    await prisma.roomSubcategory.create({
-      data: {
-        roomTypeId: parsed.data.roomTypeId,
-        name: parsed.data.name,
-        basePrice: parsed.data.basePrice,
-        fromPriceCents: parsed.data.basePrice,
-      },
+      await tx.roomSubcategory.create({
+        data: {
+          roomTypeId: parsed.data.roomTypeId,
+          name: parsed.data.name,
+          basePrice: parsed.data.basePrice,
+          fromPriceCents: parsed.data.basePrice,
+        },
+      })
     })
   })
 }

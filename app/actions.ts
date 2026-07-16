@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { startOfDay, differenceInCalendarDays } from "date-fns"
 import type { RoomSubcategory } from "@prisma/client"
 
-import { prisma } from "@/lib/prisma"
+import { prisma, type PrismaTransactionClient } from "@/lib/prisma"
 import {
   getAvailableUnits,
   quoteInventoryUnit,
@@ -176,6 +176,46 @@ async function resolveListingSubcategory(
     })
   }
   return catalog.subcategory
+}
+
+// Lock the room row, plus its room-type and subcategory rows (the same rows
+// archiveRoomType()/archiveSubcategory() lock with FOR UPDATE), so none of
+// those archive operations can commit between this recheck and the booking
+// insert that follows it in the same transaction.
+async function lockAndValidateActiveUnit(
+  tx: PrismaTransactionClient,
+  unit: { id: string; roomTypeId: string; subcategoryId: string | null },
+): Promise<void> {
+  const unavailableError = new Error(
+    "Quoted room is no longer available. Please restart checkout.",
+  )
+
+  const lockedRoom = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Room" WHERE id = ${unit.id} FOR UPDATE
+  `
+  if (lockedRoom.length === 0) throw unavailableError
+
+  const lockedType = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "RoomTypeDefinition" WHERE id = ${unit.roomTypeId} FOR UPDATE
+  `
+  if (lockedType.length === 0) throw unavailableError
+
+  if (unit.subcategoryId) {
+    const lockedSubcategory = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "RoomSubcategory" WHERE id = ${unit.subcategoryId} FOR UPDATE
+    `
+    if (lockedSubcategory.length === 0) throw unavailableError
+  }
+
+  const activeUnit = await tx.room.findFirst({
+    where: {
+      id: unit.id,
+      ...activeInventoryRoomFilter(),
+      OR: [{ subcategoryId: null }, { subcategory: { isActive: true } }],
+    },
+    select: { id: true },
+  })
+  if (!activeUnit) throw unavailableError
 }
 
 type AssignedUnit = NonNullable<Awaited<ReturnType<typeof resolveBookingRoom>>>
@@ -826,8 +866,13 @@ export async function finalizeCartBookings(input: {
     )
 
     const bookingIds = await prisma.$transaction(async (tx) => {
-      const ids: string[] = []
-      for (const [index, p] of prepared.entries()) {
+      const idsByIndex: string[] = new Array(prepared.length)
+      const lockOrder = [...prepared.keys()].sort((a, b) =>
+        prepared[a].unit.id.localeCompare(prepared[b].unit.id),
+      )
+
+      for (const index of lockOrder) {
+        const p = prepared[index]
         const quoted = quotedItems[index]
         if (
           quoted.roomId !== p.catalog.id ||
@@ -842,27 +887,7 @@ export async function finalizeCartBookings(input: {
           throw new Error("Cart contents changed. Please restart checkout.")
         }
 
-        // Lock the room row so a concurrent archive (which takes the same
-        // FOR UPDATE lock) can't race this booking's commit, then recheck
-        // the same active-unit predicates used to originally offer it.
-        const locked = await tx.$queryRaw<{ id: string }[]>`
-          SELECT id FROM "Room" WHERE id = ${p.unit.id} FOR UPDATE
-        `
-        if (locked.length === 0) {
-          throw new Error("Quoted room is no longer available. Please restart checkout.")
-        }
-
-        const activeUnit = await tx.room.findFirst({
-          where: {
-            id: p.unit.id,
-            ...activeInventoryRoomFilter(),
-            OR: [{ subcategoryId: null }, { subcategory: { isActive: true } }],
-          },
-          select: { id: true },
-        })
-        if (!activeUnit) {
-          throw new Error("Quoted room is no longer available. Please restart checkout.")
-        }
+        await lockAndValidateActiveUnit(tx, p.unit)
 
         const conflicting = await tx.booking.findFirst({
           where: {
@@ -895,9 +920,9 @@ export async function finalizeCartBookings(input: {
             specialRequests: input.specialRequests || null,
           },
         })
-        ids.push(b.id)
+        idsByIndex[index] = b.id
       }
-      return ids
+      return idsByIndex
     })
 
     revalidatePath("/admin")

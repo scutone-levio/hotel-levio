@@ -31,8 +31,9 @@ export async function assertRoomHasNoActiveBookings(
 
 export async function assertRoomTypeHasNoActiveInventoryBookings(
   roomTypeId: string,
+  db: DbClient = prisma,
 ): Promise<void> {
-  const count = await prisma.booking.count({
+  const count = await db.booking.count({
     where: {
       status: { in: [...ACTIVE_BOOKING_STATUSES] },
       room: {
@@ -51,8 +52,9 @@ export async function assertRoomTypeHasNoActiveInventoryBookings(
 
 export async function assertSubcategoryHasNoActiveBookings(
   subcategoryId: string,
+  db: DbClient = prisma,
 ): Promise<void> {
-  const count = await prisma.booking.count({
+  const count = await db.booking.count({
     where: {
       subcategoryId,
       status: { in: [...ACTIVE_BOOKING_STATUSES] },
@@ -139,18 +141,19 @@ export async function restoreRoom(roomId: string, db: DbClient = prisma): Promis
 }
 
 export async function archiveRoomType(roomTypeId: string): Promise<void> {
-  const type = await prisma.roomTypeDefinition.findUnique({
-    where: { id: roomTypeId },
-    select: { id: true, isActive: true },
-  })
-  if (!type) throw new Error("Room type not found")
-  if (!type.isActive) return
+  await prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ id: string; isActive: boolean }[]>`
+      SELECT id, "isActive" FROM "RoomTypeDefinition" WHERE id = ${roomTypeId} FOR UPDATE
+    `
+    if (locked.length === 0) throw new Error("Room type not found")
+    if (!locked[0].isActive) return
 
-  await assertRoomTypeHasNoActiveInventoryBookings(roomTypeId)
+    await assertRoomTypeHasNoActiveInventoryBookings(roomTypeId, tx)
 
-  await prisma.roomTypeDefinition.update({
-    where: { id: roomTypeId },
-    data: { isActive: false },
+    await tx.roomTypeDefinition.update({
+      where: { id: roomTypeId },
+      data: { isActive: false },
+    })
   })
 }
 
@@ -168,18 +171,19 @@ export async function restoreRoomType(roomTypeId: string): Promise<void> {
 }
 
 export async function archiveSubcategory(subcategoryId: string): Promise<void> {
-  const sub = await prisma.roomSubcategory.findUnique({
-    where: { id: subcategoryId },
-    select: { id: true, isActive: true },
-  })
-  if (!sub) throw new Error("Subcategory not found")
-  if (!sub.isActive) return
+  await prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ id: string; isActive: boolean }[]>`
+      SELECT id, "isActive" FROM "RoomSubcategory" WHERE id = ${subcategoryId} FOR UPDATE
+    `
+    if (locked.length === 0) throw new Error("Subcategory not found")
+    if (!locked[0].isActive) return
 
-  await assertSubcategoryHasNoActiveBookings(subcategoryId)
+    await assertSubcategoryHasNoActiveBookings(subcategoryId, tx)
 
-  await prisma.roomSubcategory.update({
-    where: { id: subcategoryId },
-    data: { isActive: false },
+    await tx.roomSubcategory.update({
+      where: { id: subcategoryId },
+      data: { isActive: false },
+    })
   })
 }
 
