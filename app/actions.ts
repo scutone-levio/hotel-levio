@@ -211,7 +211,6 @@ async function lockAndValidateActiveUnit(
     where: {
       id: unit.id,
       ...activeInventoryRoomFilter(),
-      OR: [{ subcategoryId: null }, { subcategory: { isActive: true } }],
     },
     select: { id: true },
   })
