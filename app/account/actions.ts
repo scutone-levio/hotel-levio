@@ -13,6 +13,10 @@ import {
   validateDateChangePaymentIntentUsage,
   verifyDateChangePaymentIntent,
 } from "@/lib/account-date-change"
+import {
+  type BookingListRow,
+  getDisplayRoomName,
+} from "@/lib/account-bookings"
 import { prisma } from "@/lib/prisma"
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/password"
 import { isRangeAvailable } from "@/lib/availability"
@@ -150,6 +154,80 @@ export async function changePassword(input: {
   } catch (err) {
     console.error("changePassword error:", err)
     return { ok: false, error: "Failed to change password" }
+  }
+}
+
+export async function getAccountBookings(params: {
+  tab: "upcoming" | "past"
+  page?: number
+  pageSize?: number
+}): Promise<
+  | { ok: true; bookings: BookingListRow[]; total: number }
+  | { ok: false; error: string }
+> {
+  try {
+    const gate = await requireUserId()
+    if (!gate.ok) return gate
+
+    const page = Math.max(1, params.page ?? 1)
+    const allowedPageSizes = new Set([5, 10, 25, 50])
+    const pageSize =
+      params.pageSize != null && allowedPageSizes.has(params.pageSize)
+        ? params.pageSize
+        : 10
+
+    const today = startOfDay(new Date())
+    const where =
+      params.tab === "upcoming"
+        ? {
+            userId: gate.userId,
+            status: "CONFIRMED" as const,
+            checkOut: { gte: today },
+          }
+        : {
+            userId: gate.userId,
+            OR: [
+              { status: "CANCELLED" as const },
+              {
+                status: "CONFIRMED" as const,
+                checkOut: { lt: today },
+              },
+            ],
+          }
+
+    const orderBy =
+      params.tab === "upcoming"
+        ? ({ checkIn: "asc" } as const)
+        : ({ checkIn: "desc" } as const)
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          room: { select: { name: true } },
+        },
+      }),
+      prisma.booking.count({ where }),
+    ])
+
+    return {
+      ok: true,
+      bookings: bookings.map((b) => ({
+        id: b.id,
+        checkIn: b.checkIn,
+        checkOut: b.checkOut,
+        status: b.status,
+        totalPrice: b.totalPrice,
+        roomName: getDisplayRoomName(b.room.name),
+      })),
+      total,
+    }
+  } catch (err) {
+    console.error("getAccountBookings error:", err)
+    return { ok: false, error: "Failed to load reservations" }
   }
 }
 

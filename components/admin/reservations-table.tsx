@@ -15,6 +15,10 @@ import { toast } from "sonner"
 
 import type { BookingRow } from "@/app/admin/actions"
 import { getBookings, updateBooking, deleteBooking } from "@/app/admin/actions"
+import {
+  AdminPagination,
+  type AdminPageSize,
+} from "@/components/admin/admin-pagination"
 import { formatPrice } from "@/lib/rooms"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -390,9 +394,8 @@ const STATUS_FILTERS = [
 ]
 
 export function ReservationsTable({ roomId }: { roomId?: string }) {
-  const pageSize = roomId ? 5 : 10
-
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState<AdminPageSize>(10)
   const [statusFilter, setStatusFilter] = React.useState("ALL")
   const [search, setSearch] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
@@ -404,7 +407,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [editTarget, setEditTarget] = React.useState<BookingRow | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<BookingRow | null>(null)
-  const [isPending, startTransition] = React.useTransition()
+  const [, startTransition] = React.useTransition()
   const [isExporting, setIsExporting] = React.useState(false)
 
   function handleExport() {
@@ -423,8 +426,13 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
     return () => clearTimeout(t)
   }, [search])
 
-  // Reset to page 1 when filters change.
-  React.useEffect(() => { setPage(1) }, [statusFilter, debouncedSearch])
+  // Reset to page 1 when filters or page size change.
+  React.useEffect(() => { setPage(1) }, [statusFilter, debouncedSearch, pageSize])
+
+  function handlePageSizeChange(size: AdminPageSize) {
+    setPageSize(size)
+    setPage(1)
+  }
 
   const load = React.useCallback(() => {
     startTransition(async () => {
@@ -444,8 +452,6 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
   React.useEffect(() => {
     load()
   }, [load])
-
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 1
 
   const showRoomColumn = !roomId
   const columnCount = showRoomColumn ? 7 : 6
@@ -608,33 +614,15 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
         </div>
       </div>
 
-      {/* Pagination */}
-      {data && totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <p className="text-muted-foreground">
-            {data.total} reservation{data.total !== 1 ? "s" : ""} ·{" "}
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1 || isPending}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages || isPending}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <div className="mt-4">
+        <AdminPagination
+          page={page}
+          pageSize={pageSize}
+          total={data?.total ?? 0}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
+      </div>
 
       {/* Dialogs */}
       {editTarget && (

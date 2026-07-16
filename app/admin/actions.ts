@@ -663,7 +663,11 @@ export async function getBookings(params: {
   search?: string
 }): Promise<{ bookings: BookingRow[]; total: number }> {
   const page = Math.max(1, params.page ?? 1)
-  const pageSize = params.pageSize ?? 10
+  const allowedPageSizes = new Set([5, 10, 25, 50])
+  const pageSize =
+    params.pageSize != null && allowedPageSizes.has(params.pageSize)
+      ? params.pageSize
+      : 10
 
   const where: Record<string, unknown> = {}
   if (params.roomId) where.roomId = params.roomId
