@@ -186,19 +186,17 @@ export async function getAccountBookings(params: {
           }
         : {
             userId: gate.userId,
+            checkOut: { lt: today },
             OR: [
               { status: "CANCELLED" as const },
-              {
-                status: "CONFIRMED" as const,
-                checkOut: { lt: today },
-              },
+              { status: "CONFIRMED" as const },
             ],
           }
 
     const orderBy =
       params.tab === "upcoming"
-        ? ({ checkIn: "asc" } as const)
-        : ({ checkIn: "desc" } as const)
+        ? ([{ checkIn: "asc" }, { id: "asc" }] as const)
+        : ([{ checkIn: "desc" }, { id: "desc" }] as const)
 
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({

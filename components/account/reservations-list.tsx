@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
-import { toast } from "sonner"
 
 import { getAccountBookings } from "@/app/account/actions"
 import type { BookingListRow } from "@/lib/account-bookings"
@@ -35,6 +34,7 @@ function useTabPagination(initialPageSize: AdminPageSize = 10) {
   })
   const [data, setData] = React.useState<TabData | null>(null)
   const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
   const [, startTransition] = React.useTransition()
 
   const total = data?.total ?? 0
@@ -59,12 +59,14 @@ function useTabPagination(initialPageSize: AdminPageSize = 10) {
     state,
     data,
     loading,
+    error,
     total,
     currentPage,
     setPage,
     handlePageSizeChange,
     setData,
     setLoading,
+    setError,
     startTransition,
   }
 }
@@ -82,12 +84,14 @@ function ReservationsTabPanel({
     state,
     data,
     loading,
+    error,
     total,
     currentPage,
     setPage,
     handlePageSizeChange,
     setData,
     setLoading,
+    setError,
     startTransition,
   } = tabState
 
@@ -97,20 +101,29 @@ function ReservationsTabPanel({
     const requestId = ++requestIdRef.current
     startTransition(async () => {
       setLoading(true)
-      const result = await getAccountBookings({
-        tab,
-        page: state.page,
-        pageSize: state.pageSize,
-      })
-      if (requestId !== requestIdRef.current) return
-      if (result.ok) {
-        setData({ bookings: result.bookings, total: result.total })
-      } else {
-        toast.error(result.error)
+      setError(null)
+      try {
+        const result = await getAccountBookings({
+          tab,
+          page: state.page,
+          pageSize: state.pageSize,
+        })
+        if (requestId !== requestIdRef.current) return
+        if (result.ok) {
+          setData({ bookings: result.bookings, total: result.total })
+        } else {
+          setError(result.error)
+        }
+      } catch {
+        if (requestId !== requestIdRef.current) return
+        setError("Failed to load reservations")
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     })
-  }, [tab, state.page, state.pageSize, setData, setLoading, startTransition])
+  }, [tab, state.page, state.pageSize, setData, setError, setLoading, startTransition])
 
   React.useEffect(() => {
     if (!active) return
@@ -127,6 +140,8 @@ function ReservationsTabPanel({
         <Loader2 className="text-muted-foreground size-6 animate-spin" />
       </div>
     )
+  } else if (error) {
+    tabBody = <p className="text-destructive text-sm">{error}</p>
   } else if (bookings.length === 0) {
     tabBody = (
       <p className="text-muted-foreground text-sm">
