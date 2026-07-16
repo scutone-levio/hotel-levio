@@ -1,20 +1,18 @@
 "use client"
 
 import * as React from "react"
-import type { RoomType } from "@prisma/client"
 import { toast } from "sonner"
 
 import type { RoomWithDetails, AmenityWithCount } from "@/lib/queries"
-import { TYPE_TOTALS } from "@/lib/floor-plan"
-import {
-  ROOM_TYPE_LABELS,
-  ROOM_TYPES,
-  formatPrice,
-} from "@/lib/rooms"
+import type { RoomTypeRecord } from "@/lib/room-types"
+import { roomTypeTabLabel } from "@/lib/room-type-labels"
+import { formatPrice } from "@/lib/rooms"
 import { RoomManageDialog } from "@/components/admin/room-manage-dialog"
+import { RoomTypeFormDialog } from "@/components/admin/room-type-form-dialog"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { usePaginatedList } from "@/components/admin/use-paginated-list"
 import { syncTypeQuantityAction } from "@/app/admin/actions"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -27,27 +25,42 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type InventorySummary = Record<
-  RoomType,
-  { count: number; roomNumbers: string[]; total: number }
+  string,
+  { count: number; roomNumbers: string[] }
 >
 
 export function CatalogManager({
+  roomTypes,
   catalogRooms,
   inventoryUnits,
   allAmenities,
   inventory,
 }: {
+  roomTypes: RoomTypeRecord[]
   catalogRooms: RoomWithDetails[]
   inventoryUnits: RoomWithDetails[]
   allAmenities: AmenityWithCount[]
   inventory: InventorySummary
 }) {
-  const [activeType, setActiveType] = React.useState<RoomType>("TWIN")
+  const [showArchivedTypes, setShowArchivedTypes] = React.useState(false)
+  const activeTypes = roomTypes.filter((t) => t.isActive)
+  const archivedTypes = roomTypes.filter((t) => !t.isActive)
+  const displayedTypes = showArchivedTypes ? archivedTypes : activeTypes
+  const [activeTypeId, setActiveTypeId] = React.useState(
+    () => activeTypes[0]?.id ?? "",
+  )
   const [pending, startTransition] = React.useTransition()
 
-  const catalog = catalogRooms.find((r) => r.type === activeType)
-  const childRooms = inventoryUnits.filter((r) => r.type === activeType)
-  const inventoryInfo = inventory[activeType]
+  React.useEffect(() => {
+    if (!displayedTypes.some((t) => t.id === activeTypeId)) {
+      setActiveTypeId(displayedTypes[0]?.id ?? "")
+    }
+  }, [activeTypeId, displayedTypes])
+
+  const activeType = displayedTypes.find((t) => t.id === activeTypeId)
+  const catalog = catalogRooms.find((r) => r.roomTypeId === activeTypeId)
+  const childRooms = inventoryUnits.filter((r) => r.roomTypeId === activeTypeId)
+  const inventoryInfo = inventory[activeTypeId] ?? { count: 0, roomNumbers: [] }
 
   const {
     pageSize,
@@ -55,36 +68,24 @@ export function CatalogManager({
     paginated: paginatedChildren,
     handlePageSizeChange,
     setPage,
-  } = usePaginatedList(childRooms, { resetKey: activeType })
+  } = usePaginatedList(childRooms, { resetKey: activeTypeId })
 
   function saveQuantity(quantity: number) {
+    if (!activeTypeId) return
     startTransition(async () => {
-      const result = await syncTypeQuantityAction(activeType, quantity)
-      if (result.ok) toast.success(`${ROOM_TYPE_LABELS[activeType]} quantity updated`)
-      else toast.error(result.error)
+      const result = await syncTypeQuantityAction(activeTypeId, quantity)
+      if (result.ok) {
+        toast.success(
+          `${activeType?.name ?? "Room type"} quantity updated`,
+        )
+        window.location.reload()
+      } else toast.error(result.error)
     })
   }
 
-  return (
-    <div className="space-y-6">
-      <Tabs
-        value={activeType}
-        onValueChange={(v) => setActiveType(v as RoomType)}
-      >
-        <TabsList className="grid w-full grid-cols-4 bg-white">
-          {ROOM_TYPES.map((type) => (
-            <TabsTrigger
-              key={type}
-              value={type}
-              className="data-active:bg-[#0f2a3d] data-active:text-white"
-            >
-              {type.charAt(0) + type.slice(1).toLowerCase()}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {catalog ? (
+  let catalogSection: React.ReactNode = null
+  if (catalog) {
+    catalogSection = (
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -94,45 +95,115 @@ export function CatalogManager({
                   {catalog.description}
                 </CardDescription>
               </div>
-              <RoomManageDialog
-                room={catalog}
-                allAmenities={allAmenities}
-                defaultTab="images"
-              />
+              <div className="flex flex-wrap gap-2">
+                {activeType ? (
+                  <RoomTypeFormDialog mode="edit" roomType={activeType} />
+                ) : null}
+                <RoomManageDialog
+                  room={catalog}
+                  allAmenities={allAmenities}
+                  defaultTab="images"
+                />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-6 text-sm">
             <span>{formatPrice(catalog.basePrice)}/night</span>
             <span>{catalog.images.length} image(s)</span>
             <span>{catalog.amenities.length} amenities</span>
-            <span>{inventoryInfo.count} total units</span>
-            <div className="flex items-end gap-2">
-              <div className="space-y-1">
-                <Label htmlFor={`qty-${activeType}`} className="text-xs">
-                  Quantity
-                </Label>
-                <Input
-                  id={`qty-${activeType}`}
-                  type="number"
-                  min={0}
-                  defaultValue={inventoryInfo.count}
-                  className="h-8 w-20"
-                  disabled={pending}
-                  onBlur={(e) => {
-                    const next = Number.parseInt(e.target.value, 10)
-                    if (Number.isFinite(next) && next !== inventoryInfo.count) {
-                      saveQuantity(next)
-                    }
-                  }}
-                />
+            <span>{inventoryInfo.count} inventory unit(s)</span>
+            {!showArchivedTypes ? (
+              <div className="flex items-end gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor={`qty-${activeTypeId}`} className="text-xs">
+                    Quantity
+                  </Label>
+                  <Input
+                    id={`qty-${activeTypeId}`}
+                    type="number"
+                    min={0}
+                    defaultValue={inventoryInfo.count}
+                    key={inventoryInfo.count}
+                    className="h-8 w-20"
+                    disabled={pending}
+                    onBlur={(e) => {
+                      const next = Number.parseInt(e.target.value, 10)
+                      if (Number.isFinite(next) && next !== inventoryInfo.count) {
+                        saveQuantity(next)
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <span className="text-muted-foreground pb-2 text-xs">
-                of {TYPE_TOTALS[activeType]} slots
-              </span>
-            </div>
+            ) : null}
           </CardContent>
         </Card>
-      ) : null}
+    )
+  } else if (activeTypeId) {
+    catalogSection = (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No catalog room for this type yet.
+          </CardContent>
+        </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {!showArchivedTypes ? <RoomTypeFormDialog mode="create" /> : <span />}
+        <div className="flex gap-1 rounded-lg border p-0.5">
+          <Button
+            type="button"
+            variant={showArchivedTypes ? "ghost" : "secondary"}
+            size="sm"
+            onClick={() => setShowArchivedTypes(false)}
+          >
+            Active
+          </Button>
+          <Button
+            type="button"
+            variant={showArchivedTypes ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setShowArchivedTypes(true)}
+          >
+            Archived
+          </Button>
+        </div>
+      </div>
+
+      {displayedTypes.length ? (
+        <Tabs
+          value={activeTypeId}
+          onValueChange={setActiveTypeId}
+        >
+          <TabsList
+            className="grid w-full bg-white"
+            style={{
+              gridTemplateColumns: `repeat(${displayedTypes.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {displayedTypes.map((type) => (
+              <TabsTrigger
+                key={type.id}
+                value={type.id}
+                className="data-active:bg-[#0f2a3d] data-active:text-white"
+              >
+                {roomTypeTabLabel(type)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          {showArchivedTypes
+            ? "No archived room types."
+            : "No active room types. Create one to get started."}
+        </p>
+      )}
+
+      {catalogSection}
 
       <section className="space-y-3">
         <h2 className="text-lg">

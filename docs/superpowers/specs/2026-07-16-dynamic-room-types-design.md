@@ -5,13 +5,13 @@
 
 ## Overview
 
-Replace the hardcoded `RoomType` Prisma enum with database-driven `RoomTypeDefinition` records so admins can create, edit, deactivate, and archive room types without code changes. Extend inventory management with soft-delete for rooms, archival views for types/subcategories/rooms, and strict booking guards on destructive or reassignment actions.
+Replace the hardcoded `RoomType` Prisma enum with database-driven `RoomTypeDefinition` records so admins can create, edit, and archive room types without code changes. Extend inventory management with **archived rooms** (not hard-deleted), archival views for types/subcategories/rooms, and strict booking guards on destructive or reassignment actions.
 
 ## Goals
 
 - Admin can add new room types that behave like Twin/Queen/King/Suite (catalog room, subcategories, inventory, pricing).
-- Inventory rooms can be soft-deleted, reassigned to another type/subcategory, or restored from archive.
-- Active bookings are protected: no soft-delete, type change, or subcategory change when PENDING/CONFIRMED bookings exist on a room.
+- Inventory rooms can be **archived**, reassigned to another type/subcategory, or **restored** from the archived list.
+- Active bookings are protected: no archive, type change, or subcategory change when PENDING/CONFIRMED bookings exist on a room.
 - Flexible room numbering: no floor-plan slot restrictions for any type (new or legacy).
 
 ## Non-goals
@@ -36,7 +36,7 @@ Replace the hardcoded `RoomType` Prisma enum with database-driven `RoomTypeDefin
 | `beds` | Int | Bed count for display |
 | `basePrice` | Int | Catalog default nightly rate in **cents** |
 | `sortOrder` | Int @default(0) | Tab/list ordering in admin and public UI |
-| `isActive` | Boolean @default(true) | `false` = archived/deactivated type |
+| `isActive` | Boolean @default(true) | `false` = archived room type |
 | `createdAt`, `updatedAt` | DateTime | |
 
 Relations: one catalog `Room` (`isCatalog: true`), many inventory `Room`s, many `RoomSubcategory`s.
@@ -47,9 +47,9 @@ Relations: one catalog `Room` (`isCatalog: true`), many inventory `Room`s, many 
 |--------|---------|
 | Remove | `type RoomType` enum field |
 | Add | `roomTypeId String` FK → `RoomTypeDefinition` |
-| Add | `deletedAt DateTime?` | Soft delete; `null` = active |
+| Add | `archivedAt DateTime?` — archive timestamp; `null` = active room |
 
-Catalog room: exactly one per type (`isCatalog: true`), created automatically when a type is created.
+Catalog room: exactly one per type (`isCatalog: true`), created automatically when a type is created. Catalog rooms are never archived.
 
 ### `RoomSubcategory` changes
 
@@ -65,7 +65,7 @@ Unique constraint: `@@unique([roomTypeId, name])`.
 
 | Change | Details |
 |--------|---------|
-| Add | `roomTypeId String?` FK → `RoomTypeDefinition` | Snapshot at booking creation for history when type is deactivated |
+| Add | `roomTypeId String?` FK → `RoomTypeDefinition` | Snapshot at booking creation for history when type is archived |
 
 Existing `subcategoryId` continues to snapshot subcategory at booking time.
 
@@ -79,14 +79,14 @@ Existing `subcategoryId` continues to snapshot subcategory at booking time.
 
 ## Business rules
 
-### Soft-delete inventory room
+### Archive inventory room
 
-1. Set `Room.deletedAt = now()`.
+1. Set `Room.archivedAt = now()`.
 2. **Block** if the room has any booking with status `PENDING` or `CONFIRMED` (past or future).
-3. Exclude from availability, assignment, and public/admin active inventory lists.
-4. **Restore:** clear `deletedAt` if room number and type/subcategory assignment do not conflict.
+3. Exclude from availability, assignment, and public/admin **active** inventory lists.
+4. **Restore:** clear `archivedAt` if room number and type/subcategory assignment do not conflict.
 
-Soft-deleted rooms must never receive new bookings.
+Archived rooms must never receive new bookings.
 
 ### Change room type or subcategory
 
@@ -94,21 +94,21 @@ Soft-deleted rooms must never receive new bookings.
 
 Applies to both `roomTypeId` and `subcategoryId` changes on inventory units.
 
-### Deactivate room type (`isActive: false`)
+### Archive room type (`isActive: false`)
 
 1. Hide type from public site (browse, tabs, new bookings).
-2. **Block** if any non-deleted inventory room of that type has a `PENDING` or `CONFIRMED` booking.
-3. Keep type, catalog room, subcategories, and historical bookings visible in admin **archived** views.
+2. **Block** if any non-archived inventory room of that type has a `PENDING` or `CONFIRMED` booking.
+3. Keep type, catalog room, subcategories, and historical bookings visible in admin **Archived** views.
 
 ### Archive subcategory (`isActive: false`)
 
 1. Hide from public listings and new booking paths.
-2. **Block** if any non-deleted room with that subcategory has a `PENDING` or `CONFIRMED` booking.
-3. Visible in admin archived subcategories view; restorable when safe.
+2. **Block** if any non-archived room with that subcategory has a `PENDING` or `CONFIRMED` booking.
+3. Visible in admin **Archived subcategories** view; restorable when safe.
 
 ### Reduce inventory quantity (catalog manager)
 
-When target quantity decreases, soft-delete removable units (no active bookings, not catalog), same as today’s surplus removal but soft delete instead of hard delete.
+When target quantity decreases, **archive** removable units (no active bookings, not catalog), same as today’s surplus removal but archive instead of hard delete.
 
 ### New room type creation (admin)
 
@@ -127,17 +127,17 @@ On create:
 ### Room Type management (`/admin/catalog`)
 
 - **Create / edit** type form (fields above).
-- **Deactivate** type (archive) with booking guard.
+- **Archive** type with booking guard.
 - Dynamic Room Types tabs loaded from active `RoomTypeDefinition` rows (replaces hardcoded Twin/Queen/King/Suite tabs).
 - Quantity sync per type; slot hint shows live inventory count, not fixed floor-plan total.
 
 ### Inventory (`/admin/rooms`)
 
 - Type and subcategory dropdowns loaded from DB (active types/subcategories only for assignment).
-- **Soft delete** per room row.
+- **Archive** action per room row.
 - Subcategory assignment on inventory row (new).
 
-### Archived views (new)
+### Active | Archived views
 
 Admin toggle or tab **Active | Archived** for:
 
@@ -145,9 +145,9 @@ Admin toggle or tab **Active | Archived** for:
 |--------|---------------|
 | Room types | `isActive: false` |
 | Subcategories | `isActive: false` |
-| Inventory rooms | `deletedAt` is set |
+| Inventory rooms | `archivedAt` is set |
 
-Archived lists are read-only by default; **Restore** actions clear archive flags when no conflicts (duplicate room number, etc.).
+**Archived rooms** (and types/subcategories) appear in read-only archived lists by default. **Restore** actions clear archive flags when no conflicts (duplicate room number, etc.).
 
 ---
 
@@ -157,10 +157,10 @@ All guest-facing and availability paths filter:
 
 - `RoomTypeDefinition.isActive: true`
 - `RoomSubcategory.isActive: true` (where subcategory applies)
-- `Room.deletedAt: null`
+- `Room.archivedAt: null`
 - Inventory rooms: `isCatalog: false`
 
-Room detail “X rooms in the hotel” uses live count of active, non-deleted inventory for that type.
+Room detail “X rooms in the hotel” uses live count of active, non-archived inventory for that type.
 
 On booking creation, set `Booking.roomTypeId` from the assigned room’s type at that moment.
 
@@ -180,17 +180,17 @@ On booking creation, set `Booking.roomTypeId` from the assigned room’s type at
 
 | Area | Change |
 |------|--------|
-| `prisma/schema.prisma` | New model, FK migration, soft-delete fields |
+| `prisma/schema.prisma` | New model, FK migration, `archivedAt` field |
 | `lib/rooms.ts` | Replace static arrays with query helpers |
-| `lib/queries.ts` | Load types from DB; archived filters |
-| `lib/inventory.ts` | Soft delete, remove floor validation, typeId-based |
+| `lib/queries.ts` | Load types from DB; active/archived filters |
+| `lib/inventory.ts` | Archive/restore rooms, remove floor validation, typeId-based |
 | `lib/floor-plan.ts` | Remove or slim down type-specific validation |
-| `app/admin/actions.ts` | CRUD for types, soft delete/restore, guards |
+| `app/admin/actions.ts` | CRUD for types, archive/restore, guards |
 | `components/admin/catalog-manager.tsx` | Dynamic tabs, create type UI |
-| `components/admin/inventory-manager.tsx` | Subcategory, soft delete, dynamic type list |
+| `components/admin/inventory-manager.tsx` | Subcategory, archive, dynamic type list |
 | `components/admin/subcategories-manager.tsx` | Dynamic types, archive |
-| New admin components | Archived views, room type form/dialog |
-| Public pages / `app/actions.ts` | Filter active/non-deleted entities |
+| New admin components | Active/Archived views, room type form/dialog |
+| Public pages / `app/actions.ts` | Filter active/non-archived entities |
 
 ---
 
@@ -198,9 +198,9 @@ On booking creation, set `Booking.roomTypeId` from the assigned room’s type at
 
 Server actions return `{ ok: false, error: string }` with clear messages, e.g.:
 
-- “Cannot delete room: 1 active booking exists.”
+- “Cannot archive room: 1 active booking exists.”
 - “Cannot change room type: 1 active booking exists.”
-- “Cannot deactivate room type: 2 inventory rooms have active bookings.”
+- “Cannot archive room type: 2 inventory rooms have active bookings.”
 
 Never throw from server actions.
 
@@ -210,9 +210,9 @@ Never throw from server actions.
 
 - [ ] Migration preserves four legacy types and all existing bookings/listings.
 - [ ] Create new type → catalog + tab + subcategory + inventory workflow works.
-- [ ] Soft-delete room without bookings; blocked with active booking.
+- [ ] Archive room without bookings; blocked with active booking.
 - [ ] Type/subcategory change blocked with active booking; allowed when clear.
-- [ ] Deactivate type hidden on site; visible in admin archived view.
+- [ ] Archive room type hidden on site; visible in admin Archived view.
 - [ ] Archive subcategory; restore when safe.
-- [ ] Soft-deleted room never appears in availability or checkout assignment.
-- [ ] Admin archived views list inactive types, subcategories, and deleted rooms.
+- [ ] Archived room never appears in availability or checkout assignment.
+- [ ] Admin Archived views list archived room types, subcategories, and archived rooms.

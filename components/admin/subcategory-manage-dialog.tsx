@@ -2,13 +2,12 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import type { RoomType } from "@prisma/client"
 import { ImageIcon, Settings2, X } from "lucide-react"
 import { toast } from "sonner"
 import Image from "next/image"
 
 import type { RoomSubcategoryWithCount } from "@/lib/queries"
-import { ROOM_TYPE_SHORT_LABELS } from "@/lib/rooms"
+import { roomTypeLabel } from "@/lib/room-type-labels"
 import {
   addSubcategoryImage,
   deleteSubcategoryImage,
@@ -40,12 +39,10 @@ function uploadHintMessage(
 
 type SubcategoryManageDialogProps = {
   subcategory: RoomSubcategoryWithCount
-  roomType: RoomType
 }
 
 export function SubcategoryManageDialog({
   subcategory,
-  roomType,
 }: SubcategoryManageDialogProps) {
   const router = useRouter()
   const [pending, startTransition] = React.useTransition()
@@ -79,7 +76,7 @@ export function SubcategoryManageDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {ROOM_TYPE_SHORT_LABELS[roomType]} · {subcategory.name} — Images
+            {roomTypeLabel(subcategory.roomType ?? { name: "Room", beds: 1 })} · {subcategory.name} — Images
           </DialogTitle>
           <DialogDescription>
             Listing photos for this subcategory. Guests see these instead of the

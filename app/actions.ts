@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { startOfDay, differenceInCalendarDays } from "date-fns"
-import type { RoomType, RoomSubcategory } from "@prisma/client"
+import type { RoomSubcategory } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import {
@@ -10,6 +10,7 @@ import {
   quoteInventoryUnit,
   resolveBookingRoom,
 } from "@/lib/inventory"
+import { activeInventoryRoomFilter } from "@/lib/room-types"
 import { stripe } from "@/lib/stripe"
 import { sendMail } from "@/lib/mailer"
 import {
@@ -162,12 +163,16 @@ async function assertPaymentIntentReady(
 
 /** Resolve subcategory for a catalog listing; scoped to the catalog room type. */
 async function resolveListingSubcategory(
-  catalog: { type: RoomType; subcategory: RoomSubcategory | null },
+  catalog: { roomTypeId: string; subcategory: RoomSubcategory | null },
   subcategoryId?: string,
 ): Promise<RoomSubcategory | null> {
   if (subcategoryId) {
     return prisma.roomSubcategory.findFirst({
-      where: { id: subcategoryId, roomType: catalog.type },
+      where: {
+        id: subcategoryId,
+        roomTypeId: catalog.roomTypeId,
+        isActive: true,
+      },
     })
   }
   return catalog.subcategory
@@ -193,18 +198,19 @@ async function resolveAndQuoteListing(input: {
     where: { id: input.roomId },
     select: {
       id: true,
-      type: true,
+      roomTypeId: true,
       name: true,
       isCatalog: true,
+      archivedAt: true,
       subcategory: true,
     },
   })
-  if (!catalog) {
+  if (!catalog || catalog.archivedAt) {
     return { ok: false, error: "Room not found" }
   }
 
   const subcategory = await resolveListingSubcategory(
-    { type: catalog.type, subcategory: catalog.subcategory },
+    { roomTypeId: catalog.roomTypeId, subcategory: catalog.subcategory },
     input.subcategoryId,
   )
   if (input.subcategoryId && !subcategory) {
@@ -294,7 +300,7 @@ export type AvailabilityCount = { available: number; total: number }
 
 export type ListingAvailabilityInput = {
   roomId: string
-  type: RoomType
+  roomTypeId: string
   subcategoryId: string
 }
 
@@ -338,12 +344,17 @@ export async function getAvailabilityCountsByListing(
       const [total, available] = await Promise.all([
         prisma.room.count({
           where: {
-            type: listing.type,
+            roomTypeId: listing.roomTypeId,
             subcategoryId: listing.subcategoryId,
-            isCatalog: false,
+            ...activeInventoryRoomFilter(),
           },
         }),
-        getAvailableUnits(listing.type, from, to, listing.subcategoryId),
+        getAvailableUnits(
+          listing.roomTypeId,
+          from,
+          to,
+          listing.subcategoryId,
+        ),
       ])
       return [key, { available: available.length, total }] as const
     }),
@@ -352,29 +363,29 @@ export async function getAvailabilityCountsByListing(
   return Object.fromEntries(entries)
 }
 
-/** @deprecated Use getAvailabilityCountsByListing for homepage listings. */
+/** @deprecated Legacy type-keyed availability; prefer getAvailabilityCountsByListing. */
 export async function getAvailabilityCountsByType(
   checkIn: string,
   checkOut: string,
-): Promise<Record<RoomType, AvailabilityCount>> {
+): Promise<Record<string, AvailabilityCount>> {
   const from = startOfDay(new Date(checkIn))
   const to = startOfDay(new Date(checkOut))
 
   const totals = await prisma.room.groupBy({
-    by: ["type"],
-    where: { isCatalog: false },
+    by: ["roomTypeId"],
+    where: activeInventoryRoomFilter(),
     _count: { _all: true },
   })
-  const totalByType = Object.fromEntries(
-    totals.map((t) => [t.type, t._count._all]),
-  ) as Record<RoomType, number>
+  const totalByTypeId = Object.fromEntries(
+    totals.map((t) => [t.roomTypeId, t._count._all]),
+  ) as Record<string, number>
 
-  const result = {} as Record<RoomType, AvailabilityCount>
-  for (const type of ["TWIN", "QUEEN", "KING", "SUITE"] as RoomType[]) {
-    const available = await getAvailableUnits(type, from, to)
-    result[type] = {
+  const result: Record<string, AvailabilityCount> = {}
+  for (const roomTypeId of Object.keys(totalByTypeId)) {
+    const available = await getAvailableUnits(roomTypeId, from, to)
+    result[roomTypeId] = {
       available: available.length,
-      total: totalByType[type] ?? 0,
+      total: totalByTypeId[roomTypeId] ?? 0,
     }
   }
   return result
@@ -411,7 +422,7 @@ export async function finalizeBooking(input: {
 
     const catalog = await prisma.room.findUnique({
       where: { id: input.roomId },
-      select: { id: true, name: true, type: true },
+      select: { id: true, name: true, roomTypeId: true },
     })
     if (!catalog) return { ok: false, error: "Room not found" }
 
@@ -453,6 +464,7 @@ export async function finalizeBooking(input: {
     const booking = await prisma.booking.create({
       data: {
         roomId: result.unit.id,
+        roomTypeId: result.unit.roomTypeId,
         subcategoryId: result.subcategoryId,
         userId: user.id,
         checkIn,
@@ -548,6 +560,7 @@ export async function createBooking(input: {
     const booking = await prisma.booking.create({
       data: {
         roomId: result.unit.id,
+        roomTypeId: result.unit.roomTypeId,
         subcategoryId: result.subcategoryId,
         userId: guest.id,
         checkIn,
@@ -772,6 +785,7 @@ export async function finalizeCartBookings(input: {
             where: { id: quoted.unitId },
             select: {
               id: true,
+              roomTypeId: true,
               roomNumber: true,
               capacity: true,
               subcategoryId: true,
@@ -836,6 +850,7 @@ export async function finalizeCartBookings(input: {
         const b = await tx.booking.create({
           data: {
             roomId: p.unit.id,
+            roomTypeId: p.unit.roomTypeId,
             subcategoryId: p.subcategoryId,
             userId: user.id,
             checkIn: p.checkIn,

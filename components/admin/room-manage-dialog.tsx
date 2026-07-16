@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import Image from "next/image"
 
 import type { RoomWithDetails, AmenityWithCount } from "@/lib/queries"
-import { ROOM_TYPE_LABELS, WEEKDAYS, parseDollarsToCents } from "@/lib/rooms"
+import { WEEKDAYS, parseDollarsToCents } from "@/lib/rooms"
+import { roomTypeLabel } from "@/lib/room-type-labels"
 import { ReservationsTable } from "@/components/admin/reservations-table"
 import {
   setRoomAmenities,
@@ -462,7 +463,7 @@ export function RoomManageDialog({
             {title}
             {room.isCatalog ? " (Catalog)" : ""}
           </DialogTitle>
-          <DialogDescription>{ROOM_TYPE_LABELS[room.type]}</DialogDescription>
+          <DialogDescription>{roomTypeLabel(room.roomType)}</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue={defaultTab}>
           <TabsList className="grid w-full grid-cols-5">

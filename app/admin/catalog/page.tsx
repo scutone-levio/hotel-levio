@@ -5,6 +5,7 @@ import {
   getInventoryByType,
   getAllSubcategories,
 } from "@/lib/queries"
+import { getAllRoomTypes } from "@/lib/room-types"
 import { CatalogManager } from "@/components/admin/catalog-manager"
 import { SubcategoriesManager } from "@/components/admin/subcategories-manager"
 
@@ -12,12 +13,20 @@ export const metadata = { title: "Room Type — Hôtel Levio Admin" }
 export const dynamic = "force-dynamic"
 
 export default async function AdminCatalogPage() {
-  const [catalogRooms, inventoryUnits, amenities, inventory, subcategories] = await Promise.all([
+  const [
+    roomTypes,
+    catalogRooms,
+    inventoryUnits,
+    amenities,
+    inventory,
+    subcategories,
+  ] = await Promise.all([
+    getAllRoomTypes(true),
     getCatalogRoomsForAdmin(),
     getInventoryUnitsForAdmin(),
     getAmenities(),
     getInventoryByType(),
-    getAllSubcategories(),
+    getAllSubcategories({ includeArchived: true }),
   ])
 
   return (
@@ -29,7 +38,6 @@ export default async function AdminCatalogPage() {
         </p>
       </div>
 
-      {/* Subcategories section */}
       <div className="rounded-lg border bg-card p-6">
         <div className="mb-4">
           <h2 className="text-lg">Subcategories</h2>
@@ -37,13 +45,16 @@ export default async function AdminCatalogPage() {
             Create and manage room subcategories (e.g., Lower Level, City View) with independent pricing.
           </p>
         </div>
-        <SubcategoriesManager initialSubcategories={subcategories} />
+        <SubcategoriesManager
+          roomTypes={roomTypes}
+          initialSubcategories={subcategories}
+        />
       </div>
 
-      {/* Catalog manager section */}
       <div>
         <h2 className="text-lg mb-4">Room Types</h2>
         <CatalogManager
+          roomTypes={roomTypes}
           catalogRooms={catalogRooms}
           inventoryUnits={inventoryUnits}
           allAmenities={amenities}

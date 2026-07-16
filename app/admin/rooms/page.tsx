@@ -1,12 +1,19 @@
-import { getInventoryUnitsForAdmin, getAmenities } from "@/lib/queries"
+import {
+  getInventoryUnitsForAdmin,
+  getAmenities,
+  getAllSubcategories,
+} from "@/lib/queries"
+import { getActiveRoomTypes } from "@/lib/room-types"
 import { InventoryManager } from "@/components/admin/inventory-manager"
 
 export const metadata = { title: "Rooms — Hôtel Levio Admin" }
 export const dynamic = "force-dynamic"
 
 export default async function AdminRoomsPage() {
-  const [rooms, amenities] = await Promise.all([
-    getInventoryUnitsForAdmin(),
+  const [roomTypes, subcategories, rooms, amenities] = await Promise.all([
+    getActiveRoomTypes(),
+    getAllSubcategories({ includeArchived: true }),
+    getInventoryUnitsForAdmin({ includeArchived: true }),
     getAmenities(),
   ])
 
@@ -18,7 +25,12 @@ export default async function AdminRoomsPage() {
           Manage individual inventory units — room numbers, blackouts, and pricing.
         </p>
       </div>
-      <InventoryManager rooms={rooms} allAmenities={amenities} />
+      <InventoryManager
+        roomTypes={roomTypes}
+        subcategories={subcategories}
+        rooms={rooms}
+        allAmenities={amenities}
+      />
     </div>
   )
 }

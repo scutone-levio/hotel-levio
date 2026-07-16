@@ -31,8 +31,8 @@ describe("weekendPriceForBase", () => {
 
 describe("subcategoryPriceForType", () => {
   it("charges premium for Lake View only", () => {
-    assert.equal(subcategoryPriceForType("QUEEN", LAKE_VIEW_NAME), 23700)
-    assert.equal(subcategoryPriceForType("QUEEN", CITY_VIEW_NAME), 18900)
-    assert.equal(subcategoryPriceForType("TWIN", LOWER_LEVEL_NAME), 11900)
+    assert.equal(subcategoryPriceForType(18900, LAKE_VIEW_NAME), 23700)
+    assert.equal(subcategoryPriceForType(18900, CITY_VIEW_NAME), 18900)
+    assert.equal(subcategoryPriceForType(12900, LOWER_LEVEL_NAME), 11900)
   })
 })

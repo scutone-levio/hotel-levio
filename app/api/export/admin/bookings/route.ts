@@ -73,7 +73,13 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       take: EXPORT_LIMIT + 1,
       include: {
-        room: { select: { name: true, roomNumber: true, type: true } },
+        room: {
+          select: {
+            name: true,
+            roomNumber: true,
+          },
+        },
+        roomType: { select: { name: true } },
         user: { select: { name: true, email: true } },
       },
     })
@@ -92,7 +98,7 @@ export async function GET(req: Request) {
       b.guestPhone,
       b.room.name,
       b.room.roomNumber,
-      b.room.type,
+      b.roomType?.name ?? null,
       format(new Date(b.checkIn), "yyyy-MM-dd"),
       format(new Date(b.checkOut), "yyyy-MM-dd"),
       String(differenceInCalendarDays(new Date(b.checkOut), new Date(b.checkIn))),

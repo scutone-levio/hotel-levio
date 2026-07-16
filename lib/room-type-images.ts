@@ -1,10 +1,8 @@
-import type { RoomType } from "@prisma/client"
-
 export type CatalogImage = { url: string; caption: string }
 
-/** Five curated gallery images per catalog room type, themed to amenities. */
-export const catalogImagesByType: Record<RoomType, CatalogImage[]> = {
-  TWIN: [
+/** Five curated gallery images per catalog room type slug, themed to amenities. */
+export const catalogImagesByType: Record<string, CatalogImage[]> = {
+  twin: [
     {
       url: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1200&q=80",
       caption: "Twin beds overview",
@@ -26,7 +24,7 @@ export const catalogImagesByType: Record<RoomType, CatalogImage[]> = {
       caption: "Flat-screen television and room ambiance",
     },
   ],
-  QUEEN: [
+  queen: [
     {
       url: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=1200&q=80",
       caption: "Two queen beds",
@@ -48,7 +46,7 @@ export const catalogImagesByType: Record<RoomType, CatalogImage[]> = {
       caption: "Spacious queen room layout",
     },
   ],
-  KING: [
+  king: [
     {
       url: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=80",
       caption: "Plush king bed",
@@ -70,7 +68,7 @@ export const catalogImagesByType: Record<RoomType, CatalogImage[]> = {
       caption: "Elegant king room overview",
     },
   ],
-  SUITE: [
+  suite: [
     {
       url: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
       caption: "Separate living area",
@@ -94,6 +92,6 @@ export const catalogImagesByType: Record<RoomType, CatalogImage[]> = {
   ],
 }
 
-export function coverImageForType(type: RoomType): string {
-  return catalogImagesByType[type][0].url
+export function coverImageForType(slug: string): string {
+  return catalogImagesByType[slug][0].url
 }

@@ -45,12 +45,12 @@ export default async function ReservePage({
       },
     },
   })
-  if (!room) notFound()
+  if (!room || room.archivedAt) notFound()
 
   const catalogRoom = room.isCatalog
     ? room
     : await prisma.room.findFirst({
-        where: { type: room.type, isCatalog: true },
+        where: { roomTypeId: room.roomTypeId, isCatalog: true, archivedAt: null },
         include: { images: { orderBy: { sortOrder: "asc" } } },
       })
   const catalogImages = catalogRoom?.images.length ? catalogRoom.images : room.images
