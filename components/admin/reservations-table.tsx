@@ -296,16 +296,18 @@ function DeleteDialog({
 
 function ExpandedRow({
   booking,
+  detailsId,
   onEdit,
   onDelete,
 }: {
   booking: BookingRow
+  detailsId: string
   onEdit: () => void
   onDelete: () => void
 }) {
   const n = nights(booking)
   return (
-    <tr>
+    <tr id={detailsId}>
       <td
         colSpan={7}
         className="bg-muted/30 border-b px-4 pb-4 pt-3"
@@ -475,18 +477,28 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
     }
     return data!.bookings.map((b) => {
       const isExpanded = expandedId === b.id
+      const detailsId = `reservation-details-${b.id}`
+      const guestLabel = b.guestName ?? b.user.name ?? "guest"
       return (
         <React.Fragment key={b.id}>
-          <tr
-            className="bg-white hover:bg-muted/30 border-b cursor-pointer transition-colors"
-            onClick={() => setExpandedId(isExpanded ? null : b.id)}
-          >
+          <tr className="bg-white hover:bg-muted/30 border-b transition-colors">
             <td className="px-3 py-2.5 text-muted-foreground">
-              {isExpanded ? (
-                <ChevronDown className="size-4" />
-              ) : (
-                <ChevronRight className="size-4" />
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-expanded={isExpanded}
+                aria-controls={detailsId}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} reservation for ${guestLabel}`}
+                onClick={() => setExpandedId(isExpanded ? null : b.id)}
+                className="text-muted-foreground size-7 shrink-0"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="size-4" />
+                ) : (
+                  <ChevronRight className="size-4" />
+                )}
+              </Button>
             </td>
             <td className="px-3 py-2.5">
               <p className="font-medium leading-none">
@@ -525,6 +537,7 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
           {isExpanded && (
             <ExpandedRow
               booking={b}
+              detailsId={detailsId}
               onEdit={() => setEditTarget(b)}
               onDelete={() => setDeleteTarget(b)}
             />
@@ -550,25 +563,23 @@ export function ReservationsTable({ roomId }: { roomId?: string }) {
           </div>
           <div className="flex gap-1.5">
             {STATUS_FILTERS.map((f) => (
-              <button
+              <Button
                 key={f.value}
+                type="button"
+                variant={statusFilter === f.value ? "default" : "action"}
+                size="xs"
                 onClick={() => setStatusFilter(f.value)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  statusFilter === f.value
-                    ? "bg-primary text-primary-foreground"
-                    : "border bg-white text-muted-foreground hover:bg-white hover:text-foreground"
-                }`}
+                className="rounded-full"
               >
                 {f.label}
-              </button>
+              </Button>
             ))}
           </div>
           <Button
-            variant="outline"
+            variant="action"
             size="sm"
             onClick={handleExport}
             disabled={exportDisabled}
-            className="bg-white hover:bg-white"
           >
             <Download className="size-4" />
             {isExporting ? "Exporting…" : "Export CSV"}
