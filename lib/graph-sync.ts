@@ -15,6 +15,15 @@ export type GraphSyncStats = {
   bookings: number
 }
 
+const PROJECTION_LABELS = [
+  "RoomType",
+  "Subcategory",
+  "Room",
+  "Amenity",
+  "User",
+  "Booking",
+] as const
+
 export async function syncGraphFromPostgres(): Promise<GraphSyncStats> {
   if (!isNeo4jConfigured()) {
     throw new Error(
@@ -48,7 +57,7 @@ export async function syncGraphFromPostgres(): Promise<GraphSyncStats> {
         select: { id: true, name: true, category: true },
       }),
       prisma.user.findMany({
-        select: { id: true, name: true, email: true, role: true },
+        select: { id: true, role: true },
       }),
       prisma.booking.findMany({
         select: {
@@ -66,7 +75,13 @@ export async function syncGraphFromPostgres(): Promise<GraphSyncStats> {
     ])
 
   await runWriteTransaction(async (tx) => {
-    await tx.run("MATCH (n) DETACH DELETE n")
+    await tx.run(
+      `
+      MATCH (n)
+      WHERE ${PROJECTION_LABELS.map((label) => `n:${label}`).join(" OR ")}
+      DETACH DELETE n
+      `,
+    )
 
     if (roomTypes.length) {
       await tx.run(
@@ -191,15 +206,11 @@ export async function syncGraphFromPostgres(): Promise<GraphSyncStats> {
         `
         UNWIND $rows AS row
         MERGE (u:User {id: row.id})
-        SET u.name = row.name,
-            u.email = row.email,
-            u.role = row.role
+        SET u.role = row.role
         `,
         {
           rows: users.map((u) => ({
             id: u.id,
-            name: u.name,
-            email: u.email,
             role: u.role,
           })),
         },

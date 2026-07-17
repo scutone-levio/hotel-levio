@@ -71,12 +71,9 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
 
   try {
     await verifyNeo4jConnection()
-  } catch {
-    return { connected: false, reason: "unreachable" }
-  }
 
-  const [nodeCountsRows, subcategoryPctRows, pendingRows, inventoryRows, amenityRows, bookingRows, relationshipRows] =
-    await Promise.all([
+    const [nodeCountsRows, subcategoryPctRows, pendingRows, inventoryRows, amenityRows, bookingRows, relationshipRows] =
+      await Promise.all([
       runReadQuery<{ label: string; count: unknown }>(
         `
         MATCH (n)
@@ -163,45 +160,48 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
       ),
     ])
 
-  const countByLabel = Object.fromEntries(
-    nodeCountsRows.map((row) => [row.label, toNumber(row.count)]),
-  )
+    const countByLabel = Object.fromEntries(
+      nodeCountsRows.map((row) => [row.label, toNumber(row.count)]),
+    )
 
-  return {
-    connected: true,
-    nodeCounts: {
-      roomTypes: countByLabel.RoomType ?? 0,
-      subcategories: countByLabel.Subcategory ?? 0,
-      rooms: countByLabel.Room ?? 0,
-      amenities: countByLabel.Amenity ?? 0,
-      users: countByLabel.User ?? 0,
-      bookings: countByLabel.Booking ?? 0,
-    },
-    roomsWithSubcategoryPct: toNumber(subcategoryPctRows[0]?.pct),
-    pendingBookings: toNumber(pendingRows[0]?.count),
-    inventoryByType: inventoryRows.map((row) => ({
-      typeName: row.typeName,
-      typeSlug: row.typeSlug,
-      roomCount: toNumber(row.roomCount),
-      subcategoryLinked: toNumber(row.subcategoryLinked),
-    })),
-    topAmenities: amenityRows.map((row) => ({
-      amenityName: row.amenityName,
-      category: row.category,
-      roomCount: toNumber(row.roomCount),
-    })),
-    bookingsByType: bookingRows.map((row) => ({
-      typeName: row.typeName,
-      confirmed: toNumber(row.confirmed),
-      pending: toNumber(row.pending),
-      cancelled: toNumber(row.cancelled),
-    })),
-    roomRelationships: relationshipRows.map((row) => ({
-      typeName: row.typeName,
-      subcategoryName: row.subcategoryName,
-      roomNumber: row.roomNumber,
-      amenityNames: normalizeAmenityNames(row.amenityNames),
-    })),
+    return {
+      connected: true,
+      nodeCounts: {
+        roomTypes: countByLabel.RoomType ?? 0,
+        subcategories: countByLabel.Subcategory ?? 0,
+        rooms: countByLabel.Room ?? 0,
+        amenities: countByLabel.Amenity ?? 0,
+        users: countByLabel.User ?? 0,
+        bookings: countByLabel.Booking ?? 0,
+      },
+      roomsWithSubcategoryPct: toNumber(subcategoryPctRows[0]?.pct),
+      pendingBookings: toNumber(pendingRows[0]?.count),
+      inventoryByType: inventoryRows.map((row) => ({
+        typeName: row.typeName,
+        typeSlug: row.typeSlug,
+        roomCount: toNumber(row.roomCount),
+        subcategoryLinked: toNumber(row.subcategoryLinked),
+      })),
+      topAmenities: amenityRows.map((row) => ({
+        amenityName: row.amenityName,
+        category: row.category,
+        roomCount: toNumber(row.roomCount),
+      })),
+      bookingsByType: bookingRows.map((row) => ({
+        typeName: row.typeName,
+        confirmed: toNumber(row.confirmed),
+        pending: toNumber(row.pending),
+        cancelled: toNumber(row.cancelled),
+      })),
+      roomRelationships: relationshipRows.map((row) => ({
+        typeName: row.typeName,
+        subcategoryName: row.subcategoryName,
+        roomNumber: row.roomNumber,
+        amenityNames: normalizeAmenityNames(row.amenityNames),
+      })),
+    }
+  } catch {
+    return { connected: false, reason: "unreachable" }
   }
 }
 
