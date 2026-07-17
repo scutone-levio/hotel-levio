@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 
-/** Applies legacy admin primary gold on `<html>` so portaled UI matches the admin shell. */
+/** Applies admin primary gold on `<html>` so portaled UI matches the admin shell. */
 export function AdminThemeScope() {
   useEffect(() => {
     document.documentElement.classList.add("admin-theme")

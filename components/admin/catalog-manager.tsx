@@ -103,6 +103,7 @@ export function CatalogManager({
                   room={catalog}
                   allAmenities={allAmenities}
                   defaultTab="images"
+                  triggerVariant="blue"
                 />
               </div>
             </div>
@@ -155,10 +156,10 @@ export function CatalogManager({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {!showArchivedTypes ? <RoomTypeFormDialog mode="create" /> : <span />}
-        <div className="flex gap-1 rounded-lg border p-0.5">
+        <div className="flex gap-1 rounded-lg border bg-white p-0.5">
           <Button
             type="button"
-            variant={showArchivedTypes ? "ghost" : "secondary"}
+            variant={showArchivedTypes ? "ghost" : "default"}
             size="sm"
             onClick={() => setShowArchivedTypes(false)}
           >
@@ -166,7 +167,7 @@ export function CatalogManager({
           </Button>
           <Button
             type="button"
-            variant={showArchivedTypes ? "secondary" : "ghost"}
+            variant={showArchivedTypes ? "default" : "ghost"}
             size="sm"
             onClick={() => setShowArchivedTypes(true)}
           >
@@ -190,7 +191,7 @@ export function CatalogManager({
               <TabsTrigger
                 key={type.id}
                 value={type.id}
-                className="data-active:bg-[#0f2a3d] data-active:text-white"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 {roomTypeTabLabel(type)}
               </TabsTrigger>
@@ -241,6 +242,7 @@ export function CatalogManager({
                         room={room}
                         allAmenities={allAmenities}
                         inventoryMode
+                        triggerVariant="blue"
                       />
                     </td>
                   </tr>

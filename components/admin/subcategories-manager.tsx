@@ -286,7 +286,7 @@ export function SubcategoriesManager({
           {archiveFilter === "active" && !isCreating ? (
             <Button
               onClick={() => setIsCreating(true)}
-              variant="outline"
+              variant="blue"
               size="sm"
               className="w-full sm:w-auto"
               disabled={!selectedTypeId}
@@ -327,6 +327,7 @@ export function SubcategoriesManager({
                 onClick={handleCreate}
                 disabled={isSubmitting}
                 size="sm"
+                variant="blue"
                 className="flex-1"
               >
                 Create
