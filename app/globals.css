@@ -84,12 +84,20 @@
   --foreground: oklch(0.145 0 0);
 }
 
-/* Admin keeps the previous primary gold; public app uses #c69456 from :root. */
+/* Admin primary gold; public app uses #c69456 from :root. */
 .admin-theme {
-  --primary: #b6753b;
-  --ring: #b6753b;
-  --sidebar-primary: #b6753b;
-  --sidebar-ring: #b6753b;
+  --primary: #dcae70;
+  --ring: #dcae70;
+  --sidebar-primary: #dcae70;
+  --sidebar-ring: #dcae70;
+}
+
+.admin-theme:not(.dark) [data-slot="select-trigger"] {
+  background-color: #fff;
+}
+
+.admin-theme:not(.dark) [data-slot="button"][data-variant="outline"]:enabled {
+  background-color: #fff;
 }
 
 .dark {
@@ -128,10 +136,10 @@
 
 .dark .admin-theme,
 .admin-theme.dark {
-  --primary: #b6753b;
-  --ring: #b6753b;
-  --sidebar-primary: #b6753b;
-  --sidebar-ring: #b6753b;
+  --primary: #dcae70;
+  --ring: #dcae70;
+  --sidebar-primary: #dcae70;
+  --sidebar-ring: #dcae70;
 }
 
 @layer base {

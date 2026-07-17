@@ -284,7 +284,7 @@ function BlackoutsPanel({ room }: { room: RoomWithDetails }) {
           onChange={(e) => setReason(e.target.value)}
         />
       </div>
-      <Button onClick={add} disabled={pending} size="sm">
+      <Button onClick={add} disabled={pending} size="sm" variant="blue">
         Add blackout
       </Button>
 
@@ -370,7 +370,7 @@ function PricingPanel({ room }: { room: RoomWithDetails }) {
             onChange={(e) => setBase(e.target.value)}
             className="max-w-40"
           />
-          <Button onClick={saveBase} disabled={pending} size="sm">
+          <Button onClick={saveBase} disabled={pending} size="sm" variant="blue">
             Save
           </Button>
         </div>
@@ -420,7 +420,7 @@ function DayPriceRow({
         className="max-w-32"
       />
       <Button
-        variant="outline"
+        variant="blue"
         size="sm"
         disabled={disabled}
         onClick={() => onSave(value)}
@@ -437,6 +437,7 @@ type RoomManageDialogProps = {
   /** When true, amenities/images tabs are read-only (inventory units). */
   inventoryMode?: boolean
   defaultTab?: string
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"]
 }
 
 export function RoomManageDialog({
@@ -444,6 +445,7 @@ export function RoomManageDialog({
   allAmenities,
   inventoryMode = false,
   defaultTab = "blackouts",
+  triggerVariant = "outline",
 }: RoomManageDialogProps) {
   const readOnlyContent = inventoryMode || !room.isCatalog
   const title = room.isCatalog
@@ -453,7 +455,7 @@ export function RoomManageDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant={triggerVariant} size="sm">
           <Settings2 className="size-4" /> Manage
         </Button>
       </DialogTrigger>
@@ -466,7 +468,7 @@ export function RoomManageDialog({
           <DialogDescription>{roomTypeLabel(room.roomType)}</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue={defaultTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-5 [&_[data-slot=tabs-trigger][data-state=active]]:bg-[#0f2a3d] [&_[data-slot=tabs-trigger][data-state=active]]:text-[#f3ecda]">
             <TabsTrigger value="reservations">Bookings</TabsTrigger>
             <TabsTrigger value="amenities">Amenities</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>

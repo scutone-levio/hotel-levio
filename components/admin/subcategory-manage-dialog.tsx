@@ -69,7 +69,7 @@ export function SubcategoryManageDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="blue" size="sm">
           <Settings2 className="size-4" /> Manage
         </Button>
       </DialogTrigger>

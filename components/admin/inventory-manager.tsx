@@ -138,7 +138,7 @@ export function InventoryManager({
                 />
               ))
             ) : (
-              <tr>
+              <tr className="bg-white">
                 <td
                   colSpan={7}
                   className="text-muted-foreground px-3 py-8 text-center text-sm"
@@ -301,19 +301,20 @@ function InventoryRow({
               Save
             </Button>
           ) : null}
+          <RoomManageDialog
+            room={room}
+            allAmenities={allAmenities}
+            inventoryMode
+            triggerVariant="blue"
+          />
           <Button
-            variant="outline"
+            variant="blue"
             size="sm"
             disabled={pending}
             onClick={toggleArchive}
           >
             {archived ? "Restore" : "Archive"}
           </Button>
-          <RoomManageDialog
-            room={room}
-            allAmenities={allAmenities}
-            inventoryMode
-          />
         </div>
       </td>
     </tr>

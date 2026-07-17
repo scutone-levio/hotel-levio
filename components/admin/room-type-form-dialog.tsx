@@ -114,11 +114,11 @@ export function RoomTypeFormDialog(props: RoomTypeFormDialogProps) {
 
   const defaultTrigger =
     mode === "create" ? (
-      <Button variant="outline" size="sm">
+      <Button variant="blue" size="sm">
         <Plus className="size-4 mr-1" /> New Room Type
       </Button>
     ) : (
-      <Button variant="outline" size="sm">
+      <Button variant="blue" size="sm">
         Edit type
       </Button>
     )
@@ -240,7 +240,7 @@ export function RoomTypeFormDialog(props: RoomTypeFormDialogProps) {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={pending}>
+            <Button variant="blue" onClick={handleSubmit} disabled={pending}>
               {submitLabel}
             </Button>
           </div>

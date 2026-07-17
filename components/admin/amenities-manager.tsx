@@ -135,7 +135,7 @@ function AmenityDialog({
               )}
             />
             <DialogFooter>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" variant="blue" disabled={pending}>
                 {pending ? "Saving…" : "Save"}
               </Button>
             </DialogFooter>
@@ -183,7 +183,7 @@ export function AmenitiesManager({
         </p>
         <AmenityDialog
           trigger={
-            <Button size="sm">
+            <Button size="sm" variant="blue">
               <Plus className="size-4" /> New amenity
             </Button>
           }
