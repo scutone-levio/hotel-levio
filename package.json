@@ -11,14 +11,15 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:unit": "tsx --test lib/subcategories.pricing.test.ts lib/subcategory-pricing.test.ts lib/rooms.test.ts lib/listing-images.test.ts lib/account-bookings.test.ts lib/account-actions.test.ts lib/password.test.ts lib/account-schemas.test.ts lib/csv.test.ts",
+    "test:unit": "tsx --test lib/subcategories.pricing.test.ts lib/subcategory-pricing.test.ts lib/rooms.test.ts lib/listing-images.test.ts lib/account-bookings.test.ts lib/account-actions.test.ts lib/password.test.ts lib/account-schemas.test.ts lib/csv.test.ts lib/graph-insights.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/db-seed.ts",
     "db:reset": "tsx scripts/db-reset.ts",
-    "db:check-safety": "tsx scripts/check-db-safety.ts"
+    "db:check-safety": "tsx scripts/check-db-safety.ts",
+    "graph:sync": "tsx scripts/graph-sync.ts"
   },
   "prisma": {
     "seed": "tsx scripts/db-seed.ts"
@@ -37,6 +38,7 @@
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.23.0",
+    "neo4j-driver": "^6.2.0",
     "next": "15.5.20",
     "next-auth": "^5.0.0-beta.31",
     "next-themes": "^0.4.6",

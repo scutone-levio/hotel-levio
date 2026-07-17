@@ -4,6 +4,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   Layers,
+  Network,
   Sparkles,
 } from "lucide-react"
 
@@ -20,6 +21,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/rooms", label: "Rooms", icon: BedDouble },
   { href: "/admin/amenities", label: "Amenities", icon: Sparkles },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
+]
+
+/** Shown above “View site” in the admin sidebar footer. */
+export const ADMIN_FOOTER_NAV_ITEMS: AdminNavItem[] = [
+  { href: "/admin/insights", label: "Insights", icon: Network },
 ]
 
 export function isAdminNavActive(
