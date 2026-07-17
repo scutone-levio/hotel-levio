@@ -7,6 +7,7 @@ import { ExternalLink, Menu, X } from "lucide-react"
 import { signOut } from "next-auth/react"
 
 import {
+  ADMIN_FOOTER_NAV_ITEMS,
   ADMIN_NAV_ITEMS,
   isAdminNavActive,
 } from "@/components/admin/admin-nav-items"
@@ -73,6 +74,25 @@ export function AdminMobileNav() {
             })}
 
             <div className="my-2 border-t" />
+
+            {ADMIN_FOOTER_NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+              const active = isAdminNavActive(pathname, href, exact)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-[#0f2a3d] hover:text-white",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  {label}
+                </Link>
+              )
+            })}
 
             <Link
               href="/"

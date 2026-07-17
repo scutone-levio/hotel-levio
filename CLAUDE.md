@@ -150,8 +150,12 @@ prisma.$transaction(async (tx) => { ... })
 # 1. Copy and fill env vars
 cp .env.example .env
 
-# 2. Start Postgres + Mailpit
+# 2. Start Postgres + Mailpit (+ optional Neo4j for admin insights)
 docker compose up -d
+
+# Optional: sync graph analytics after seed
+# docker compose up -d neo4j
+# npm run graph:sync
 
 # 3. Install deps + migrate + seed
 npm install
@@ -165,6 +169,24 @@ npm run dev
 - App: http://localhost:3000
 - Mailpit (email UI): http://localhost:8025
 - Adminer (DB UI): http://localhost:8080
+- Neo4j Browser (optional): http://localhost:7474
+
+## Neo4j (optional admin graph insights)
+
+PostgreSQL remains the **source of truth** for all bookings and inventory. Neo4j is a read-only analytics projection for `/admin/insights`.
+
+```bash
+docker compose up -d neo4j
+npm run graph:sync   # after db:seed — projects Prisma data into Neo4j
+```
+
+| Variable | Purpose |
+|---|---|
+| `NEO4J_URI` | Bolt URI (local: `bolt://localhost:7687`) |
+| `NEO4J_USER` | Neo4j username (default `neo4j`) |
+| `NEO4J_PASSWORD` | Neo4j password |
+
+Key files: `lib/neo4j.ts`, `lib/graph-sync.ts`, `lib/graph-insights.ts`, `app/admin/insights/page.tsx`.
 
 ## Environment Variables
 
@@ -178,6 +200,7 @@ npm run dev
 | `UPLOADTHING_TOKEN` | UploadThing file uploads |
 | `SMTP_HOST` / `SMTP_PORT` | SMTP server (Mailpit in dev) |
 | `SMTP_FROM` | From address for emails |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | Optional Neo4j graph insights (dev) |
 
 ## What NOT to do
 
