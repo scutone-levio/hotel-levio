@@ -24,11 +24,11 @@ export type BookingByTypeRow = {
   cancelled: number
 }
 
-export type RelationshipSampleRow = {
+export type RoomRelationshipRow = {
   typeName: string
   subcategoryName: string | null
   roomNumber: string
-  amenityName: string | null
+  amenityNames: string[]
 }
 
 export type GraphInsights = {
@@ -46,7 +46,7 @@ export type GraphInsights = {
   inventoryByType: RoomTypeInventoryRow[]
   topAmenities: AmenityReachRow[]
   bookingsByType: BookingByTypeRow[]
-  relationshipSamples: RelationshipSampleRow[]
+  roomRelationships: RoomRelationshipRow[]
 }
 
 export type GraphInsightsUnavailable = {
@@ -75,7 +75,7 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
     return { connected: false, reason: "unreachable" }
   }
 
-  const [nodeCountsRows, subcategoryPctRows, pendingRows, inventoryRows, amenityRows, bookingRows, sampleRows] =
+  const [nodeCountsRows, subcategoryPctRows, pendingRows, inventoryRows, amenityRows, bookingRows, relationshipRows] =
     await Promise.all([
       runReadQuery<{ label: string; count: unknown }>(
         `
@@ -148,7 +148,7 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
         typeName: string
         subcategoryName: string | null
         roomNumber: string
-        amenityName: string | null
+        amenityNames: unknown
       }>(
         `
         MATCH (rt:RoomType)<-[:INSTANCE_OF]-(r:Room)
@@ -157,9 +157,8 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
         RETURN rt.name AS typeName,
                sc.name AS subcategoryName,
                r.roomNumber AS roomNumber,
-               head(collect(DISTINCT a.name)) AS amenityName
+               collect(DISTINCT a.name) AS amenityNames
         ORDER BY typeName, roomNumber
-        LIMIT 10
         `,
       ),
     ])
@@ -197,7 +196,12 @@ export async function getGraphInsights(): Promise<GraphInsightsResult> {
       pending: toNumber(row.pending),
       cancelled: toNumber(row.cancelled),
     })),
-    relationshipSamples: sampleRows,
+    roomRelationships: relationshipRows.map((row) => ({
+      typeName: row.typeName,
+      subcategoryName: row.subcategoryName,
+      roomNumber: row.roomNumber,
+      amenityNames: normalizeAmenityNames(row.amenityNames),
+    })),
   }
 }
 
