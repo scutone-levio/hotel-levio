@@ -468,7 +468,7 @@ export function RoomManageDialog({
           <DialogDescription>{roomTypeLabel(room.roomType)}</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue={defaultTab}>
-          <TabsList className="grid w-full grid-cols-5 [&_[data-slot=tabs-trigger][data-state=active]]:bg-primary [&_[data-slot=tabs-trigger][data-state=active]]:text-primary-foreground">
+          <TabsList className="grid w-full grid-cols-5 [&_[data-slot=tabs-trigger][data-state=active]]:bg-[#0f2a3d] [&_[data-slot=tabs-trigger][data-state=active]]:text-[#f3ecda]">
             <TabsTrigger value="reservations">Bookings</TabsTrigger>
             <TabsTrigger value="amenities">Amenities</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>

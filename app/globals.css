@@ -92,11 +92,11 @@
   --sidebar-ring: #dcae70;
 }
 
-.admin-theme [data-slot="select-trigger"] {
+.admin-theme:not(.dark) [data-slot="select-trigger"] {
   background-color: #fff;
 }
 
-.admin-theme [data-slot="button"][data-variant="outline"]:enabled {
+.admin-theme:not(.dark) [data-slot="button"][data-variant="outline"]:enabled {
   background-color: #fff;
 }
 
