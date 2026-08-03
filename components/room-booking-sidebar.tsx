@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { QuotePricePanel } from "@/components/quote-price-panel"
+import { WeatherWidget } from "@/components/weather-widget"
 
 export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
   const router = useRouter()
@@ -217,6 +218,9 @@ export function RoomBookingSidebar({ room }: { room: RoomWithDetails }) {
           Weekend nights may cost more than the rate shown above.
         </p>
       )}
+
+      <div className="border-t" />
+      <WeatherWidget checkIn={range?.from} checkOut={range?.to} />
     </div>
   )
 }
