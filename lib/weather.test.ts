@@ -137,3 +137,68 @@ describe("getWeather", () => {
     await assert.rejects(getWeather, /Open-Meteo error/)
   })
 })
+
+describe("GET /api/weather route", () => {
+  let originalFetch: typeof globalThis.fetch
+
+  before(() => {
+    originalFetch = globalThis.fetch
+  })
+
+  after(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  it("returns Cache-Control header on success", async () => {
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(MOCK_RESPONSE), { status: 200 })
+    const { GET } = await import("../app/api/weather/route")
+    const req = new Request("http://localhost/api/weather")
+    const res = await GET(req)
+    assert.equal(
+      res.headers.get("Cache-Control"),
+      "s-maxage=900, stale-while-revalidate=300",
+    )
+    assert.equal(res.status, 200)
+  })
+
+  it("returns { error: 'unavailable' } with status 200 when fetch fails", async () => {
+    globalThis.fetch = async () => new Response("", { status: 503 })
+    const { GET } = await import("../app/api/weather/route")
+    const req = new Request("http://localhost/api/weather")
+    const res = await GET(req)
+    const body = await res.json()
+    assert.equal(res.status, 200)
+    assert.equal(body.error, "unavailable")
+  })
+
+  it("ignores invalid date format params (no 400)", async () => {
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(MOCK_RESPONSE), { status: 200 })
+    const { GET } = await import("../app/api/weather/route")
+    const req = new Request(
+      "http://localhost/api/weather?start=not-a-date&end=also-wrong",
+    )
+    const res = await GET(req)
+    assert.equal(res.status, 200)
+    const body = await res.json()
+    assert.ok(!body.error)
+  })
+
+  it("passes valid start/end params to getWeather", async () => {
+    let capturedUrl = ""
+    globalThis.fetch = async (url: string | URL | Request) => {
+      capturedUrl = url.toString()
+      return new Response(JSON.stringify(MOCK_RESPONSE), { status: 200 })
+    }
+    const { GET } = await import("../app/api/weather/route")
+    const req = new Request(
+      `http://localhost/api/weather?start=${MOCK_TIMES[2]}&end=${MOCK_TIMES[4]}`,
+    )
+    await GET(req)
+    assert.ok(
+      capturedUrl.includes("open-meteo.com"),
+      `Expected Open-Meteo call, got: ${capturedUrl}`,
+    )
+  })
+})
