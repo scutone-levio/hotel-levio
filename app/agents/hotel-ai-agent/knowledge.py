@@ -141,3 +141,14 @@ def retrieve(store, query: str, k: int = KB_TOP_K) -> list[Passage]:
         )
         for doc, score in results
     ]
+
+
+def answer(question, *, store, model, k=KB_TOP_K, min_score=KB_MIN_SCORE) -> KnowledgeAnswer:
+    passages = retrieve(store, question, k=k)
+    relevant = select_relevant(passages, min_score=min_score)
+    if not relevant:
+        return KnowledgeAnswer(answer=NOT_FOUND_MESSAGE, citations=[], found=False)
+    prompt = build_prompt(question, relevant)
+    text = str(model.invoke(prompt)).strip()
+    citations = [Citation(source=p.source, page=p.page, snippet=_snippet(p.text)) for p in relevant]
+    return KnowledgeAnswer(answer=text, citations=citations, found=True)
