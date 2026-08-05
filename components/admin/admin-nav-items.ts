@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react"
 import {
   BedDouble,
   CalendarDays,
+  FileSearch,
   LayoutDashboard,
   Layers,
   Network,
@@ -21,6 +22,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/rooms", label: "Rooms", icon: BedDouble },
   { href: "/admin/amenities", label: "Amenities", icon: Sparkles },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/admin/knowledge", label: "Policy Search", icon: FileSearch },
 ]
 
 /** Shown above “View site” in the admin sidebar footer. */
