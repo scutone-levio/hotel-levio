@@ -40,6 +40,9 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "**/venv/**",
+      "**/.venv/**",
+      "**/__pycache__/**",
     ],
   },
 ]

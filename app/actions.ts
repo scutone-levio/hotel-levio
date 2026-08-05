@@ -19,6 +19,10 @@ import {
 } from "@/lib/email-templates"
 import { listingAvailabilityKey } from "@/lib/rooms"
 import { auth } from "@/auth"
+import {
+  prepareCartItem,
+  type PrepareCartItemResult,
+} from "@/lib/concierge/cart"
 
 const ADMIN_EMAIL = "sergio.cutone@levio.ca"
 const CART_QUOTE_METADATA_PREFIX = "cart_quote_"
@@ -959,5 +963,41 @@ export async function finalizeCartBookings(input: {
     const message = err instanceof Error ? err.message : "Booking failed"
     console.error("finalizeCartBookings failed:", message)
     return { ok: false, error: message }
+  }
+}
+
+export async function prepareConciergeCartItem(input: {
+  roomId: string
+  subcategoryId?: string
+  checkIn: string
+  checkOut: string
+  guests: number
+}): Promise<PrepareCartItemResult> {
+  try {
+    if (!input || typeof input !== "object") {
+      return { ok: false, error: "A room selection is required" }
+    }
+    if (typeof input.roomId !== "string" || !input.roomId.trim()) {
+      return { ok: false, error: "A room selection is required" }
+    }
+    if (
+      typeof input.checkIn !== "string" ||
+      !input.checkIn.trim() ||
+      typeof input.checkOut !== "string" ||
+      !input.checkOut.trim()
+    ) {
+      return { ok: false, error: "Check-in and check-out dates are required" }
+    }
+    if (!Number.isInteger(input.guests) || input.guests < 1) {
+      return { ok: false, error: "Guest count must be a positive whole number" }
+    }
+
+    return await prepareCartItem(input)
+  } catch (err) {
+    console.error("prepareConciergeCartItem failed:", err)
+    return {
+      ok: false,
+      error: "Could not add this room to your cart. Please try again.",
+    }
   }
 }

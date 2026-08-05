@@ -28,7 +28,18 @@ export const conciergeCartPayloadSchema = z.object({
 
 export type ConciergeCartPayload = z.infer<typeof conciergeCartPayloadSchema>
 
-export const weatherInputSchema = z.object({
-  start_date: z.string().optional().describe("Stay start date as YYYY-MM-DD"),
-  end_date: z.string().optional().describe("Stay end date as YYYY-MM-DD"),
-})
+const weatherDateSchema = z.iso.date()
+
+export const weatherInputSchema = z
+  .object({
+    start_date: weatherDateSchema.optional().describe("Stay start date as YYYY-MM-DD"),
+    end_date: weatherDateSchema.optional().describe("Stay end date as YYYY-MM-DD"),
+  })
+  .refine(
+    ({ start_date, end_date }) =>
+      !start_date || !end_date || start_date <= end_date,
+    {
+      message: "end_date must be on or after start_date",
+      path: ["end_date"],
+    },
+  )

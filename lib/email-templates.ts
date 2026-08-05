@@ -171,7 +171,7 @@ export function adminNotificationEmail(data: BookingEmailData) {
       ${row("Revenue (CAD)", money(data.totalPrice))}
     </table>
 
-    <a href="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin"
+    <a href="${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/admin"
        style="display:inline-block;background:${PRIMARY};color:${WHITE};font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;">
       View in Admin Dashboard →
     </a>
@@ -264,7 +264,7 @@ export function adminBookingModifiedEmail(data: {
     <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:${MUTED};text-transform:uppercase;letter-spacing:0.6px;">Changes</p>
     ${changesHtml}
 
-    <a href="${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin"
+    <a href="${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/admin"
        style="display:inline-block;background:${PRIMARY};color:${WHITE};font-size:14px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;">
       View in Admin Dashboard →
     </a>
@@ -341,7 +341,7 @@ export function adminDateChangeRefundFailedEmail(data: {
 }) {
   const subject = `ACTION REQUIRED — Refund failed for booking #${ref(data.bookingId)}`
   const dashboardUrl = escapeHtml(
-    `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin`,
+    `${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/admin`,
   )
 
   const html = base(`

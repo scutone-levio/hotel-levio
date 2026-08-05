@@ -3,6 +3,8 @@ import { loadEnvConfig } from "@next/env"
 
 loadEnvConfig(process.cwd())
 
+const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001"
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -14,7 +16,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: appUrl,
     trace: "on-first-retry",
   },
   projects: [
@@ -25,7 +27,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000",
+    url: appUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

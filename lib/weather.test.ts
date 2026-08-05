@@ -113,14 +113,14 @@ describe("getWeather", () => {
     }
   })
 
-  it("trims forecast to stay dates when startDate/endDate provided", async () => {
+  it("trims forecast to stay dates (half-open, excludes checkout) when startDate/endDate provided", async () => {
     const { getWeather } = await import("./weather")
     const startDate = MOCK_TIMES[2]
     const endDate = MOCK_TIMES[4]
     const result = await getWeather({ startDate, endDate })
     assert.deepEqual(
       result.forecast.map((d) => d.date),
-      [MOCK_TIMES[2], MOCK_TIMES[3], MOCK_TIMES[4]],
+      [MOCK_TIMES[2], MOCK_TIMES[3]],
     )
   })
 

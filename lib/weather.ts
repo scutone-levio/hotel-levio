@@ -76,7 +76,7 @@ export async function getWeather(opts?: {
   url.searchParams.set("temperature_unit", "celsius")
   url.searchParams.set("forecast_days", String(FORECAST_DAYS))
 
-  const res = await fetch(url.toString())
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) })
   if (!res.ok) throw new Error(`Open-Meteo error: ${res.status}`)
 
   const data = await res.json()
@@ -99,7 +99,7 @@ export async function getWeather(opts?: {
 
   if (opts?.startDate && opts?.endDate) {
     indices = indices.filter(
-      (i) => times[i] >= opts.startDate! && times[i] <= opts.endDate!,
+      (i) => times[i] >= opts.startDate! && times[i] < opts.endDate!,
     )
   } else {
     const today = new Date().toISOString().slice(0, 10)

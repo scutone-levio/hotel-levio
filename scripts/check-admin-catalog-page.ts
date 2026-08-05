@@ -22,13 +22,15 @@ async function main() {
     if (msg.type() === "error") errors.push(`console: ${msg.text()}`)
   })
 
-  await page.goto("http://localhost:3000/login")
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3001"
+
+  await page.goto(`${appUrl}/login`)
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(password)
   await page.getByRole("button", { name: "Sign in" }).click()
   await page.waitForURL(/\/(admin|$)/, { timeout: 15000 })
 
-  const response = await page.goto("http://localhost:3000/admin/catalog")
+  const response = await page.goto(`${appUrl}/admin/catalog`)
   const status = response?.status() ?? 0
   await page.waitForLoadState("networkidle")
 
