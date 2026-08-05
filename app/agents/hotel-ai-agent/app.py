@@ -10,6 +10,7 @@ from langchain_ollama import OllamaLLM
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 
+import knowledge
 from catalog import (
     detect_guest_count,
     detect_room_type_slug,
@@ -378,3 +379,32 @@ async def handle_chat(payload: ChatPayload):
                 "Please try again in a moment."
             ),
         ) from exc
+
+
+class KnowledgeQuery(BaseModel):
+    question: str
+
+
+class CitationOut(BaseModel):
+    source: str
+    page: int
+    snippet: str
+
+
+class KnowledgeResponse(BaseModel):
+    answer: str
+    citations: List[CitationOut]
+    found: bool
+
+
+@api.post("/api/knowledge", response_model=KnowledgeResponse)
+async def handle_knowledge(payload: KnowledgeQuery):
+    store = knowledge.load_store()
+    if store is None:
+        raise HTTPException(status_code=503, detail="Knowledge base not ingested.")
+    result = knowledge.answer(payload.question, store=store, model=model)
+    return KnowledgeResponse(
+        answer=result.answer,
+        citations=[CitationOut(source=c.source, page=c.page, snippet=c.snippet) for c in result.citations],
+        found=result.found,
+    )
