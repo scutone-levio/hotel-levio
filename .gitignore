@@ -56,3 +56,9 @@ node_modules/
 **/.venv/
 **/__pycache__/
 *.pyc
+
+# Policy knowledge base (corpus + vector index)
+app/agents/hotel-ai-agent/data/policies/*
+!app/agents/hotel-ai-agent/data/policies/.gitkeep
+!app/agents/hotel-ai-agent/data/policies/README.md
+app/agents/hotel-ai-agent/kb_store/
