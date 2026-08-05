@@ -13,7 +13,7 @@ from pypdf import PdfReader
 CHUNK_SIZE = int(os.getenv("KB_CHUNK_SIZE", "800"))
 CHUNK_OVERLAP = int(os.getenv("KB_CHUNK_OVERLAP", "150"))
 KB_TOP_K = int(os.getenv("KB_TOP_K", "4"))
-KB_MIN_SCORE = float(os.getenv("KB_MIN_SCORE", "0.2"))
+KB_MIN_SCORE = float(os.getenv("KB_MIN_SCORE", "0.35"))
 _HERE = os.path.dirname(os.path.abspath(__file__))
 KB_STORE_DIR = os.getenv("KB_STORE_DIR", os.path.join(_HERE, "kb_store"))
 KB_DATA_DIR = os.getenv("KB_DATA_DIR", os.path.join(_HERE, "data", "policies"))
@@ -152,5 +152,14 @@ def answer(question, *, store, model, k=KB_TOP_K, min_score=KB_MIN_SCORE) -> Kno
         return KnowledgeAnswer(answer=NOT_FOUND_MESSAGE, citations=[], found=False)
     prompt = build_prompt(question, relevant)
     text = str(model.invoke(prompt)).strip()
-    citations = [Citation(source=p.source, page=p.page, snippet=_snippet(p.text)) for p in relevant]
+    # Dedupe by (source, page), keeping the highest-scored snippet (relevant is
+    # ordered by retrieval score) so one page isn't cited multiple times.
+    seen: set[tuple[str, int]] = set()
+    citations: list[Citation] = []
+    for p in relevant:
+        key = (p.source, p.page)
+        if key in seen:
+            continue
+        seen.add(key)
+        citations.append(Citation(source=p.source, page=p.page, snippet=_snippet(p.text)))
     return KnowledgeAnswer(answer=text, citations=citations, found=True)

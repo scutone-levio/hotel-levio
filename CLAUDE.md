@@ -173,7 +173,7 @@ ollama pull nomic-embed-text        # embeddings model
 # place policy PDFs in app/agents/hotel-ai-agent/data/policies/
 python ingest_kb.py                 # builds kb_store/ index for /admin/knowledge
 
-uvicorn app:app --port 8000   # /api/agent and the Concierge chat proxy to this
+uvicorn app:api --port 8000   # /api/agent and the Concierge chat proxy to this
 cd -
 
 # 5. Start dev server

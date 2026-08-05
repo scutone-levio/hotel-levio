@@ -44,3 +44,19 @@ def test_answer_returns_not_found_when_below_threshold_without_calling_model():
     assert result.answer == NOT_FOUND_MESSAGE
     assert result.citations == []
     assert model.prompts == [], "model must NOT be called when nothing is relevant"
+
+
+def test_answer_dedupes_citations_by_source_and_page():
+    # Two relevant passages from the same source+page must yield one citation.
+    store = FakeStore(
+        [
+            (_doc("Cancel free up to 24h before check-in.", 4), 0.82),
+            (_doc("A no-show is charged the full amount.", 4), 0.71),
+        ]
+    )
+    model = FakeModel()
+    result = answer("cancellation policy?", store=store, model=model, min_score=0.2)
+    assert result.found is True
+    assert len(result.citations) == 1
+    assert result.citations[0].source == "policies.pdf"
+    assert result.citations[0].page == 4
