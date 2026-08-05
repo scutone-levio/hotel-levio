@@ -5,7 +5,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings
+from pypdf import PdfReader
 
 CHUNK_SIZE = int(os.getenv("KB_CHUNK_SIZE", "800"))
 CHUNK_OVERLAP = int(os.getenv("KB_CHUNK_OVERLAP", "150"))
@@ -90,3 +93,51 @@ def build_prompt(question: str, passages: list[Passage]) -> str:
         f"Question: {question}\n"
         "Answer:"
     )
+
+
+def default_embeddings() -> OllamaEmbeddings:
+    return OllamaEmbeddings(model=os.getenv("KB_EMBED_MODEL", "nomic-embed-text"))
+
+
+def iter_pdf_pages(path: str) -> list[tuple[int, str]]:
+    reader = PdfReader(path)
+    pages: list[tuple[int, str]] = []
+    for index, page in enumerate(reader.pages):
+        text = page.extract_text() or ""
+        if text.strip():
+            pages.append((index + 1, text))
+    return pages
+
+
+def build_store(docs, persist_dir: str = KB_STORE_DIR, embeddings=None) -> Chroma:
+    store = Chroma(
+        collection_name=COLLECTION,
+        embedding_function=embeddings or default_embeddings(),
+        persist_directory=persist_dir,
+    )
+    if docs:
+        store.add_documents(docs)
+    return store
+
+
+def load_store(persist_dir: str = KB_STORE_DIR, embeddings=None):
+    if not os.path.exists(os.path.join(persist_dir, "chroma.sqlite3")):
+        return None
+    return Chroma(
+        collection_name=COLLECTION,
+        embedding_function=embeddings or default_embeddings(),
+        persist_directory=persist_dir,
+    )
+
+
+def retrieve(store, query: str, k: int = KB_TOP_K) -> list[Passage]:
+    results = store.similarity_search_with_relevance_scores(query, k=k)
+    return [
+        Passage(
+            text=doc.page_content,
+            source=str(doc.metadata.get("source", "")),
+            page=int(doc.metadata.get("page", 0)),
+            score=float(score),
+        )
+        for doc, score in results
+    ]
