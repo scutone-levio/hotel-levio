@@ -167,6 +167,12 @@ cd app/agents/hotel-ai-agent
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# (Optional) Build the admin policy knowledge base
+ollama pull nomic-embed-text        # embeddings model
+# place policy PDFs in app/agents/hotel-ai-agent/data/policies/
+python ingest_kb.py                 # builds kb_store/ index for /admin/knowledge
+
 uvicorn app:app --port 8000   # /api/agent and the Concierge chat proxy to this
 cd -
 
@@ -196,6 +202,15 @@ npm run graph:sync   # after db:seed — projects Prisma data into Neo4j
 | `NEO4J_PASSWORD` | Neo4j password |
 
 Key files: `lib/neo4j.ts`, `lib/graph-sync.ts`, `lib/graph-insights.ts`, `app/admin/insights/page.tsx`.
+
+## Admin policy knowledge base (optional)
+
+Admins can search hotel policy documents at `/admin/knowledge` ("Policy Search").
+Document-RAG runs in the Python bridge: `ingest_kb.py` embeds PDFs from
+`app/agents/hotel-ai-agent/data/policies/` (via Ollama `nomic-embed-text`) into a
+local Chroma index (`kb_store/`); `POST /api/knowledge` retrieves and answers with
+`llama3`, citing sources. PDFs and the index are gitignored. Answers are grounded —
+if the documents don't cover a question, the assistant says so.
 
 ## Environment Variables
 
