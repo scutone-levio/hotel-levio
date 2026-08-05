@@ -50,6 +50,8 @@ def chunk_pages(
     chunk_size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
 ) -> list[Document]:
+    chunk_size = max(chunk_size, 1)
+    overlap = min(overlap, chunk_size - 1)
     docs: list[Document] = []
     for page_num, raw in pages:
         text = " ".join(raw.split())

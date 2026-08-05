@@ -16,9 +16,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
 
-  const rate = checkRateLimit(getClientIp(req))
+  const rate = checkRateLimit(`kb:${getClientIp(req)}`)
   if (!rate.ok) {
-    return NextResponse.json({ ok: false, error: rate.error }, { status: 429 })
+    return NextResponse.json(
+      { ok: false, error: "Too many policy searches. Please try again in a few minutes." },
+      { status: 429 }
+    )
   }
 
   let question = ""

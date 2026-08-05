@@ -22,6 +22,13 @@ def test_chunk_pages_splits_with_overlap_and_metadata():
     assert len(docs[1].page_content) == 350
 
 
+def test_chunk_pages_terminates_when_overlap_ge_chunk_size():
+    # overlap >= chunk_size must not infinite-loop; it should still chunk and terminate
+    docs = chunk_pages([(1, "a" * 1000)], source="p.pdf", chunk_size=100, overlap=200)
+    assert len(docs) >= 1
+    assert all(d.metadata["page"] == 1 for d in docs)
+
+
 def test_chunk_pages_normalizes_whitespace_and_skips_blank_pages():
     docs = chunk_pages([(1, "  hello\n\n  world  "), (2, "   ")], source="p.pdf")
     assert len(docs) == 1
