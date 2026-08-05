@@ -162,11 +162,20 @@ npm install
 npx prisma migrate dev
 npx tsx scripts/seed.ts   # or your seed script
 
-# 4. Start dev server
+# 4. (Optional) Start the concierge agent bridge (FastAPI + LangGraph/Ollama)
+cd app/agents/hotel-ai-agent
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app:app --port 8000   # /api/agent and the Concierge chat proxy to this
+cd -
+
+# 5. Start dev server
 npm run dev
 ```
 
 - App: http://localhost:3000
+- Concierge agent bridge (optional): http://localhost:8000
 - Mailpit (email UI): http://localhost:8025
 - Adminer (DB UI): http://localhost:8080
 - Neo4j Browser (optional): http://localhost:7474
