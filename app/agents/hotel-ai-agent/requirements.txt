@@ -1,0 +1,11 @@
+# Hotel concierge agent bridge (FastAPI + LangGraph/Ollama)
+# Pinned to the versions currently used in the local venv.
+# Recreate with:
+#   python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
+langchain-core==1.5.1
+langchain-ollama==1.1.0
+langgraph==1.2.9
